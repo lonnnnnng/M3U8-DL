@@ -127,9 +127,8 @@ func appendURLParams(target, source string) (string, error) {
 	tq := tu.Query()
 	for k, vals := range su.Query() {
 		tq.Del(k)
-		for _, v := range vals {
-			tq.Add(k, v)
-		}
+		// long: 上游 HttpUtility.ParseQueryString(...).Get(key) 会把源 URL 的重复参数合成逗号分隔字符串，再覆盖目标 URL 同名参数。
+		tq.Add(k, strings.Join(vals, ","))
 	}
 	tu.RawQuery = tq.Encode()
 	return tu.String(), nil

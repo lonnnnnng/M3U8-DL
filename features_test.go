@@ -19,12 +19,15 @@ import (
 )
 
 func TestAppendURLParams(t *testing.T) {
-	got, err := appendURLParams("https://cdn.example.com/seg.ts?token=old&x=1", "https://cdn.example.com/main.m3u8?token=new&hmac=abc")
+	got, err := appendURLParams("https://cdn.example.com/seg.ts?token=old&x=1&x=2", "https://cdn.example.com/main.m3u8?token=new&hmac=abc&token=second")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(got, "token=new") || !strings.Contains(got, "hmac=abc") || !strings.Contains(got, "x=1") {
+	if !strings.Contains(got, "token=new%2Csecond") || !strings.Contains(got, "hmac=abc") || !strings.Contains(got, "x=1") || !strings.Contains(got, "x=2") {
 		t.Fatalf("query not merged: %s", got)
+	}
+	if strings.Contains(got, "token=old") {
+		t.Fatalf("source query should replace target token like upstream: %s", got)
 	}
 }
 
