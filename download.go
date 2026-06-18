@@ -330,9 +330,9 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 		s.Playlist.Parts = []MediaPart{{Segments: split}}
 		if opt.MP4RealTimeDecryption {
 			opt.MP4RealTimeDecryption = false
-			fmt.Println(tr(opt, "singleFileRealtimeDisabled"))
+			fmt.Println(tr(opt, "singleFileRealtimeDecryptWarn"))
 		}
-		fmt.Println(tr(opt, "singleFileSplitEnabled"))
+		fmt.Println(tr(opt, "singleFileSplitWarn"))
 	}
 
 	var allSegs []Segment

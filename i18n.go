@@ -259,15 +259,15 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "單分片切片檢測失敗: %v",
 		EnUS: "Single segment split check failed: %v",
 	},
-	"singleFileRealtimeDisabled": {
-		ZhCN: "单分片切片已启用，自动关闭实时 MP4 解密",
-		ZhTW: "單分片切片已啟用，自動關閉即時 MP4 解密",
-		EnUS: "Single segment split enabled, MP4 real-time decryption has been disabled",
+	"singleFileRealtimeDecryptWarn": {
+		ZhCN: "实时解密已被强制关闭",
+		ZhTW: "即時解密已被強制關閉",
+		EnUS: "Real-time decryption has been disabled",
 	},
-	"singleFileSplitEnabled": {
-		ZhCN: "检测到单分片大文件，已启用 Range 切片下载",
-		ZhTW: "檢測到單分片大文件，已啟用 Range 切片下載",
-		EnUS: "Single large segment detected, Range split download enabled",
+	"singleFileSplitWarn": {
+		ZhCN: "整段文件已被自动切割为小分片以加速下载",
+		ZhTW: "整段文件已被自動切割為小分片以加速下載",
+		EnUS: "The entire file has been cut into small segments to accelerate",
 	},
 	"ffmpegNotFound": {
 		ZhCN: "找不到ffmpeg，请自行下载：https://ffmpeg.org/download.html",

@@ -4833,6 +4833,12 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	if got := tr(opt, "taskStartAt"); got != "程序將等待，直到：" {
 		t.Fatalf("traditional taskStartAt wrong: %q", got)
 	}
+	if got := tr(opt, "singleFileRealtimeDecryptWarn"); got != "即時解密已被強制關閉" {
+		t.Fatalf("traditional singleFileRealtimeDecryptWarn wrong: %q", got)
+	}
+	if got := tr(opt, "singleFileSplitWarn"); got != "整段文件已被自動切割為小分片以加速下載" {
+		t.Fatalf("traditional singleFileSplitWarn wrong: %q", got)
+	}
 	if got := tr(opt, "selectedStream"); got != "已選擇的流:" {
 		t.Fatalf("traditional selectedStream wrong: %q", got)
 	}
