@@ -452,7 +452,7 @@ func (p *parser) parseKey(ctx context.Context, line string) (EncryptInfo, error)
 	}
 	ei := EncryptInfo{Method: method}
 	if iv := attr(line, "IV"); iv != "" {
-		b, err := hex.DecodeString(strings.TrimPrefix(strings.ToLower(iv), "0x"))
+		b, err := hex.DecodeString(strings.TrimPrefix(strings.ToLower(strings.TrimSpace(iv)), "0x"))
 		if err != nil {
 			return ei, err
 		}

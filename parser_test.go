@@ -974,6 +974,26 @@ func TestParseMediaInvalidInlineKeyDowngradesToUnknown(t *testing.T) {
 	}
 }
 
+func TestParseMediaHLSIVTrimsWhitespaceLikeUpstream(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}
+	raw := `#EXTM3U
+#EXT-X-TARGETDURATION:8
+#EXT-X-KEY:METHOD=AES-128,URI="base64:MDEyMzQ1Njc4OWFiY2RlZg==",IV=" 0x00000000000000000000000000000001 "
+#EXTINF:8.0,
+0.ts
+#EXT-X-ENDLIST
+`
+	pl, err := p.parseMedia(context.Background(), raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segs := sortedSegments(pl)
+	if len(segs) != 1 || len(segs[0].Encrypt.IV) != 16 || segs[0].Encrypt.IV[15] != 1 {
+		t.Fatalf("HLS IV should trim whitespace before hex parsing like upstream, got %#v", segs)
+	}
+}
+
 func TestParseMediaMultipleExtMapMatchesUpstream(t *testing.T) {
 	raw := `#EXTM3U
 #EXT-X-TARGETDURATION:4
