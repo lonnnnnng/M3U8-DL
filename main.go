@@ -39,7 +39,6 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	applyDerivedDefaults(&opt, time.Now())
 	consoleRedirected := applyConsoleRedirectDefaults(&opt, os.Stdout, os.Stderr)
 	cleanupLog, _, err := setupLogging(opt, os.Args)
 	if err != nil {
@@ -57,10 +56,8 @@ func run() error {
 	for _, msg := range applyOptionImplicationsWithMessages(&opt) {
 		fmt.Println(msg)
 	}
-	if opt.TaskStartAt != nil && opt.TaskStartAt.After(time.Now()) {
-		fmt.Println(tr(opt, "taskStartAt", opt.TaskStartAt.Format("2006-01-02 15:04:05")))
-		time.Sleep(time.Until(*opt.TaskStartAt))
-	}
+	waitForTaskStart(opt, time.Now, time.Sleep, func(msg string) { fmt.Println(msg) })
+	applyDerivedDefaults(&opt, time.Now())
 	client, err := newHTTPClient(opt)
 	if err != nil {
 		return err
@@ -129,6 +126,21 @@ func run() error {
 		fmt.Println(tr(opt, "output", o.Path))
 	}
 	return nil
+}
+
+func waitForTaskStart(opt Options, now func() time.Time, sleep func(time.Duration), announce func(string)) {
+	if opt.TaskStartAt == nil {
+		return
+	}
+	current := now()
+	if !opt.TaskStartAt.After(current) {
+		return
+	}
+	if announce != nil {
+		announce(tr(opt, "taskStartAt", opt.TaskStartAt.Format("2006-01-02 15:04:05")))
+	}
+	// long: 默认保存名包含时间戳；等待必须发生在派生 SaveName 之前，否则定时任务跨分钟/跨天时文件名会记录排队时间而不是实际开始时间。
+	sleep(opt.TaskStartAt.Sub(current))
 }
 
 func shouldMuxAfterDownload(opt Options, outs []outputFile) bool {

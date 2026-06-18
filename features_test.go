@@ -622,6 +622,33 @@ func TestParseArgsTaskStartAtMatchesUpstreamFormat(t *testing.T) {
 	}
 }
 
+func TestTaskStartAtWaitsBeforeDerivingDefaultSaveName(t *testing.T) {
+	start := time.Date(2026, 6, 18, 23, 59, 59, 0, time.Local)
+	target := time.Date(2026, 6, 19, 0, 0, 1, 0, time.Local)
+	opt := defaultOptions()
+	opt.Input = "https://example.com/main.m3u8"
+	opt.TaskStartAt = &target
+	var slept time.Duration
+	var messages []string
+	current := start
+	waitForTaskStart(opt, func() time.Time { return current }, func(d time.Duration) {
+		slept = d
+		current = target
+	}, func(msg string) {
+		messages = append(messages, msg)
+	})
+	if slept != 2*time.Second {
+		t.Fatalf("task-start-at should sleep until target time, got %s", slept)
+	}
+	if len(messages) != 1 || !strings.Contains(messages[0], "2026-06-19 00:00:01") {
+		t.Fatalf("task-start-at message missing target time: %#v", messages)
+	}
+	applyDerivedDefaults(&opt, current)
+	if opt.SaveName != "main_2026-06-19_00-00-01" {
+		t.Fatalf("default save name should be derived after waiting like upstream, got %s", opt.SaveName)
+	}
+}
+
 func TestParseArgsMuxAfterDoneStrictValidation(t *testing.T) {
 	cases := []struct {
 		name string
