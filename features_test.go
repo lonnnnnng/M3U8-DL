@@ -4616,9 +4616,18 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	if got := tr(opt, "binaryMerge"); got != "二进制合并中..." {
 		t.Fatalf("simplified binaryMerge wrong: %q", got)
 	}
+	if got := tr(opt, "loadingUrl"); got != "加载URL: " {
+		t.Fatalf("simplified loadingUrl wrong: %q", got)
+	}
 	opt.UILanguage = "en-US"
 	if got := tr(opt, "startDownloading"); got != "Start downloading..." {
 		t.Fatalf("english startDownloading wrong: %q", got)
+	}
+	if got := tr(opt, "matchHLS"); got != "Content Matched: [white on deepskyblue1]HTTP Live Streaming[/]" {
+		t.Fatalf("english matchHLS wrong: %q", got)
+	}
+	if got := tr(opt, "parsingStream"); got != "Parsing streams..." {
+		t.Fatalf("english parsingStream wrong: %q", got)
 	}
 	if got := tr(opt, "ffmpegMerge"); got != "ffmpeg merging..." {
 		t.Fatalf("english ffmpegMerge wrong: %q", got)
@@ -4632,6 +4641,9 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	opt.UILanguage = "zh-TW"
 	if got := tr(opt, "readingInfo"); got != "讀取媒體訊息..." {
 		t.Fatalf("traditional readingInfo wrong: %q", got)
+	}
+	if got := tr(opt, "masterM3u8Found"); got != "檢測到Master列表，開始解析全部流訊息" {
+		t.Fatalf("traditional masterM3u8Found wrong: %q", got)
 	}
 	if got := tr(opt, "mkvmergeNotFound"); got != "找不到mkvmerge，請自行下載：https://mkvtoolnix.download/downloads.html" {
 		t.Fatalf("traditional mkvmergeNotFound wrong: %q", got)
@@ -4653,6 +4665,18 @@ func TestRuntimeMessagesMatchUpstreamResourceText(t *testing.T) {
 	}
 	if got := saveNameMessage(opt); got != "Save Name: movie" {
 		t.Fatalf("save name message mismatch: %q", got)
+	}
+	if got := loadingURLMessage(opt, "https://example.com/master.m3u8"); got != "Loading URL: https://example.com/master.m3u8" {
+		t.Fatalf("loading url message mismatch: %q", got)
+	}
+	if got := hlsMatchMessage(opt); got != "Content Matched: [white on deepskyblue1]HTTP Live Streaming[/]" {
+		t.Fatalf("match HLS message mismatch: %q", got)
+	}
+	if got := parsingStreamMessage(opt); got != "Parsing streams..." {
+		t.Fatalf("parsing stream message mismatch: %q", got)
+	}
+	if got := masterM3u8FoundMessage(opt); got != "Master List detected, try parse all streams" {
+		t.Fatalf("master m3u8 message mismatch: %q", got)
 	}
 	if got := downloadStartMessage(opt, video); got != "Start downloading...Vid 1920x1080 | 4500 Kbps | v-main | 23.976 | avc1.640028 | SDR | main" {
 		t.Fatalf("download start message mismatch: %q", got)

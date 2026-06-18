@@ -109,6 +109,26 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "分片數量大於1800個，開始分塊合併...",
 		EnUS: "Segments more than 1800, start partial merge...",
 	},
+	"loadingUrl": {
+		ZhCN: "加载URL: ",
+		ZhTW: "載入URL: ",
+		EnUS: "Loading URL: ",
+	},
+	"matchHLS": {
+		ZhCN: "内容匹配: [white on deepskyblue1]HTTP Live Streaming[/]",
+		ZhTW: "內容匹配: [white on deepskyblue1]HTTP Live Streaming[/]",
+		EnUS: "Content Matched: [white on deepskyblue1]HTTP Live Streaming[/]",
+	},
+	"parsingStream": {
+		ZhCN: "正在解析媒体信息...",
+		ZhTW: "正在解析媒體信息...",
+		EnUS: "Parsing streams...",
+	},
+	"masterM3u8Found": {
+		ZhCN: "检测到Master列表，开始解析全部流信息",
+		ZhTW: "檢測到Master列表，開始解析全部流訊息",
+		EnUS: "Master List detected, try parse all streams",
+	},
 	"muxOutput": {
 		ZhCN: "混流输出: %s",
 		ZhTW: "混流輸出: %s",

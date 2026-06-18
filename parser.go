@@ -34,6 +34,7 @@ func newHLSScanner(raw string) *bufio.Scanner {
 }
 
 func parseSource(ctx context.Context, client *http.Client, opt Options) ([]StreamSpec, *parser, error) {
+	fmt.Println(loadingURLMessage(opt, opt.Input))
 	raw, finalURL, err := fetchText(ctx, client, opt.Input, opt.Headers)
 	if err != nil {
 		return nil, nil, err
@@ -51,8 +52,11 @@ func (p *parser) extract(ctx context.Context, raw string) ([]StreamSpec, *parser
 	if !strings.HasPrefix(raw, "#EXTM3U") {
 		return nil, p, fmt.Errorf("当前 Go 版只支持 HLS m3u8")
 	}
+	fmt.Println(hlsMatchMessage(p.opt))
+	fmt.Println(parsingStreamMessage(p.opt))
 	if strings.Contains(raw, "#EXT-X-STREAM-INF") {
 		p.master = true
+		fmt.Println(masterM3u8FoundMessage(p.opt))
 		streams, err := p.parseMaster(raw)
 		if err != nil {
 			return nil, p, err
@@ -68,6 +72,22 @@ func (p *parser) extract(ctx context.Context, raw string) ([]StreamSpec, *parser
 		ext = "mp4"
 	}
 	return []StreamSpec{{ID: 0, URL: p.currentURL, OriginalURL: p.originalURL, Playlist: pl, Extension: ext}}, p, nil
+}
+
+func loadingURLMessage(opt Options, input string) string {
+	return tr(opt, "loadingUrl") + input
+}
+
+func hlsMatchMessage(opt Options) string {
+	return tr(opt, "matchHLS")
+}
+
+func parsingStreamMessage(opt Options) string {
+	return tr(opt, "parsingStream")
+}
+
+func masterM3u8FoundMessage(opt Options) string {
+	return tr(opt, "masterM3u8Found")
 }
 
 func (p *parser) parseMaster(raw string) ([]StreamSpec, error) {
@@ -185,6 +205,7 @@ func distinctStreamsByURL(streams []StreamSpec) []StreamSpec {
 }
 
 func (p *parser) fetchPlaylist(ctx context.Context, s *StreamSpec) error {
+	fmt.Println(parsingStreamMessage(p.opt))
 	raw, finalURL, err := fetchText(ctx, p.client, s.URL, p.opt.Headers)
 	if err != nil {
 		if !p.master {
