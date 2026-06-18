@@ -273,6 +273,23 @@ func TestParseDurationColonUsesUpstreamDayHourMinuteSecondOrder(t *testing.T) {
 	}
 }
 
+func TestParseDurationBareNumberMeansSecondsLikeUpstream(t *testing.T) {
+	got, err := parseDuration("30")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != 30*time.Second {
+		t.Fatalf("bare number duration should mean seconds like upstream, got %s", got)
+	}
+	opt, err := parseArgs([]string{"--live-record-limit", "30", "https://example.com/main.m3u8"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opt.LiveRecordLimit == nil || *opt.LiveRecordLimit != 30*time.Second {
+		t.Fatalf("live-record-limit bare number should be 30s, got %#v", opt.LiveRecordLimit)
+	}
+}
+
 func TestParseArgsMuxAfterDoneStrictValidation(t *testing.T) {
 	cases := []struct {
 		name string

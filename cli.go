@@ -444,6 +444,11 @@ func parseDuration(input string) (time.Duration, error) {
 		}
 		return total, nil
 	}
+	if _, err := strconv.Atoi(strings.TrimSpace(input)); err == nil {
+		// long: 上游 ParseDur 对单段数字按“秒”解释；直播录制上限这类参数常被写成 30，不能强制用户补 30s。
+		seconds, _ := strconv.Atoi(strings.TrimSpace(input))
+		return time.Duration(seconds) * time.Second, nil
+	}
 	return time.ParseDuration(input)
 }
 
