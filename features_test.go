@@ -1472,7 +1472,7 @@ cp "$input" "$output"
 	}
 }
 
-func TestRealtimeInitUsesShakaDetectedKIDBeforeKeyFileLookup(t *testing.T) {
+func TestRealtimeInitUsesShakaDetectedKIDButSkipsStandaloneInitDecrypt(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell helper is unix-only")
 	}
@@ -1543,8 +1543,8 @@ printf 'decrypted-init:%s' "$(cat "$input")" > "$output"
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(got) != "decrypted-init:encrypted-init" {
-		t.Fatalf("init should be decrypted after shaka kid detection, got %q", got)
+	if string(got) != "encrypted-init" {
+		t.Fatalf("shaka should leave standalone init untouched for later init+fragment decrypt, got %q", got)
 	}
 	args, err := os.ReadFile(argsLog)
 	if err != nil {
@@ -1554,8 +1554,8 @@ printf 'decrypted-init:%s' "$(cat "$input")" > "$output"
 	if !strings.Contains(joined, "key_id="+zeroKID+":key="+zeroKID) {
 		t.Fatalf("shaka probe was not invoked, args:\n%s", joined)
 	}
-	if !strings.Contains(joined, "key_id="+detectedKID+":key="+key) {
-		t.Fatalf("shaka init decrypt should use key-file entry matched by detected kid, args:\n%s", joined)
+	if strings.Contains(joined, "key_id="+detectedKID+":key="+key) {
+		t.Fatalf("shaka should not decrypt standalone init with matched key, args:\n%s", joined)
 	}
 }
 

@@ -204,11 +204,13 @@ func (s *liveRealtimeDownloadState) downloadAndAppend(ctx context.Context, batch
 		if err != nil {
 			return err
 		}
-		files = append(files, initFile)
-		segments = append(segments, initSeg)
 		s.initDone = true
 		s.initPath = initFile
 		s.currentKID = kid
+		if shouldKeepRealtimeInitForMerge(s.opt, kid) {
+			files = append(files, initFile)
+			segments = append(segments, initSeg)
+		}
 	}
 	if len(batch) > 0 {
 		batchFiles := make([]string, len(batch))
@@ -356,6 +358,10 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 		files[0] = actual
 		initPath = actual
 		currentKID = kid
+		if !shouldKeepRealtimeInitForMerge(opt, kid) {
+			// long: shaka/ffmpeg 实时解密会把 init 与每个媒体分片临时拼接后交给外部工具；最终再合并独立 init 会比上游多出一段重复初始化数据。
+			files[0] = ""
+		}
 		startAt = 1
 		atomic.AddInt64(&done, 1)
 	}
@@ -768,12 +774,27 @@ func downloadRealtimeInitSegment(ctx context.Context, client *http.Client, seg S
 	if !opt.MP4RealTimeDecryption || kid == "" || len(collectDecryptKeys(opt, kid)) == 0 {
 		return actual, kid, nil
 	}
+	if !canDecryptRealtimeInitFile(opt) {
+		return actual, kid, nil
+	}
 	// long: init 需要先保持原始盒结构读出 KID，再按匹配到的 key 解密；如果下载时直接解密，后续媒体分片会丢失用于选 key 的 KID。
 	dec, err := decryptMP4File(actual, opt, kid, "")
 	if err != nil {
 		return "", "", err
 	}
 	return dec, kid, nil
+}
+
+func canDecryptRealtimeInitFile(opt Options) bool {
+	engine := strings.ToUpper(opt.DecryptionEngine)
+	return engine == "" || engine == "MP4DECRYPT"
+}
+
+func shouldKeepRealtimeInitForMerge(opt Options, kid string) bool {
+	if !opt.MP4RealTimeDecryption || kid == "" || len(collectDecryptKeys(opt, kid)) == 0 {
+		return true
+	}
+	return canDecryptRealtimeInitFile(opt)
 }
 
 func decryptedSegmentPath(path string) string {

@@ -1235,6 +1235,96 @@ func TestRealtimeExternalDecrypt(t *testing.T) {
 	}
 }
 
+func TestRealtimeShakaDecryptExcludesStandaloneInitFromMerge(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell helper is unix-only")
+	}
+	detectedKID := "abcdefabcdefabcdefabcdefabcdefab"
+	key := "00112233445566778899aabbccddeeff"
+	var base string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/main.m3u8":
+			_, _ = w.Write([]byte("#EXTM3U\n#EXT-X-KEY:METHOD=CENC,URI=\"data:;base64,AA==\"\n#EXT-X-MAP:URI=\"" + base + "/init.mp4\"\n#EXTINF:1,\n" + base + "/seg.m4s\n#EXT-X-ENDLIST\n"))
+		case "/init.mp4":
+			_, _ = w.Write([]byte("init-"))
+		case "/seg.m4s":
+			_, _ = w.Write([]byte("encrypted-seg"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	base = srv.URL
+
+	tmp := t.TempDir()
+	keyFile := filepath.Join(tmp, "keys.txt")
+	if err := os.WriteFile(keyFile, []byte(detectedKID+":"+key+"\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	tool := filepath.Join(tmp, "shaka-packager")
+	script := `#!/bin/sh
+case "$*" in
+  *key_id=00000000000000000000000000000000:key=00000000000000000000000000000000*)
+    echo 'Key for key_id=__KID__ was not found' >&2
+    exit 1
+    ;;
+esac
+input=''
+output=''
+for arg in "$@"; do
+  case "$arg" in
+    input=*)
+      rest=${arg#input=}
+      input=${rest%%,*}
+      ;;
+  esac
+  case "$arg" in
+    *output=*)
+      rest=${arg#*output=}
+      output=${rest%%,*}
+      ;;
+  esac
+done
+printf 'shaka-dec[%s]' "$(cat "$input")" > "$output"
+`
+	script = strings.ReplaceAll(script, "__KID__", detectedKID)
+	if err := os.WriteFile(tool, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	opt := defaultOptions()
+	opt.Input = srv.URL + "/main.m3u8"
+	opt.AutoSelect = true
+	opt.BinaryMerge = true
+	opt.SaveDir = tmp
+	opt.TmpDir = filepath.Join(tmp, "tmp")
+	opt.SaveName = "shaka-rt"
+	opt.MP4RealTimeDecryption = true
+	opt.DecryptionEngine = "SHAKA_PACKAGER"
+	opt.DecryptionBinaryPath = tool
+	opt.KeyTextFile = keyFile
+
+	client, err := newHTTPClient(opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	streams, _, err := parseSource(context.Background(), client, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	outs, err := downloadAll(context.Background(), client, streams, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(outs[0].Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "shaka-dec[init-encrypted-seg]" {
+		t.Fatalf("shaka realtime merge should not keep standalone init, got %q", got)
+	}
+}
+
 func TestDownloadMP4StppSubtitleDetectedFromInit(t *testing.T) {
 	stsdPayload := append([]byte{0, 0, 0, 0, 0, 0, 0, 1}, mustMP4Box("stpp", nil)...)
 	init := mustMP4Box("moov", mustMP4Box("trak", mustMP4Box("mdia", mustMP4Box("minf", mustMP4Box("stbl", mustMP4Box("stsd", stsdPayload))))))
