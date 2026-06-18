@@ -111,11 +111,11 @@ func preProcessHLSContent(content, m3u8URL string) string {
 	}
 	if strings.Contains(content, "#EXT-X-DISCONTINUITY") && strings.Contains(content, "#EXT-X-MAP") && strings.Contains(m3u8URL, "media.dssott.com/") {
 		dnsp := regexp.MustCompile(`#EXT-X-MAP:URI=".*?BUMPER/[\s\S]+?#EXT-X-DISCONTINUITY`)
-		content = dnsp.ReplaceAllString(content, "#XXX")
+		content = replaceFirstRegexp(content, dnsp, "#XXX")
 	}
 	if strings.Contains(content, "#EXT-X-DISCONTINUITY") && strings.Contains(content, "seg_00000.vtt") && strings.Contains(m3u8URL, "media.dssott.com/") {
 		dnspSub := regexp.MustCompile(`#EXTINF:.*?,\s+.*BUMPER.*\s+?#EXT-X-DISCONTINUITY`)
-		content = dnspSub.ReplaceAllString(content, "#XXX")
+		content = replaceFirstRegexp(content, dnspSub, "#XXX")
 	}
 	if strings.Contains(content, "#EXT-X-DISCONTINUITY") && strings.Contains(content, "#EXT-X-MAP") && (strings.Contains(m3u8URL, ".apple.com/") || regexp.MustCompile(`#EXT-X-MAP.*\.apple\.com/`).MatchString(content)) {
 		atv := regexp.MustCompile(`(#EXT-X-KEY:[\s\S]*?)(#EXT-X-DISCONTINUITY|#EXT-X-ENDLIST)`)
@@ -124,6 +124,19 @@ func preProcessHLSContent(content, m3u8URL string) string {
 		}
 	}
 	return content
+}
+
+func replaceFirstRegexp(input string, re *regexp.Regexp, replacement string) string {
+	match := re.FindStringSubmatchIndex(input)
+	if match == nil {
+		return input
+	}
+	out := make([]byte, 0, len(input))
+	out = append(out, input[:match[0]]...)
+	// long: 上游 Disney+ 修正规则只替换第一个 Match，后续 BUMPER 块应保持原样，避免把原版不会动的内容一并删掉。
+	out = re.ExpandString(out, replacement, input, match)
+	out = append(out, input[match[1]:]...)
+	return string(out)
 }
 
 func splitComplex(input string) map[string]string {

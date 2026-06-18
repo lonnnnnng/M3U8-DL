@@ -430,11 +430,33 @@ func TestPreProcessHLSContentMatchesUpstreamSiteFixes(t *testing.T) {
 		}
 	})
 
+	t.Run("disney bumper media replaces first match only", func(t *testing.T) {
+		raw := "#EXTM3U\n#EXT-X-MAP:URI=\"https://media.dssott.com/BUMPER/init-a.mp4\"\n#EXTINF:1,\nhttps://media.dssott.com/BUMPER/a.m4s\n#EXT-X-DISCONTINUITY\n#EXT-X-MAP:URI=\"https://media.dssott.com/BUMPER/init-b.mp4\"\n#EXTINF:1,\nhttps://media.dssott.com/BUMPER/b.m4s\n#EXT-X-DISCONTINUITY\n#EXT-X-MAP:URI=\"main.mp4\"\n#EXTINF:1,\nmain.m4s"
+		got := preProcessHLSContent(raw, "https://media.dssott.com/video/main.m3u8")
+		if strings.Count(got, "#XXX") != 1 {
+			t.Fatalf("Disney media preprocessor should replace only first match like upstream, got:\n%s", got)
+		}
+		if !strings.Contains(got, "init-b.mp4") || !strings.Contains(got, "b.m4s") {
+			t.Fatalf("second Disney media bumper block should remain like upstream, got:\n%s", got)
+		}
+	})
+
 	t.Run("disney bumper subtitle", func(t *testing.T) {
 		raw := "#EXTM3U\n#EXTINF:1,\nhttps://media.dssott.com/BUMPER/seg_00000.vtt\n#EXT-X-DISCONTINUITY\n#EXTINF:1,\nseg_00000.vtt"
 		got := preProcessHLSContent(raw, "https://media.dssott.com/sub/main.m3u8")
 		if strings.Contains(got, "BUMPER") || !strings.Contains(got, "#XXX\n#EXTINF:1,\nseg_00000.vtt") {
 			t.Fatalf("Disney bumper subtitle prelude should be removed, got:\n%s", got)
+		}
+	})
+
+	t.Run("disney bumper subtitle replaces first match only", func(t *testing.T) {
+		raw := "#EXTM3U\n#EXTINF:1,\nhttps://media.dssott.com/BUMPER/a/seg_00000.vtt\n#EXT-X-DISCONTINUITY\n#EXTINF:1,\nhttps://media.dssott.com/BUMPER/b/seg_00000.vtt\n#EXT-X-DISCONTINUITY\n#EXTINF:1,\nseg_00000.vtt"
+		got := preProcessHLSContent(raw, "https://media.dssott.com/sub/main.m3u8")
+		if strings.Count(got, "#XXX") != 1 {
+			t.Fatalf("Disney subtitle preprocessor should replace only first match like upstream, got:\n%s", got)
+		}
+		if !strings.Contains(got, "BUMPER/b/seg_00000.vtt") {
+			t.Fatalf("second Disney subtitle bumper block should remain like upstream, got:\n%s", got)
 		}
 	})
 
