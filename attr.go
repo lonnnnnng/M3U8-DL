@@ -128,11 +128,11 @@ func appendURLParams(target, source string) (string, error) {
 	sourceQuery := parseOrderedQuery(su.RawQuery)
 	for _, sourceEntry := range sourceQuery {
 		joined := strings.Join(sourceEntry.values, ",")
-		if targetEntry := targetQuery.find(sourceEntry.key); targetEntry != nil {
+		if targetEntry := targetQuery.findByKindAndKey(sourceEntry.kind, sourceEntry.key); targetEntry != nil {
 			// long: 上游 NameValueCollection.Set 会在原 key 位置替换，并把重复源参数通过 Get 合成逗号字符串。
 			targetEntry.values = []string{joined}
 		} else {
-			targetQuery = append(targetQuery, orderedQueryEntry{key: sourceEntry.key, values: []string{joined}})
+			targetQuery = append(targetQuery, orderedQueryEntry{kind: sourceEntry.kind, key: sourceEntry.key, values: []string{joined}})
 		}
 	}
 	encoded := targetQuery.encode()
@@ -143,11 +143,20 @@ func appendURLParams(target, source string) (string, error) {
 }
 
 type orderedQueryEntry struct {
+	kind   queryKeyKind
 	key    string
 	values []string
 }
 
 type orderedQuery []orderedQueryEntry
+
+type queryKeyKind int
+
+const (
+	queryKeyNormal queryKeyKind = iota
+	queryKeyMissing
+	queryKeyEmpty
+)
 
 func parseOrderedQuery(raw string) orderedQuery {
 	if raw == "" {
@@ -155,7 +164,15 @@ func parseOrderedQuery(raw string) orderedQuery {
 	}
 	var out orderedQuery
 	for _, part := range strings.Split(raw, "&") {
-		key, value, _ := strings.Cut(part, "=")
+		key, value, hasEqual := strings.Cut(part, "=")
+		kind := queryKeyNormal
+		if !hasEqual {
+			kind = queryKeyMissing
+			value = key
+			key = ""
+		} else if key == "" {
+			kind = queryKeyEmpty
+		}
 		decodedKey, err := url.QueryUnescape(key)
 		if err != nil {
 			decodedKey = key
@@ -164,18 +181,18 @@ func parseOrderedQuery(raw string) orderedQuery {
 		if err != nil {
 			decodedValue = value
 		}
-		if entry := out.find(decodedKey); entry != nil {
+		if entry := out.findByKindAndKey(kind, decodedKey); entry != nil {
 			entry.values = append(entry.values, decodedValue)
 			continue
 		}
-		out = append(out, orderedQueryEntry{key: decodedKey, values: []string{decodedValue}})
+		out = append(out, orderedQueryEntry{kind: kind, key: decodedKey, values: []string{decodedValue}})
 	}
 	return out
 }
 
-func (q orderedQuery) find(key string) *orderedQueryEntry {
+func (q orderedQuery) findByKindAndKey(kind queryKeyKind, key string) *orderedQueryEntry {
 	for i := range q {
-		if q[i].key == key {
+		if q[i].kind == kind && q[i].key == key {
 			return &q[i]
 		}
 	}
@@ -186,6 +203,10 @@ func (q orderedQuery) encode() string {
 	parts := make([]string, 0, len(q))
 	for _, entry := range q {
 		value := strings.Join(entry.values, ",")
+		if entry.kind == queryKeyMissing || entry.kind == queryKeyEmpty {
+			parts = append(parts, queryEscapeLower(value))
+			continue
+		}
 		parts = append(parts, queryEscapeLower(entry.key)+"="+queryEscapeLower(value))
 	}
 	return strings.Join(parts, "&")

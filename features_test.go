@@ -35,6 +35,42 @@ func TestAppendURLParams(t *testing.T) {
 	if got != want {
 		t.Fatalf("query encoding not merged like upstream:\nwant %s\ngot  %s", want, got)
 	}
+	tests := []struct {
+		name   string
+		target string
+		source string
+		want   string
+	}{
+		{
+			name:   "missing key replaced by missing key",
+			target: "https://cdn.example.com/seg.ts?flag&x=1",
+			source: "https://cdn.example.com/main.m3u8?token&y=2",
+			want:   "https://cdn.example.com/seg.ts?token&x=1&y=2",
+		},
+		{
+			name:   "empty key replaced by empty key",
+			target: "https://cdn.example.com/seg.ts?=flag&x=1",
+			source: "https://cdn.example.com/main.m3u8?=empty&y=2",
+			want:   "https://cdn.example.com/seg.ts?empty&x=1&y=2",
+		},
+		{
+			name:   "missing and empty keys do not replace each other",
+			target: "https://cdn.example.com/seg.ts?flag&x=1",
+			source: "https://cdn.example.com/main.m3u8?=empty&y=2",
+			want:   "https://cdn.example.com/seg.ts?flag&x=1&empty&y=2",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := appendURLParams(tt.target, tt.source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tt.want {
+				t.Fatalf("query keyless merge mismatch:\nwant %s\ngot  %s", tt.want, got)
+			}
+		})
+	}
 }
 
 func TestParseArgsBooleanExplicitFalse(t *testing.T) {
