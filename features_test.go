@@ -4747,6 +4747,51 @@ func TestLiveRealtimeDownloadStateWritesBatchesToPipe(t *testing.T) {
 	}
 }
 
+func TestLiveRealtimeSegmentNamesUseCurrentBatchProgramDateTime(t *testing.T) {
+	tmp := t.TempDir()
+	oldSrc := filepath.Join(tmp, "old.ts")
+	newSrc := filepath.Join(tmp, "new.ts")
+	if err := os.WriteFile(oldSrc, []byte("old"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(newSrc, []byte("new"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	video := MediaVideo
+	pdt := time.Unix(1781784000, 0).UTC()
+	opt := defaultOptions()
+	opt.TmpDir = filepath.Join(tmp, "tmp")
+	opt.SaveDir = tmp
+	opt.SaveName = "live-batch"
+	opt.LiveKeepSegments = true
+	client, err := newHTTPClient(opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stream := StreamSpec{
+		ID:        1,
+		Extension: "ts",
+		MediaType: &video,
+		Playlist: &Playlist{WasLive: true, Parts: []MediaPart{{Segments: []Segment{
+			{Index: 1, URL: (&url.URL{Scheme: "file", Path: oldSrc}).String(), Duration: 1},
+			{Index: 2, URL: (&url.URL{Scheme: "file", Path: newSrc}).String(), DateTime: &pdt, Duration: 1},
+		}}}},
+	}
+	state, _, err := newLiveRealtimeDownloadState(client, stream, opt, newRateLimiter(0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := state.downloadAndAppend(context.Background(), []Segment{stream.Playlist.Parts[0].Segments[1]}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(state.tmpDir, "1781784000.ts")); err != nil {
+		t.Fatalf("current PDT batch should use date-time segment name like upstream: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(state.tmpDir, "2.ts")); !os.IsNotExist(err) {
+		t.Fatalf("historical non-PDT segment should not force index naming for current batch, stat err=%v", err)
+	}
+}
+
 func TestFinishLivePipeMuxOutputsReplacesNonSubtitleOutputs(t *testing.T) {
 	tmp := t.TempDir()
 	videoFile := filepath.Join(tmp, "video.mp4")

@@ -250,6 +250,51 @@ func TestDownloadLiveRealTimeMergeAudioMP4KeepsMP4ExtensionLikeUpstream(t *testi
 	}
 }
 
+func TestDownloadWasLiveFMP4UsesProgramDateTimeNamesDespiteInit(t *testing.T) {
+	tmp := t.TempDir()
+	initFile := filepath.Join(tmp, "init.mp4")
+	segFile := filepath.Join(tmp, "seg.m4s")
+	if err := os.WriteFile(initFile, []byte("init"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(segFile, []byte("media"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	video := MediaVideo
+	pdt := time.Unix(1781784000, 0).UTC()
+	stream := StreamSpec{
+		ID:        1,
+		Extension: "m4s",
+		MediaType: &video,
+		Playlist: &Playlist{
+			WasLive:   true,
+			MediaInit: &Segment{Index: -1, URL: (&url.URL{Scheme: "file", Path: initFile}).String()},
+			Parts: []MediaPart{{Segments: []Segment{
+				{Index: 7, URL: (&url.URL{Scheme: "file", Path: segFile}).String(), DateTime: &pdt, Duration: 1},
+			}}},
+		},
+	}
+	opt := defaultOptions()
+	opt.SaveDir = tmp
+	opt.TmpDir = filepath.Join(tmp, "tmp")
+	opt.SaveName = "was-live"
+	opt.BinaryMerge = true
+	opt.DelAfterDone = false
+	client, err := newHTTPClient(opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := downloadAll(context.Background(), client, []StreamSpec{stream}, opt); err != nil {
+		t.Fatal(err)
+	}
+	if matches, err := filepath.Glob(filepath.Join(taskTempDir(opt), "*", "_init.mp4")); err != nil || len(matches) != 1 {
+		t.Fatalf("init segment should keep upstream live init name, matches=%#v err=%v", matches, err)
+	}
+	if matches, err := filepath.Glob(filepath.Join(taskTempDir(opt), "*", "1781784000.m4s")); err != nil || len(matches) != 1 {
+		t.Fatalf("media segment should use PDT name even when init has no DateTime, matches=%#v err=%v", matches, err)
+	}
+}
+
 func TestDownloadLiveRealtimeRefreshesAndAppendsIncrementally(t *testing.T) {
 	var playlistHits int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -39,18 +39,19 @@ type liveAudioStartTracker struct {
 }
 
 type liveRealtimeDownloadState struct {
-	stream     StreamSpec
-	opt        Options
-	client     *http.Client
-	limiter    *rateLimiter
-	tmpDir     string
-	output     string
-	pipe       *os.File
-	pad        int
-	ordinal    int
-	initDone   bool
-	initPath   string
-	currentKID string
+	stream            StreamSpec
+	opt               Options
+	client            *http.Client
+	limiter           *rateLimiter
+	tmpDir            string
+	output            string
+	pipe              *os.File
+	pad               int
+	ordinal           int
+	liveDateTimeNames bool
+	initDone          bool
+	initPath          string
+	currentKID        string
 }
 
 func (t *liveAudioStartTracker) set(value time.Duration) {
@@ -207,6 +208,7 @@ func (s *liveRealtimeDownloadState) downloadAndAppend(ctx context.Context, batch
 	}
 	var segments []Segment
 	var files []string
+	s.liveDateTimeNames = allMediaSegmentsHaveProgramDateTime(batch)
 	if s.stream.Playlist != nil && s.stream.Playlist.MediaInit != nil && !s.initDone {
 		initSeg := *s.stream.Playlist.MediaInit
 		initFile, kid, err := downloadRealtimeInitSegment(ctx, s.client, initSeg, s.nextLiveSegmentPath(initSeg, "mp4"), s.opt, s.limiter)
@@ -281,7 +283,7 @@ func (s *liveRealtimeDownloadState) nextLiveSegmentPath(seg Segment, ext string)
 		s.pad,
 		ext,
 		true,
-		allPlaylistMediaSegmentsHaveProgramDateTime(s.stream.Playlist),
+		s.liveDateTimeNames,
 	)
 	s.ordinal++
 	return path
@@ -289,17 +291,6 @@ func (s *liveRealtimeDownloadState) nextLiveSegmentPath(seg Segment, ext string)
 
 func (s *liveRealtimeDownloadState) downloadLiveSegment(ctx context.Context, seg Segment, path string) (string, error) {
 	return downloadSegment(ctx, s.client, seg, path, s.opt, s.limiter, s.currentKID, s.initPath)
-}
-
-func allPlaylistMediaSegmentsHaveProgramDateTime(pl *Playlist) bool {
-	if pl == nil {
-		return false
-	}
-	var segments []Segment
-	for _, part := range pl.Parts {
-		segments = append(segments, part.Segments...)
-	}
-	return allMediaSegmentsHaveProgramDateTime(segments)
 }
 
 func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt Options, limiter *rateLimiter, audioStart *liveAudioStartTracker) (outputFile, error) {
@@ -339,8 +330,10 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 	if s.Playlist.MediaInit != nil {
 		allSegs = append(allSegs, *s.Playlist.MediaInit)
 	}
+	var mediaSegs []Segment
 	for _, part := range s.Playlist.Parts {
 		allSegs = append(allSegs, part.Segments...)
+		mediaSegs = append(mediaSegs, part.Segments...)
 	}
 	if len(allSegs) == 0 {
 		return outputFile{}, fmt.Errorf("没有分片可下载")
@@ -349,7 +342,7 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 
 	pad := len(fmt.Sprintf("%d", len(allSegs)))
 	liveSegmentNames := shouldUseLiveSegmentNames(s, opt)
-	liveDateTimeNames := liveSegmentNames && allMediaSegmentsHaveProgramDateTime(allSegs)
+	liveDateTimeNames := liveSegmentNames && allMediaSegmentsHaveProgramDateTime(mediaSegs)
 	files := make([]string, len(allSegs))
 	var done int64
 	startAt := 0
