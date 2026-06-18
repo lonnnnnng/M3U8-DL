@@ -2207,6 +2207,28 @@ func TestMuxOutputsByFFmpegMetadataUsesOutputStreamIndex(t *testing.T) {
 	}
 }
 
+func TestMuxDispositionArgsFollowUpstreamAudioSubtitleCondition(t *testing.T) {
+	audio := MediaAudio
+	sub := MediaSubtitles
+	gotAudioOnly := muxDispositionArgs([]outputFile{{MediaType: &audio}})
+	if !containsArgPair(gotAudioOnly, "-disposition:s", "0") {
+		t.Fatalf("upstream adds subtitle disposition when audio exists, got %#v", gotAudioOnly)
+	}
+	gotSubOnly := muxDispositionArgs([]outputFile{{MediaType: &sub}})
+	if containsArgPair(gotSubOnly, "-disposition:s", "0") {
+		t.Fatalf("upstream typo does not add subtitle disposition for subtitle-only inputs, got %#v", gotSubOnly)
+	}
+}
+
+func containsArgPair(args []string, key, value string) bool {
+	for i := 0; i+1 < len(args); i++ {
+		if args[i] == key && args[i+1] == value {
+			return true
+		}
+	}
+	return false
+}
+
 func TestProbeMediaInfoUsesSiblingFFprobe(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell helper is unix-only")

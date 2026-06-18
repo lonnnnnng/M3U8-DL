@@ -303,7 +303,7 @@ func ffprobeBinary(opt Options) string {
 func muxDispositionArgs(inputs []outputFile) []string {
 	var args []string
 	hasVideo := false
-	hasSub := false
+	hasAudio := false
 	audioIndex := 0
 	for _, f := range inputs {
 		if f.MediaType == nil || *f.MediaType == MediaVideo {
@@ -311,10 +311,10 @@ func muxDispositionArgs(inputs []outputFile) []string {
 			continue
 		}
 		if *f.MediaType == MediaSubtitles {
-			hasSub = true
 			continue
 		}
 		if *f.MediaType == MediaAudio {
+			hasAudio = true
 			if audioIndex == 0 {
 				args = append(args, "-disposition:a:0", "default")
 			} else {
@@ -326,7 +326,8 @@ func muxDispositionArgs(inputs []outputFile) []string {
 	if hasVideo {
 		args = append(args, "-disposition:v:0", "default")
 	}
-	if hasSub {
+	if hasAudio {
+		// long: 原版 MuxInputsByFFmpeg 的 subTracks 误用 AUDIO 过滤条件；这会在有音频时追加字幕 disposition，即使当前没有字幕轨。
 		args = append(args, "-disposition:s", "0")
 	}
 	return args
