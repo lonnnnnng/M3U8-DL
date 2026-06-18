@@ -521,7 +521,7 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 			return outputFile{}, err
 		}
 	} else {
-		format := strings.TrimPrefix(outputExt, ".")
+		format := singleTrackFFmpegFormat(s)
 		merged, err := ffmpegMerge(files, strings.TrimSuffix(output, filepath.Ext(output)), format, opt, useAACFilter)
 		if err != nil {
 			return outputFile{}, err
@@ -1166,6 +1166,14 @@ func outputExt(s StreamSpec, opt Options) string {
 		return "." + s.Extension
 	}
 	return ".ts"
+}
+
+func singleTrackFFmpegFormat(s StreamSpec) string {
+	if s.MediaType != nil && *s.MediaType == MediaAudio {
+		return "m4a"
+	}
+	// long: 原版单轨 ffmpeg 合并不会沿用 TS/FLV 等分片扩展名；除音频外统一封装成 MP4，最终混流格式另由 -M 控制。
+	return "mp4"
 }
 
 func defaultName(opt Options, s StreamSpec, fallback string) string {

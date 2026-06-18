@@ -80,6 +80,79 @@ func TestDownloadAndBinaryMerge(t *testing.T) {
 	}
 }
 
+func TestDownloadTSVideoFFmpegMergeUsesMP4LikeUpstream(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell helper is unix-only")
+	}
+	var base string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/main.m3u8":
+			w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
+			_, _ = w.Write([]byte("#EXTM3U\n#EXT-X-TARGETDURATION:1\n#EXTINF:1,\n" + base + "/0.ts\n#EXTINF:1,\n" + base + "/1.ts\n#EXT-X-ENDLIST\n"))
+		case "/0.ts", "/1.ts":
+			_, _ = w.Write([]byte("track"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	base = srv.URL
+
+	tmp := t.TempDir()
+	logPath := filepath.Join(tmp, "ffmpeg-args.txt")
+	tool := filepath.Join(tmp, "ffmpeg")
+	script := fmt.Sprintf("#!/bin/sh\nprintf '%%s\\n' \"$@\" > %q\nlast=\"\"\nfor arg in \"$@\"; do last=\"$arg\"; done\nprintf merged > \"$last\"\n", logPath)
+	if err := os.WriteFile(tool, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	opt := defaultOptions()
+	opt.Input = srv.URL + "/main.m3u8"
+	opt.AutoSelect = true
+	opt.FFmpegBinaryPath = tool
+	opt.SaveDir = tmp
+	opt.TmpDir = filepath.Join(tmp, "tmp")
+	opt.SaveName = "sample"
+
+	client, err := newHTTPClient(opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	streams, p, err := parseSource(context.Background(), client, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	selected, err := chooseStreams(streams, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if selected[0].Playlist == nil {
+		if err := p.fetchPlaylist(context.Background(), &selected[0]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	outs, err := downloadAll(context.Background(), client, selected, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(outs) != 1 {
+		t.Fatalf("want 1 output, got %d", len(outs))
+	}
+	if filepath.Ext(outs[0].Path) != ".mp4" {
+		t.Fatalf("TS video ffmpeg merge should output mp4 like upstream, got %s", outs[0].Path)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "sample.ts")); !os.IsNotExist(err) {
+		t.Fatalf("ffmpeg merge should not keep initial TS output path, stat err=%v", err)
+	}
+	argsBytes, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.HasSuffix(strings.TrimSpace(string(argsBytes)), ".ts") {
+		t.Fatalf("ffmpeg output arg should use mp4 container, args:\n%s", argsBytes)
+	}
+}
+
 func TestDownloadLiveRealTimeMergeUsesAppendPath(t *testing.T) {
 	tmp := t.TempDir()
 	segA := filepath.Join(tmp, "a.ts")
