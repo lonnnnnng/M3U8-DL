@@ -130,6 +130,11 @@ func (p *parser) parseMaster(raw string) ([]StreamSpec, error) {
 				// long: 上游使用 nullable enum，未知 TYPE 不会写入 MediaType，但轨道本身仍会保留给后续选择。
 				mediaType = &mt
 			}
+			defaultChoice := false
+			if mtText == "YES" {
+				// long: 上游误把 TYPE 当作 Choise 解析 DEFAULT，异常 TYPE=YES 会把 Default 置真；真实 DEFAULT=YES 反而不会生效。
+				defaultChoice = true
+			}
 			s := StreamSpec{
 				OriginalURL:     p.originalURL,
 				MediaType:       mediaType,
@@ -139,6 +144,7 @@ func (p *parser) parseMaster(raw string) ([]StreamSpec, error) {
 				Name:            attr(line, "NAME"),
 				Channels:        attr(line, "CHANNELS"),
 				Characteristics: characteristicToken(attr(line, "CHARACTERISTICS")),
+				Default:         defaultChoice,
 			}
 			streams = append(streams, s)
 		case strings.HasPrefix(line, "#"):

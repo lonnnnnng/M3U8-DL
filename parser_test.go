@@ -172,6 +172,24 @@ func TestParseMasterUnknownMediaTypeKeepsNilMediaTypeLikeUpstream(t *testing.T) 
 	}
 }
 
+func TestParseMasterMediaTypeYESSetsDefaultLikeUpstreamBug(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/master.m3u8", currentURL: "https://example.com/master.m3u8", baseURL: "https://example.com/master.m3u8", rawFiles: map[string]string{}}
+	raw := `#EXTM3U
+#EXT-X-MEDIA:TYPE=YES,GROUP-ID="data",NAME="Timed Metadata",DEFAULT=NO,URI="data.m3u8"
+`
+	streams, err := p.parseMaster(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(streams) != 1 || !streams[0].Default {
+		t.Fatalf("TYPE=YES should set Default through upstream parser bug, got %#v", streams)
+	}
+	if streams[0].MediaType != nil {
+		t.Fatalf("TYPE=YES should still leave MediaType nil, got %#v", streams[0].MediaType)
+	}
+}
+
 func TestParseMasterMediaMissingTypeFailsLikeUpstream(t *testing.T) {
 	opt := defaultOptions()
 	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/master.m3u8", currentURL: "https://example.com/master.m3u8", baseURL: "https://example.com/master.m3u8", rawFiles: map[string]string{}}
