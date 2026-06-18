@@ -418,6 +418,7 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 		}
 		return outputFile{}, fmt.Errorf("没有成功下载的分片")
 	}
+	fmt.Println(tr(opt, "readingInfo"))
 	mediaInfos := probeMediaInfo(firstMediaProbeFile(files), opt)
 	applyMediaInfoToStream(&s, &opt, mediaInfos)
 	useAACFilter := mediaInfosUseAACFilter(mediaInfos)
@@ -482,7 +483,7 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 		if ok {
 			cleanupFixedSubtitleSourceFiles(files, true)
 			output = fixedOutput
-		} else if err := binaryMerge(files, output); err != nil {
+		} else if err := binaryMergeWithMessage(opt, files, output); err != nil {
 			return outputFile{}, err
 		}
 	} else if opt.AutoSubtitleFix && s.MediaType != nil && *s.MediaType == MediaSubtitles && strings.Contains(strings.ToLower(s.Extension), "m4s") && !strings.Contains(strings.ToLower(s.Codecs), "stpp") {
@@ -500,7 +501,7 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 		if ok {
 			cleanupFixedSubtitleSourceFiles(files, false)
 			output = fixedOutput
-		} else if err := binaryMerge(files, output); err != nil {
+		} else if err := binaryMergeWithMessage(opt, files, output); err != nil {
 			return outputFile{}, err
 		}
 	} else if opt.LiveRealTimeMerge && (s.MediaType == nil || *s.MediaType != MediaSubtitles) {
@@ -510,7 +511,7 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 		}
 	} else if opt.BinaryMerge || s.MediaType != nil && *s.MediaType == MediaSubtitles || s.Playlist.MediaInit != nil && opt.MuxAfterDone == nil {
 		// long: fMP4 和字幕默认采用二进制顺序拼接，避免 ffmpeg 在没有完整轨道上下文时错误改写时间戳。
-		if err := binaryMerge(files, output); err != nil {
+		if err := binaryMergeWithMessage(opt, files, output); err != nil {
 			return outputFile{}, err
 		}
 	} else {
@@ -1088,6 +1089,11 @@ func binaryMerge(files []string, output string) error {
 		in.Close()
 	}
 	return nil
+}
+
+func binaryMergeWithMessage(opt Options, files []string, output string) error {
+	fmt.Println(tr(opt, "binaryMerge"))
+	return binaryMerge(files, output)
 }
 
 func liveRealtimeMergeFiles(files []string, segments []Segment, output string, keepSegments bool) error {

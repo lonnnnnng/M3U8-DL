@@ -4613,14 +4613,26 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	if got := tr(opt, "writeJson"); got != "写出meta json" {
 		t.Fatalf("simplified writeJson wrong: %q", got)
 	}
+	if got := tr(opt, "binaryMerge"); got != "二进制合并中..." {
+		t.Fatalf("simplified binaryMerge wrong: %q", got)
+	}
 	opt.UILanguage = "en-US"
 	if got := tr(opt, "startDownloading"); got != "Start downloading..." {
 		t.Fatalf("english startDownloading wrong: %q", got)
+	}
+	if got := tr(opt, "ffmpegMerge"); got != "ffmpeg merging..." {
+		t.Fatalf("english ffmpegMerge wrong: %q", got)
+	}
+	if got := tr(opt, "partMerge"); got != "Segments more than 1800, start partial merge..." {
+		t.Fatalf("english partMerge wrong: %q", got)
 	}
 	if got := tr(opt, "ffmpegNotFound"); got != "ffmpeg not found, please download at: https://ffmpeg.org/download.html" {
 		t.Fatalf("english ffmpegNotFound wrong: %q", got)
 	}
 	opt.UILanguage = "zh-TW"
+	if got := tr(opt, "readingInfo"); got != "讀取媒體訊息..." {
+		t.Fatalf("traditional readingInfo wrong: %q", got)
+	}
 	if got := tr(opt, "mkvmergeNotFound"); got != "找不到mkvmerge，請自行下載：https://mkvtoolnix.download/downloads.html" {
 		t.Fatalf("traditional mkvmergeNotFound wrong: %q", got)
 	}

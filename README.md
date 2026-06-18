@@ -34,7 +34,7 @@ go run . "<m3u8-url-or-file>" --auto-select --save-dir ./downloads -M format=mp4
 - `--log-file-path` 日志写出并按上游清理非法文件名、默认日志目录、`--no-log` 禁用日志、`--log-level` 日志文件等级过滤
 - stdout/stderr 被重定向时按上游自动启用 `--force-ansi-console` 并清除 ANSI 颜色，避免管道/日志中混入颜色控制序列
 - `--ui-language`、`--log-level`、`--sub-format`、`--decryption-engine`、`--custom-hls-method` 按上游白名单/枚举值提前校验，需要参数值的选项缺值时会立即报错，`--thread-count`、`--download-retry-count`、`--live-wait-time`、`--live-take-count` 等数值选项会在解析阶段拒绝非法整数，避免非法值静默按默认行为执行
-- `--ui-language` 已开始接入核心运行输出、解析后四项轨道统计、已选流列表、无流错误、保存文件名、meta json 写出、开始下载、自动派生选项提示、自动二进制合并提示、更新检查提示、下载进度文本和外部工具缺失提示，默认中文，支持 `zh-CN/zh-TW/en-US`
+- `--ui-language` 已开始接入核心运行输出、解析后四项轨道统计、已选流列表、无流错误、保存文件名、meta json 写出、开始下载、读取媒体信息、二进制合并、ffmpeg 合并、分块合并、自动派生选项提示、自动二进制合并提示、更新检查提示、下载进度文本和外部工具缺失提示，默认中文，支持 `zh-CN/zh-TW/en-US`
 - GitHub latest release 更新检查、`--disable-update-check`
 - 未传 `--save-name` 时从输入 URL/文件名推导默认保存名，`--save-pattern` 支持 `<FrameRate>` 等变量，并按上游清理空字段产生的多余分隔符
 - 单请求限速、`--max-speed`，按上游规则只接受 `K`/`M` 单位，例如 `512K`、`1.5M`

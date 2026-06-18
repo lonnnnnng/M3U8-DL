@@ -20,6 +20,7 @@ func ffmpegMerge(files []string, outputBase, format string, opt Options, useAACF
 	if opt.FFmpegBinaryPath == "" {
 		opt.FFmpegBinaryPath = "ffmpeg"
 	}
+	fmt.Println(tr(opt, "ffmpegMerge"))
 	format = strings.ToLower(format)
 	if format == "" {
 		format = "mp4"
@@ -36,6 +37,7 @@ func ffmpegMerge(files []string, outputBase, format string, opt Options, useAACF
 	workFiles := files
 	if len(workFiles) >= partialMergeThreshold {
 		var err error
+		fmt.Println(tr(opt, "partMerge"))
 		// long: 超长分片列表会让 ffmpeg concat 参数膨胀到系统限制，先按上游策略分批二进制合并成临时块再交给 ffmpeg。
 		workFiles, err = partialCombineMultipleFiles(workFiles)
 		if err != nil {

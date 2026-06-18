@@ -89,6 +89,26 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "開始下載...",
 		EnUS: "Start downloading...",
 	},
+	"readingInfo": {
+		ZhCN: "读取媒体信息...",
+		ZhTW: "讀取媒體訊息...",
+		EnUS: "Reading media info...",
+	},
+	"binaryMerge": {
+		ZhCN: "二进制合并中...",
+		ZhTW: "二進位制合併中...",
+		EnUS: "Binary merging...",
+	},
+	"ffmpegMerge": {
+		ZhCN: "调用ffmpeg合并中...",
+		ZhTW: "調用ffmpeg合併中...",
+		EnUS: "ffmpeg merging...",
+	},
+	"partMerge": {
+		ZhCN: "分片数量大于1800个，开始分块合并...",
+		ZhTW: "分片數量大於1800個，開始分塊合併...",
+		EnUS: "Segments more than 1800, start partial merge...",
+	},
 	"muxOutput": {
 		ZhCN: "混流输出: %s",
 		ZhTW: "混流輸出: %s",
