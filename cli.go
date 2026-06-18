@@ -901,12 +901,19 @@ func parseDecryptKey(input string) (string, error) {
 	if pairKeyRE.MatchString(input) || idHexKeyRE.MatchString(input) || singleHexKeyRE.MatchString(input) {
 		return strings.ToLower(input), nil
 	}
-	parts := strings.Split(input, ":")
+	rawParts := strings.Split(input, ":")
+	parts := make([]string, 0, len(rawParts))
+	for _, part := range rawParts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			// long: 上游 Split 使用 RemoveEmptyEntries 和 TrimEntries，空 KID/KEY 段会被丢弃后再判断是一段 key 还是 KID:KEY。
+			parts = append(parts, part)
+		}
+	}
 	if len(parts) < 1 || len(parts) > 2 {
 		return "", fmt.Errorf("error in parse custom key: Input must be KEY or KID:KEY format. All Inputs=[%s]", input)
 	}
 	parsePart := func(part, label string) (string, error) {
-		part = strings.TrimSpace(part)
 		if singleHexKeyRE.MatchString(part) {
 			return strings.ToLower(part), nil
 		}

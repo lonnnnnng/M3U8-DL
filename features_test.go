@@ -280,6 +280,35 @@ func TestParseArgsKeyNormalizesUpstreamFormats(t *testing.T) {
 	}
 }
 
+func TestParseArgsKeyDropsEmptyPartsLikeUpstream(t *testing.T) {
+	key := "00112233445566778899aabbccddeeff"
+	kid := "abcdefabcdefabcdefabcdefabcdefab"
+
+	opt, err := parseArgs([]string{"--key", ":" + key, "https://example.com/main.m3u8"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opt.Keys[0] != key {
+		t.Fatalf("leading empty KID should be dropped like upstream, got %s", opt.Keys[0])
+	}
+
+	opt, err = parseArgs([]string{"--key", strings.ToUpper(key) + ":", "https://example.com/main.m3u8"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opt.Keys[0] != key {
+		t.Fatalf("trailing empty KEY should leave single key like upstream, got %s", opt.Keys[0])
+	}
+
+	opt, err = parseArgs([]string{"--key", kid + "::" + key, "https://example.com/main.m3u8"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opt.Keys[0] != kid+":"+key {
+		t.Fatalf("empty middle key part should be dropped like upstream, got %s", opt.Keys[0])
+	}
+}
+
 func TestParseArgsKeyAcceptsMultipleValuesAfterOneFlag(t *testing.T) {
 	opt, err := parseArgs([]string{
 		"--key",
