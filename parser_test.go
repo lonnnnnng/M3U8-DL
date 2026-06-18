@@ -575,7 +575,7 @@ func TestPreProcessHLSContentMatchesUpstreamSiteFixes(t *testing.T) {
 	t.Run("apple tv encrypted part", func(t *testing.T) {
 		raw := "#EXTM3U\n#EXT-X-MAP:URI=\"https://video.apple.com/init.mp4\"\n#EXT-X-KEY:METHOD=SAMPLE-AES,URI=\"skd://asset\"\n#EXTINF:4,\nenc.m4s\n#EXT-X-DISCONTINUITY\n#EXTINF:4,\nclear.m4s"
 		got := preProcessHLSContent(raw, "https://video.apple.com/main.m3u8")
-		want := "#EXTM3U\n#EXT-X-KEY:METHOD=SAMPLE-AES,URI=\"skd://asset\"\n#EXTINF:4,\nenc.m4s\n\n#EXT-X-ENDLIST"
+		want := "#EXTM3U\r\n#EXT-X-KEY:METHOD=SAMPLE-AES,URI=\"skd://asset\"\n#EXTINF:4,\nenc.m4s\n\r\n#EXT-X-ENDLIST"
 		if got != want {
 			t.Fatalf("AppleTV preprocessing mismatch:\nwant:\n%s\ngot:\n%s", want, got)
 		}
@@ -584,7 +584,7 @@ func TestPreProcessHLSContentMatchesUpstreamSiteFixes(t *testing.T) {
 	t.Run("apple tv malformed key order follows upstream processor order", func(t *testing.T) {
 		raw := "#EXTM3U\n#EXT-X-MAP:URI=\"https://video.apple.com/init.mp4\"\n#EXTINF:4,\n#EXT-X-KEY:METHOD=SAMPLE-AES,URI=\"skd://asset\"\nenc.m4s\n#EXT-X-DISCONTINUITY\n#EXTINF:4,\nclear.m4s"
 		got := preProcessHLSContent(raw, "https://video.apple.com/main.m3u8")
-		want := "#EXTM3U\n#EXT-X-KEY:METHOD=SAMPLE-AES,URI=\"skd://asset\"\nenc.m4s\n\n#EXT-X-ENDLIST"
+		want := "#EXTM3U\r\n#EXT-X-KEY:METHOD=SAMPLE-AES,URI=\"skd://asset\"\nenc.m4s\n\r\n#EXT-X-ENDLIST"
 		if got != want {
 			t.Fatalf("AppleTV malformed key-order preprocessing mismatch:\nwant:\n%s\ngot:\n%s", want, got)
 		}

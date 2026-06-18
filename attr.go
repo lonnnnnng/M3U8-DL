@@ -134,7 +134,8 @@ func preProcessHLSContent(content, m3u8URL string) string {
 	if strings.Contains(content, "#EXT-X-DISCONTINUITY") && strings.Contains(content, "#EXT-X-MAP") && (strings.Contains(m3u8URL, ".apple.com/") || regexp.MustCompile(`#EXT-X-MAP.*\.apple\.com/`).MatchString(content)) {
 		atv := regexp.MustCompile(`(#EXT-X-KEY:[\s\S]*?)(#EXT-X-DISCONTINUITY|#EXT-X-ENDLIST)`)
 		if m := atv.FindStringSubmatch(content); len(m) > 1 {
-			content = "#EXTM3U\n" + m[1] + "\n#EXT-X-ENDLIST"
+			// long: 原版 AppleTV 裁剪分支显式插入 CRLF，raw.m3u8 落盘和后续逐行读取都应保留这个混合换行形态。
+			content = "#EXTM3U\r\n" + m[1] + "\r\n#EXT-X-ENDLIST"
 		}
 	}
 	// long: 上游先完成 YK/Disney/AppleTV 等站点修正，最后才修复 KEY/EXTINF 顺序；顺序不同会改变 AppleTV 裁剪后的内容。
