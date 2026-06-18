@@ -13,6 +13,7 @@ import (
 )
 
 const latestReleaseURL = "https://github.com/nilaoda/N_m3u8DL-RE/releases/latest"
+const releaseTagURLPrefix = "https://github.com/nilaoda/N_m3u8DL-RE/releases/tag/"
 
 var versionNumberRE = regexp.MustCompile(`\d+(?:\.\d+){0,3}`)
 
@@ -65,12 +66,21 @@ func checkLatestRelease(ctx context.Context, client *http.Client, url string, cu
 	if location == "" {
 		return "", false, nil
 	}
-	idx := strings.LastIndex(location, "/")
-	latest := strings.TrimSpace(location[idx+1:])
+	latest := latestReleaseTagFromLocation(location)
 	if latest == "" || strings.HasPrefix(latest, "http") {
 		return "", false, nil
 	}
-	return latest, compareVersionTags(latest, currentTag) > 0, nil
+	return latest, isDifferentLatestTag(latest, currentTag), nil
+}
+
+func latestReleaseTagFromLocation(location string) string {
+	// long: 上游只把官方 releases/tag 前缀替换为空；未知跳转地址会保留 https 前缀，随后被当成无效结果忽略。
+	return strings.TrimSpace(strings.Replace(location, releaseTagURLPrefix, "", 1))
+}
+
+func isDifferentLatestTag(latest, currentTag string) bool {
+	// long: 原版没有做语义化版本大小比较，只要 latest tag 不是当前 vMajor.Minor.Build 的前缀就提示。
+	return !strings.HasPrefix(latest, currentTag) && !strings.HasPrefix(latest, "https")
 }
 
 func currentVersionTag(input string) string {
@@ -79,45 +89,6 @@ func currentVersionTag(input string) string {
 		return "v0.0.0"
 	}
 	return "v" + matches[len(matches)-1]
-}
-
-func compareVersionTags(a, b string) int {
-	aa := parseVersionParts(a)
-	bb := parseVersionParts(b)
-	max := len(aa)
-	if len(bb) > max {
-		max = len(bb)
-	}
-	for i := 0; i < max; i++ {
-		var av, bv int
-		if i < len(aa) {
-			av = aa[i]
-		}
-		if i < len(bb) {
-			bv = bb[i]
-		}
-		if av > bv {
-			return 1
-		}
-		if av < bv {
-			return -1
-		}
-	}
-	return 0
-}
-
-func parseVersionParts(tag string) []int {
-	match := versionNumberRE.FindString(tag)
-	if match == "" {
-		return nil
-	}
-	raw := strings.Split(match, ".")
-	parts := make([]int, 0, len(raw))
-	for _, item := range raw {
-		n, _ := strconv.Atoi(item)
-		parts = append(parts, n)
-	}
-	return parts
 }
 
 func applyOptionImplications(opt *Options) bool {

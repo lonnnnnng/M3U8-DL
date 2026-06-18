@@ -3867,7 +3867,7 @@ func TestSetupLoggingNoLog(t *testing.T) {
 func TestCheckLatestReleaseFromRedirect(t *testing.T) {
 	var srv *httptest.Server
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, srv.URL+"/nilaoda/N_m3u8DL-RE/releases/tag/v9.9.9", http.StatusFound)
+		http.Redirect(w, r, releaseTagURLPrefix+"v9.9.9", http.StatusFound)
 	}))
 	defer srv.Close()
 	client := srv.Client()
@@ -3880,6 +3880,55 @@ func TestCheckLatestReleaseFromRedirect(t *testing.T) {
 	}
 	if latest != "v9.9.9" || !newer {
 		t.Fatalf("unexpected update result latest=%q newer=%v", latest, newer)
+	}
+}
+
+func TestCheckLatestReleaseMatchesUpstreamPrefixSemantics(t *testing.T) {
+	cases := []struct {
+		name     string
+		location string
+		current  string
+		latest   string
+		newer    bool
+	}{
+		{
+			name:     "same current prefix is not treated as new",
+			location: releaseTagURLPrefix + "v1.2.3-beta",
+			current:  "v1.2.3",
+			latest:   "v1.2.3-beta",
+		},
+		{
+			name:     "different prefix is reported even when numeric version is lower",
+			location: releaseTagURLPrefix + "v1.2.2",
+			current:  "v1.2.3",
+			latest:   "v1.2.2",
+			newer:    true,
+		},
+		{
+			name:     "unexpected https redirect is ignored like upstream",
+			location: "https://example.com/releases/tag/v9.9.9",
+			current:  "v1.2.3",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var srv *httptest.Server
+			srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				http.Redirect(w, r, tc.location, http.StatusFound)
+			}))
+			defer srv.Close()
+			client := srv.Client()
+			client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			}
+			latest, newer, err := checkLatestRelease(context.Background(), client, srv.URL+"/latest", tc.current)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if latest != tc.latest || newer != tc.newer {
+				t.Fatalf("unexpected update result latest=%q newer=%v, want latest=%q newer=%v", latest, newer, tc.latest, tc.newer)
+			}
+		})
 	}
 }
 
@@ -3905,13 +3954,7 @@ func TestUpdateFoundMessageMatchesUpstreamResourceText(t *testing.T) {
 	}
 }
 
-func TestCompareVersionTags(t *testing.T) {
-	if compareVersionTags("v1.2.10", "v1.2.9") <= 0 {
-		t.Fatal("expected v1.2.10 to be newer")
-	}
-	if compareVersionTags("v1.2", "v1.2.0") != 0 {
-		t.Fatal("expected missing patch to compare as zero")
-	}
+func TestCurrentVersionTag(t *testing.T) {
 	if currentVersionTag("N_m3u8DL-GO-HLS 0.1.0") != "v0.1.0" {
 		t.Fatal("current version tag extraction failed")
 	}
