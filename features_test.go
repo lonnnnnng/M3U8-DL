@@ -789,6 +789,20 @@ func TestParseArgsStreamFilterLooseKeySearchMatchesUpstream(t *testing.T) {
 	}
 }
 
+func TestParseArgsStreamFilterBareForMatchUsesUpstreamWholeMatch(t *testing.T) {
+	opt, err := parseArgs([]string{"-sv", "bestx", "https://example.com/main.m3u8"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opt.VideoFilter == nil || opt.VideoFilter.For != "best" {
+		t.Fatalf("bare bestx should fall back to default best like upstream, got %#v", opt.VideoFilter)
+	}
+
+	if _, err := parseArgs([]string{"-sv", "for=bestx", "https://example.com/main.m3u8"}); err == nil || !strings.Contains(err.Error(), "for=bestx not valid") {
+		t.Fatalf("explicit invalid for value should still be rejected, got %v", err)
+	}
+}
+
 func TestParseArgsMuxAfterDoneBareBoolFlagsMatchUpstreamSuffixRule(t *testing.T) {
 	tests := []struct {
 		name    string

@@ -790,7 +790,8 @@ func parseStrictMuxBool(input string, params map[string]string, key string, erro
 
 func parseFilter(input string) *Filter {
 	f := &Filter{For: "best"}
-	if input == "best" || input == "worst" || input == "all" || strings.HasPrefix(input, "best") || strings.HasPrefix(input, "worst") {
+	if input == filterForRE.FindString(input) {
+		// long: 原版裸选轨值只在整串正好匹配 best/worst/all 时生效；bestx 这类值会被当作复杂参数并回退默认 best。
 		f.For = input
 		return f
 	}
@@ -960,6 +961,7 @@ var segmentRangeRE = regexp.MustCompile(`(\d*)-(\d*)`)
 var pairKeyRE = regexp.MustCompile(`^[0-9a-fA-F]{32}:[0-9a-fA-F]{32}$`)
 var idHexKeyRE = regexp.MustCompile(`^[0-9]+:[0-9a-fA-F]{32}$`)
 var singleHexKeyRE = regexp.MustCompile(`^[0-9a-fA-F]{32}$`)
+var filterForRE = regexp.MustCompile(`((best|worst)\d*|all)`)
 
 func parseSpeed(input string) (int64, error) {
 	input = strings.ToUpper(strings.TrimSpace(input))
