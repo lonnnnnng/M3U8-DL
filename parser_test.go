@@ -121,6 +121,16 @@ func TestParseMediaAcceptsLongSegmentURLLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestParseByteRangeTooManyAtSignsMatchesUpstream(t *testing.T) {
+	length, start, err := parseByteRange("100@20@30")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if length != 0 || start != nil {
+		t.Fatalf("multiple @ BYTERANGE should return 0,nil like upstream, got length=%d start=%v", length, start)
+	}
+}
+
 func TestParseSourceRetriesHTTPTextLikeUpstream(t *testing.T) {
 	var hits int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

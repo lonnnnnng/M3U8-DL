@@ -38,6 +38,10 @@ func attr(line, key string) string {
 
 func parseByteRange(input string) (length int64, start *int64, err error) {
 	parts := strings.Split(input, "@")
+	if len(parts) > 2 {
+		// long: 上游 GetRange 对多个 @ 的 BYTERANGE 直接返回 0/null；不能默默取第二段，否则会下载错误字节窗口。
+		return 0, nil, nil
+	}
 	length, err = strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 64)
 	if err != nil {
 		return 0, nil, err
