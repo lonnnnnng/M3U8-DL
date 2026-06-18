@@ -44,7 +44,7 @@
 - 支持 BYTERANGE 的 Range 请求和大文件 Range 切分。
 - 支持跳转后保留 Header/Range。
 - 支持下载限速 `--max-speed`。
-- 支持 gzip/deflate HTTP 压缩响应自动解压。
+- 支持 gzip/deflate/br HTTP 压缩响应自动解压。
 - 支持图片伪装分片头剥离和 gzip 分片解压。
 
 ### HLS Master 解析
@@ -149,7 +149,7 @@
 | HLS 内容预处理 | YSP、Youku、Disney+、AppleTV、KEY 顺序修正 | 已实现，并新增站点级预处理回归测试 | 已追平 |
 | URL 合并 | 相对 URL、BaseURL、URL Processor | HLS URL 合并和 `--base-url` 已支持；DASH 专用 URL Processor 不在范围 | 已追平 |
 | Append URL Params | 分片 URL 继承输入 URL 参数 | 已覆盖媒体分片、init、HLS key URL | 已追平 |
-| HTTP Header/文本编码/解压 | 默认 UA、自定义 Header、多 Header，播放列表文本按响应 charset 解码，gzip/deflate 响应自动解压 | 已支持；跳转后保留 Header/Range，非 UTF-8 playlist 文本按 `Content-Type` charset 解码，playlist/key/分片 HTTP deflate 响应可解压 | 已追平 |
+| HTTP Header/文本编码/解压 | 默认 UA、自定义 Header、多 Header，播放列表文本按响应 charset 解码，gzip/deflate/br 响应自动解压 | 已支持；跳转后保留 Header/Range，非 UTF-8 playlist 文本按 `Content-Type` charset 解码，playlist/key/分片 HTTP deflate 和 Brotli 响应可解压 | 已追平 |
 | 代理 | 系统代理、自定义代理 | 已支持系统代理和 `--custom-proxy` 校验 | 已追平 |
 | 重试/超时 | 请求超时、下载重试、key 重试 | 已支持，`--http-request-timeout` 支持小数秒 | 已追平 |
 | 并发下载 | 分片并发、多轨并发 | 已支持，且多轨输出顺序稳定 | 已追平 |

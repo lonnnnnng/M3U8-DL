@@ -24,7 +24,7 @@ go run . "<m3u8-url-or-file>" --auto-select --save-dir ./downloads -M format=mp4
 - CENC/SAMPLE-AES/SAMPLE-AES-CTR 下载后外部工具解密入口，含基础实时分片解密路径
 - `mp4decrypt` 按上游在媒体目录临时改名并切换工作目录执行，同目录 init 信息使用相对文件名，兼容中文/特殊路径
 - 传入 `--key`/`--key-text-file` 时提前校验外部解密工具路径
-- HTTP 请求头、代理、超时、重试、gzip/deflate 响应解压、并发下载
+- HTTP 请求头、代理、超时、重试、gzip/deflate/br 响应解压、并发下载
 - 源 m3u8 和子 playlist HTTP 文本加载按上游默认重试 10 次
 - 重跑任务时复用已下载分片和已生成的 `_dec` 解密分片
 - 单大分片在服务端支持 Range 时自动拆成多个字节区间并发下载

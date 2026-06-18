@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/andybalholm/brotli"
 )
 
 func TestParseMaster(t *testing.T) {
@@ -165,6 +167,56 @@ func TestParseMediaLoadsDeflateHLSKeyLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestParseSourceDecodesBrotliHTTPTextLikeUpstream(t *testing.T) {
+	raw := []byte("#EXTM3U\n#EXT-X-TARGETDURATION:1\n#EXTINF:1,\nseg.ts\n#EXT-X-ENDLIST\n")
+	compressed := brotliBytes(t, raw)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Encoding", "br")
+		w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
+		_, _ = w.Write(compressed)
+	}))
+	defer srv.Close()
+
+	opt := defaultOptions()
+	opt.Input = srv.URL + "/main.m3u8"
+	streams, _, err := parseSource(context.Background(), srv.Client(), opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(streams) != 1 || streams[0].Playlist == nil {
+		t.Fatalf("brotli playlist should be decompressed before parsing, got %#v", streams)
+	}
+}
+
+func TestParseMediaLoadsBrotliHLSKeyLikeUpstream(t *testing.T) {
+	key := []byte("0123456789abcdef")
+	compressedKey := brotliBytes(t, key)
+	var base string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/key.bin":
+			w.Header().Set("Content-Encoding", "br")
+			_, _ = w.Write(compressedKey)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	base = srv.URL
+
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: srv.Client(), originalURL: base + "/main.m3u8", currentURL: base + "/main.m3u8", baseURL: base + "/main.m3u8", rawFiles: map[string]string{}}
+	raw := "#EXTM3U\n#EXT-X-TARGETDURATION:1\n#EXT-X-KEY:METHOD=AES-128,URI=\"key.bin\"\n#EXTINF:1,\nseg.ts\n#EXT-X-ENDLIST\n"
+	pl, err := p.parseMedia(context.Background(), raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segs := sortedSegments(pl)
+	if len(segs) != 1 || !bytes.Equal(segs[0].Encrypt.Key, key) {
+		t.Fatalf("brotli HLS key should be decompressed before use, got %#v", segs)
+	}
+}
+
 func zlibBytes(t *testing.T, data []byte) []byte {
 	t.Helper()
 	var out bytes.Buffer
@@ -173,6 +225,19 @@ func zlibBytes(t *testing.T, data []byte) []byte {
 		t.Fatal(err)
 	}
 	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return out.Bytes()
+}
+
+func brotliBytes(t *testing.T, data []byte) []byte {
+	t.Helper()
+	var out bytes.Buffer
+	bw := brotli.NewWriter(&out)
+	if _, err := bw.Write(data); err != nil {
+		t.Fatal(err)
+	}
+	if err := bw.Close(); err != nil {
 		t.Fatal(err)
 	}
 	return out.Bytes()

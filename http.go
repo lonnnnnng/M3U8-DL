@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/andybalholm/brotli"
 	"golang.org/x/net/html/charset"
 )
 
@@ -213,6 +214,10 @@ func decodedResponseBody(resp *http.Response) (io.Reader, func(), bool, error) {
 			}
 			closers = append(closers, deflated)
 			body = deflated
+			encoded = true
+		case "br":
+			// long: 原版 HTTP 客户端启用 DecompressionMethods.All，真实站点如果返回 Brotli playlist/key/分片也应在解析前还原明文。
+			body = io.NopCloser(brotli.NewReader(body))
 			encoded = true
 		default:
 			continue
