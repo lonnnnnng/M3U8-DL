@@ -36,6 +36,22 @@ func attr(line, key string) string {
 	return rest[:end]
 }
 
+func attrExists(line, key string) bool {
+	prefix := key + "="
+	for start := 0; start < len(line); {
+		i := strings.Index(line[start:], prefix)
+		if i < 0 {
+			return false
+		}
+		idx := start + i
+		if idx == 0 || line[idx-1] == ':' || line[idx-1] == ',' {
+			return true
+		}
+		start = idx + len(prefix)
+	}
+	return false
+}
+
 func parseByteRange(input string) (length int64, start *int64, err error) {
 	parts := strings.Split(input, "@")
 	if len(parts) > 2 {

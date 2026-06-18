@@ -119,6 +119,10 @@ func TestParseMasterInvalidNumericFieldsFailLikeUpstream(t *testing.T) {
 			raw:  "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=bad,RESOLUTION=1280x720\nvideo.m3u8\n",
 		},
 		{
+			name: "empty bandwidth",
+			raw:  "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=,RESOLUTION=1280x720\nvideo.m3u8\n",
+		},
+		{
 			name: "frame rate",
 			raw:  "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=2000,FRAME-RATE=bad\nvideo.m3u8\n",
 		},
@@ -131,6 +135,19 @@ func TestParseMasterInvalidNumericFieldsFailLikeUpstream(t *testing.T) {
 				t.Fatal("invalid master numeric field should fail like upstream Convert")
 			}
 		})
+	}
+}
+
+func TestParseMasterMissingBandwidthDefaultsToZeroLikeUpstream(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/master.m3u8", currentURL: "https://example.com/master.m3u8", baseURL: "https://example.com/master.m3u8", rawFiles: map[string]string{}}
+	raw := "#EXTM3U\n#EXT-X-STREAM-INF:RESOLUTION=1280x720\nvideo.m3u8\n"
+	streams, err := p.parseMaster(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(streams) != 1 || streams[0].Bandwidth != 0 {
+		t.Fatalf("missing BANDWIDTH should parse as 0 like upstream Convert.ToInt32(null), got %#v", streams)
 	}
 }
 

@@ -88,11 +88,13 @@ func (p *parser) parseMaster(raw string) ([]StreamSpec, error) {
 			if bw == "" {
 				bw = attr(line, "BANDWIDTH")
 			}
-			bandwidth, err := strconv.Atoi(bw)
-			if err != nil {
-				return nil, err
+			if bw != "" || attrExists(line, "AVERAGE-BANDWIDTH") || attrExists(line, "BANDWIDTH") {
+				bandwidth, err := strconv.Atoi(bw)
+				if err != nil {
+					return nil, err
+				}
+				cur.Bandwidth = bandwidth
 			}
-			cur.Bandwidth = bandwidth
 			cur.Codecs = attr(line, "CODECS")
 			cur.Resolution = attr(line, "RESOLUTION")
 			if frameRate := attr(line, "FRAME-RATE"); frameRate != "" {
