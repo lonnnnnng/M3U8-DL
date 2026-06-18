@@ -89,6 +89,30 @@ func TestParseSourceRetriesHTTPTextLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestParseSourceDecodesHTTPCharsetLikeUpstream(t *testing.T) {
+	gbkName := []byte{0xd6, 0xd0, 0xce, 0xc4}
+	var raw []byte
+	raw = append(raw, []byte("#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"aud\",LANGUAGE=\"zh\",NAME=\"")...)
+	raw = append(raw, gbkName...)
+	raw = append(raw, []byte("\",URI=\"audio.m3u8\"\n#EXT-X-STREAM-INF:BANDWIDTH=2000,AUDIO=\"aud\"\nvideo.m3u8\n")...)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/vnd.apple.mpegurl; charset=gbk")
+		_, _ = w.Write(raw)
+	}))
+	defer srv.Close()
+
+	opt := defaultOptions()
+	opt.Input = srv.URL + "/master.m3u8"
+	streams, _, err := parseSource(context.Background(), srv.Client(), opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(streams) == 0 || streams[0].Name != "中文" {
+		t.Fatalf("GBK playlist text should be decoded before parsing, got %#v", streams)
+	}
+}
+
 func TestPreProcessHLSContentMatchesUpstreamSiteFixes(t *testing.T) {
 	t.Run("carriage returns and YSP endlist", func(t *testing.T) {
 		got := preProcessHLSContent("#EXTM3U\r#EXT-X-TARGETDURATION:1\r#EXTINF:1,\rseg.ts", "https://tlivecloud-playback-cdn.ysp.cctv.cn/live.m3u8?endtime=1")

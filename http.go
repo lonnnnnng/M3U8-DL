@@ -1,16 +1,20 @@
 package main
 
 import (
+	"bytes"
 	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"golang.org/x/net/html/charset"
 )
 
 const textFetchRetryCount = 10
@@ -130,7 +134,31 @@ func fetchHTTPTextOnce(ctx context.Context, client *http.Client, input string, h
 		body = gz
 	}
 	b, err := io.ReadAll(body)
-	return string(b), resp.Request.URL.String(), err
+	if err != nil {
+		return "", input, err
+	}
+	return decodeHTTPText(b, resp.Header.Get("Content-Type")), resp.Request.URL.String(), nil
+}
+
+func decodeHTTPText(data []byte, contentType string) string {
+	_, params, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return string(data)
+	}
+	label := strings.TrimSpace(params["charset"])
+	if label == "" {
+		return string(data)
+	}
+	reader, err := charset.NewReaderLabel(label, bytes.NewReader(data))
+	if err != nil {
+		return string(data)
+	}
+	decoded, err := io.ReadAll(reader)
+	if err != nil {
+		return string(data)
+	}
+	// long: 上游会按响应 charset 解码播放列表；非 UTF-8 清单中的中文轨道名或保存名必须在解析前还原成 Unicode。
+	return string(decoded)
 }
 
 func fetchBytes(ctx context.Context, client *http.Client, input string, headers map[string]string) ([]byte, error) {
