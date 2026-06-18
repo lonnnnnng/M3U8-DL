@@ -39,6 +39,10 @@ func parseSource(ctx context.Context, client *http.Client, opt Options) ([]Strea
 	if err != nil {
 		return nil, nil, err
 	}
+	if strings.TrimSpace(raw) == "" {
+		// long: 上游成功读取 URL/文件但内容为空时会报资源化的加载失败，而不是继续进入格式识别错误。
+		return nil, nil, fmt.Errorf("%s", tr(opt, "loadUrlFailed"))
+	}
 	p := &parser{opt: opt, client: client, originalURL: opt.Input, currentURL: finalURL, baseURL: finalURL, rawFiles: map[string]string{}}
 	if opt.BaseURL != "" {
 		p.baseURL = opt.BaseURL

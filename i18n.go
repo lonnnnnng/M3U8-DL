@@ -199,6 +199,11 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "載入URL: ",
 		EnUS: "Loading URL: ",
 	},
+	"loadUrlFailed": {
+		ZhCN: "加载URL失败",
+		ZhTW: "載入URL失敗",
+		EnUS: "Failed to load URL",
+	},
 	"matchHLS": {
 		ZhCN: "内容匹配: [white on deepskyblue1]HTTP Live Streaming[/]",
 		ZhTW: "內容匹配: [white on deepskyblue1]HTTP Live Streaming[/]",

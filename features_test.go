@@ -4854,6 +4854,9 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	if got := tr(opt, "loadingUrl"); got != "加载URL: " {
 		t.Fatalf("simplified loadingUrl wrong: %q", got)
 	}
+	if got := tr(opt, "loadUrlFailed"); got != "加载URL失败" {
+		t.Fatalf("simplified loadUrlFailed wrong: %q", got)
+	}
 	opt.UILanguage = "en-US"
 	if got := tr(opt, "startDownloading"); got != "Start downloading..." {
 		t.Fatalf("english startDownloading wrong: %q", got)
@@ -4888,6 +4891,9 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	opt.UILanguage = "zh-TW"
 	if got := tr(opt, "readingInfo"); got != "讀取媒體訊息..." {
 		t.Fatalf("traditional readingInfo wrong: %q", got)
+	}
+	if got := tr(opt, "loadUrlFailed"); got != "載入URL失敗" {
+		t.Fatalf("traditional loadUrlFailed wrong: %q", got)
 	}
 	if got := tr(opt, "fixingVTT"); got != "正在提取VTT(raw)字幕..." {
 		t.Fatalf("traditional fixingVTT wrong: %q", got)
@@ -4980,6 +4986,24 @@ func TestRuntimeMessagesMatchUpstreamResourceText(t *testing.T) {
 	}
 	if got := audio.Short(); got != "Aud aud-main | 128 Kbps | English | mp4a.40.2 | en | 2CH" {
 		t.Fatalf("audio short string should mirror upstream ToShortString without markup, got %q", got)
+	}
+}
+
+func TestParseSourceEmptyInputUsesLoadURLFailedResource(t *testing.T) {
+	tmp := t.TempDir()
+	empty := filepath.Join(tmp, "empty.m3u8")
+	if err := os.WriteFile(empty, []byte(" \n\t"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	opt := defaultOptions()
+	opt.Input = empty
+	opt.UILanguage = "zh-TW"
+	var err error
+	_ = captureStdout(t, func() {
+		_, _, err = parseSource(context.Background(), http.DefaultClient, opt)
+	})
+	if err == nil || err.Error() != "載入URL失敗" {
+		t.Fatalf("empty source should use localized loadUrlFailed, got %v", err)
 	}
 }
 
