@@ -1066,38 +1066,89 @@ func usage() string {
 }
 
 func moreHelp(topic string) string {
-	switch topic {
-	case "mux-after-done":
-		return `--mux-after-done / -M
-  format=mp4|mkv|ts:muxer=ffmpeg:keep=true|false:skip_sub=true|false
-`
-	case "mux-import":
-		return `--mux-import
-  path=PATH:lang=CODE:name=NAME
+	// long: --morehelp 是原版公开 CLI 体验的一部分；这里保留原版标题结构和 zh-CN 详细文本，避免用户查复杂参数时看到简化版说明。
+	msg, ok := map[string]string{
+		"mux-after-done": `所有工作完成时尝试混流分离的音视频. 你能够以:分隔形式指定如下参数:
 
-  path 指定外部媒体文件路径
-  lang 指定语言代码，可省略
-  name 指定轨道描述，可省略
+* format=FORMAT: 指定混流容器 mkv, mp4, ts
+* muxer=MUXER: 指定混流程序 ffmpeg, mkvmerge (默认: ffmpeg)
+* bin_path=PATH: 指定程序路径 (默认: 自动寻找)
+* skip_sub=BOOL: 是否忽略字幕文件 (默认: false)
+* keep=BOOL: 混流完成是否保留文件 true, false (默认: false)
 
-示例:
-  --mux-import path=zh-Hans.srt:lang=chi:name="中文 (简体)"
-  --mux-import path="D:\media\atmos.m4a":lang=eng:name="English Description Audio"
-`
-	case "custom-range":
-		return `--custom-range
-  0-10          下载第 0 到 10 个分片
-  10-           从第 10 个分片下载到末尾
-  00:01-00:02   按时间范围下载
-`
-	case "select-video", "select-audio", "select-subtitle":
-		return `选择器:
-  best / worst / all
-  best2 / worst3 / for=all
-  res=1920x*:codecs=avc:for=best
-  lang=zh|en:name=中文:for=all
-  bwMin=800:bwMax=5000:segsMin=10:plistDurMin=10m:for=best2
-`
-	default:
-		return "暂无该选项的详细帮助\n"
+例如:
+# 混流为mp4容器
+-M format=mp4
+# 使用mkvmerge, 自动寻找程序
+-M format=mkv:muxer=mkvmerge
+# 使用mkvmerge, 自定义程序路径
+-M format=mkv:muxer=mkvmerge:bin_path="C\:\Program Files\MKVToolNix\mkvmerge.exe"
+`,
+		"mux-import": `混流时引入外部媒体文件. 你能够以:分隔形式指定如下参数:
+
+* path=PATH: 指定媒体文件路径
+* lang=CODE: 指定媒体文件语言代码 (非必须)
+* name=NAME: 指定媒体文件描述信息 (非必须)
+
+例如:
+# 引入外部字幕
+--mux-import path=zh-Hans.srt:lang=chi:name="中文 (简体)"
+# 引入外部音轨+字幕
+--mux-import path="D\:\media\atmos.m4a":lang=eng:name="English Description Audio" --mux-import path="D\:\media\eng.vtt":lang=eng:name="English (Description)"
+`,
+		"custom-range": `下载点播内容时, 仅下载部分分片.
+
+例如:
+# 下载[0,10]共11个分片
+--custom-range 0-10
+# 下载从序号10开始的后续分片
+--custom-range 10-
+# 下载前100个分片
+--custom-range -99
+# 下载第5分钟到20分钟的内容
+--custom-range 05:00-20:00
+`,
+		"select-video": `通过正则表达式选择符合要求的视频流. 你能够以:分隔形式指定如下参数:
+
+id=REGEX:lang=REGEX:name=REGEX:codecs=REGEX:res=REGEX:frame=REGEX
+segsMin=number:segsMax=number:ch=REGEX:range=REGEX:url=REGEX
+plistDurMin=hms:plistDurMax=hms:bwMin=int:bwMax=int:role=string:for=FOR
+
+* for=FOR: 选择方式. best[number], worst[number], all (默认: best)
+
+例如:
+# 选择最佳视频
+-sv best
+# 选择4K+HEVC视频
+-sv res="3840*":codecs=hvc1:for=best
+# 选择长度大于1小时20分钟30秒的视频
+-sv plistDurMin="1h20m30s":for=best
+-sv role="main":for=best
+# 选择码率在800Kbps至1Mbps之间的视频
+-sv bwMin=800:bwMax=1000
+`,
+		"select-audio": `通过正则表达式选择符合要求的音频流. 参考 --select-video
+
+例如:
+# 选择所有音频
+-sa all
+# 选择最佳英语音轨
+-sa lang=en:for=best
+# 选择最佳的2条英语(或日语)音轨
+-sa lang="ja|en":for=best2
+-sa role="main":for=best
+`,
+		"select-subtitle": `通过正则表达式选择符合要求的字幕流. 参考 --select-video
+
+例如:
+# 选择所有字幕
+-ss all
+# 选择所有带有"中文"的字幕
+-ss name="中文":for=all
+`,
+	}[topic]
+	if !ok {
+		msg = "not found"
 	}
+	return fmt.Sprintf("More Help:\n\n  --%s\n\n%s", topic, msg)
 }

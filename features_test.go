@@ -816,13 +816,46 @@ func TestSplitComplexQuotedColonStopsLikeUpstream(t *testing.T) {
 
 func TestMoreHelpIncludesMuxImportLikeUpstream(t *testing.T) {
 	help := moreHelp("mux-import")
-	for _, want := range []string{"--mux-import", "path=PATH", "lang=CODE", "name=NAME"} {
+	for _, want := range []string{"More Help:", "--mux-import", "path=PATH", "lang=CODE", "name=NAME", "English Description Audio"} {
 		if !strings.Contains(help, want) {
 			t.Fatalf("mux-import morehelp missing %q:\n%s", want, help)
 		}
 	}
 	if !strings.Contains(usage(), "mux-import") {
 		t.Fatalf("usage should advertise mux-import morehelp:\n%s", usage())
+	}
+}
+
+func TestMoreHelpMatchesUpstreamDetailedTopics(t *testing.T) {
+	tests := []struct {
+		topic string
+		want  []string
+	}{
+		{topic: "mux-after-done", want: []string{"format=FORMAT", "muxer=MUXER", "skip_sub=BOOL", `bin_path="C\:\Program Files\MKVToolNix\mkvmerge.exe"`}},
+		{topic: "custom-range", want: []string{"下载[0,10]共11个分片", "--custom-range -99", "--custom-range 05:00-20:00"}},
+		{topic: "select-video", want: []string{"id=REGEX:lang=REGEX:name=REGEX", "plistDurMin=hms", "for=FOR", "-sv bwMin=800:bwMax=1000"}},
+		{topic: "select-audio", want: []string{"参考 --select-video", "-sa lang=\"ja|en\":for=best2", "-sa role=\"main\":for=best"}},
+		{topic: "select-subtitle", want: []string{"参考 --select-video", "-ss all", `-ss name="中文":for=all`}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.topic, func(t *testing.T) {
+			help := moreHelp(tt.topic)
+			if !strings.Contains(help, "More Help:\n\n  --"+tt.topic+"\n\n") {
+				t.Fatalf("morehelp should keep upstream header for %s:\n%s", tt.topic, help)
+			}
+			for _, want := range tt.want {
+				if !strings.Contains(help, want) {
+					t.Fatalf("morehelp %s missing %q:\n%s", tt.topic, want, help)
+				}
+			}
+		})
+	}
+}
+
+func TestMoreHelpUnknownTopicMatchesUpstream(t *testing.T) {
+	help := moreHelp("no-such-option")
+	if !strings.Contains(help, "More Help:\n\n  --no-such-option\n\nnot found") {
+		t.Fatalf("unknown morehelp should follow upstream not found output, got:\n%s", help)
 	}
 }
 
