@@ -39,7 +39,7 @@ func runLivePipeMuxOutputs(outs []outputFile, opt Options) ([]outputFile, error)
 	if len(pipeInputs) == 0 {
 		return outs, nil
 	}
-	session, err := prepareLivePipeMux(opt.FFmpegBinaryPath, len(pipeInputs), pipeInputs[0].Path, currentLivePipeEnv())
+	session, err := prepareLivePipeMux(opt.FFmpegBinaryPath, len(pipeInputs), pipeInputs[0].Path, currentLivePipeEnv(), opt)
 	if err != nil {
 		return outs, err
 	}
@@ -123,7 +123,7 @@ func randomLivePipeName() (string, error) {
 	return "RE_pipe_" + hex.EncodeToString(b[:]), nil
 }
 
-func prepareLivePipeMux(binary string, pipeCount int, outputPath string, env livePipeEnv) (*livePipeSession, error) {
+func prepareLivePipeMux(binary string, pipeCount int, outputPath string, env livePipeEnv, opt Options) (*livePipeSession, error) {
 	if pipeCount <= 0 {
 		return nil, fmt.Errorf("pipe count must be greater than zero")
 	}
@@ -147,8 +147,10 @@ func prepareLivePipeMux(binary string, pipeCount int, outputPath string, env liv
 		session.Pipes = append(session.Pipes, pipe)
 		session.PipeNames = append(session.PipeNames, name)
 		session.PipePaths = append(session.PipePaths, path)
+		fmt.Println(tr(opt, "namedPipeCreated") + name)
 	}
 	args := buildLivePipeMuxArgs(session.PipeNames, session.OutputPath, time.Now(), env, runtime.GOOS == "windows")
+	fmt.Println(tr(opt, "namedPipeMux") + " " + filepath.Base(session.OutputPath))
 	cmd := exec.Command(binary, args...)
 	if err := cmd.Start(); err != nil {
 		_ = session.Close()

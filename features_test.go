@@ -4302,11 +4302,20 @@ func TestPrepareLivePipeMuxCreatesPipesAndStartsMux(t *testing.T) {
 	if err := os.WriteFile(tool, []byte(script), 0755); err != nil {
 		t.Fatal(err)
 	}
-	session, err := prepareLivePipeMux(tool, 2, filepath.Join(tmp, "live.mp4"), livePipeEnv{TmpDir: tmp})
-	if err != nil {
-		t.Fatal(err)
-	}
+	opt := defaultOptions()
+	opt.UILanguage = "en-US"
+	var session *livePipeSession
+	output := captureStdout(t, func() {
+		var err error
+		session, err = prepareLivePipeMux(tool, 2, filepath.Join(tmp, "live.mp4"), livePipeEnv{TmpDir: tmp}, opt)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
 	defer session.Close()
+	if strings.Count(output, "Named pipe created: RE_pipe_") != 2 || !strings.Contains(output, "Mux with named pipe, to live.ts") {
+		t.Fatalf("pipe mux should print upstream creation and mux messages, got %q", output)
+	}
 	if session.OutputPath != filepath.Join(tmp, "live.ts") {
 		t.Fatalf("pipe mux output should use ts extension, got %s", session.OutputPath)
 	}
@@ -4742,6 +4751,12 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	}
 	if got := tr(opt, "liveLimitReached"); got != "到達直播錄製上限，即將停止錄製" {
 		t.Fatalf("traditional liveLimitReached wrong: %q", got)
+	}
+	if got := tr(opt, "namedPipeCreated"); got != "已創建命名管道：" {
+		t.Fatalf("traditional namedPipeCreated wrong: %q", got)
+	}
+	if got := tr(opt, "namedPipeMux"); got != "通過命名管道混流到" {
+		t.Fatalf("traditional namedPipeMux wrong: %q", got)
 	}
 	if got := tr(opt, "mkvmergeNotFound"); got != "找不到mkvmerge，請自行下載：https://mkvtoolnix.download/downloads.html" {
 		t.Fatalf("traditional mkvmergeNotFound wrong: %q", got)

@@ -252,7 +252,7 @@ func downloadLiveRealtimeIfNeeded(ctx context.Context, client *http.Client, sele
 	if len(pipeStateIndexes) > 0 {
 		baseOutput := outs[pipeStateIndexes[0]].Path
 		var err error
-		pipeSession, err = prepareLivePipeMux(opt.FFmpegBinaryPath, len(pipeStateIndexes), baseOutput, currentLivePipeEnv())
+		pipeSession, err = prepareLivePipeMux(opt.FFmpegBinaryPath, len(pipeStateIndexes), baseOutput, currentLivePipeEnv(), opt)
 		if err != nil {
 			return nil, true, err
 		}

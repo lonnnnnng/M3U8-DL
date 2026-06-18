@@ -14,6 +14,16 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "檢測到新版本，請盡快升級！",
 		EnUS: "New version detected!",
 	},
+	"namedPipeCreated": {
+		ZhCN: "已创建命名管道：",
+		ZhTW: "已創建命名管道：",
+		EnUS: "Named pipe created: ",
+	},
+	"namedPipeMux": {
+		ZhCN: "通过命名管道混流到",
+		ZhTW: "通過命名管道混流到",
+		EnUS: "Mux with named pipe, to",
+	},
 	"consoleRedirected": {
 		ZhCN: "输出被重定向, 将清除ANSI颜色",
 		ZhTW: "輸出被重定向, 將清除ANSI顏色",
