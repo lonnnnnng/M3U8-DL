@@ -27,6 +27,9 @@ type ffprobeStreams struct {
 			SideDataType string `json:"side_data_type"`
 		} `json:"side_data_list"`
 	} `json:"streams"`
+	Format struct {
+		StartTime string `json:"start_time"`
+	} `json:"format"`
 }
 
 func probeMediaInfo(path string, opt Options) []mediaInfo {
@@ -44,12 +47,18 @@ func probeMediaInfo(path string, opt Options) []mediaInfo {
 		return nil
 	}
 	var infos []mediaInfo
+	formatStart := parseMediaStartTime(parsed.Format.StartTime)
 	for _, stream := range parsed.Streams {
+		startTime := parseMediaStartTime(stream.StartTime)
+		if startTime == 0 {
+			// long: 原版从 ffmpeg 全局 Duration/start 文本读取起点，并把它套到每条流；ffprobe JSON 里同一信息常落在 format.start_time。
+			startTime = formatStart
+		}
 		info := mediaInfo{
 			Type:      strings.ToLower(stream.CodecType),
 			CodecName: strings.ToLower(stream.CodecName),
 			CodecTag:  strings.ToLower(stream.CodecTagString),
-			StartTime: parseMediaStartTime(stream.StartTime),
+			StartTime: startTime,
 		}
 		for _, sideData := range stream.SideDataList {
 			info.SideData = append(info.SideData, strings.ToLower(sideData.SideDataType))

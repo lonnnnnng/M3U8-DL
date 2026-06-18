@@ -2809,6 +2809,38 @@ func TestProbeMediaInfoReadsAudioStartTime(t *testing.T) {
 	}
 }
 
+func TestProbeMediaInfoFallsBackToFormatStartTimeLikeUpstream(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell helper is unix-only")
+	}
+	tmp := t.TempDir()
+	ffmpeg := filepath.Join(tmp, "ffmpeg")
+	ffprobe := filepath.Join(tmp, "ffprobe")
+	if err := os.WriteFile(ffmpeg, []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	script := "#!/bin/sh\nprintf '%s\\n' '{\"streams\":[{\"codec_type\":\"audio\",\"codec_name\":\"aac\",\"codec_tag_string\":\"mp4a\"}],\"format\":{\"start_time\":\"2.500\"}}'\n"
+	if err := os.WriteFile(ffprobe, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	media := filepath.Join(tmp, "audio.ts")
+	if err := os.WriteFile(media, []byte("probe"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	opt := defaultOptions()
+	opt.FFmpegBinaryPath = ffmpeg
+	infos := probeMediaInfo(media, opt)
+	if len(infos) != 1 {
+		t.Fatalf("unexpected media info: %#v", infos)
+	}
+	if got := infos[0].StartTime; got != 2500*time.Millisecond {
+		t.Fatalf("format start_time should fill stream start like upstream, got %s", got)
+	}
+	if start, ok := mediaInfosAudioStart(infos); !ok || start != 2500*time.Millisecond {
+		t.Fatalf("audio start helper should use format fallback start=%s ok=%v", start, ok)
+	}
+}
+
 func TestProbeMediaInfoUnknownFallbackLikeUpstream(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell helper is unix-only")
