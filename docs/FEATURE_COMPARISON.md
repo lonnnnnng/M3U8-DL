@@ -1,6 +1,6 @@
 # N_m3u8DL-RE 功能清单与 Go HLS 复刻进度对比
 
-更新时间：2026-06-18 10:00:00（北京时间）
+更新时间：2026-06-18 23:47:14（北京时间）
 
 ## 代码目录
 
@@ -183,7 +183,7 @@
 | `--mux-import` | 多外部轨道导入 | 已支持多条导入和存在性校验 | 已追平 |
 | `--skip-download` | 只解析/写 meta | 已支持 | 已追平 |
 | `--skip-merge` | 保留分片目录 | 已支持，且不触发最终 `-M` | 已追平 |
-| 临时文件清理 | `--del-after-done` | 点播和部分直播实时合并路径已支持 | 基本追平 |
+| 临时文件清理 | `--del-after-done` | 点播和部分直播实时合并路径已支持；普通下载会删除已知分片和 Go 版 concat 辅助文件，并按上游 `SafeDeleteDir` 递归清理空父目录，非空目录会保留 | 基本追平 |
 | VTT/SRT | VTT 修复、SRT 输出 | 已支持多分片时间轴、空 SRT 占位、`X-TIMESTAMP-MAP` | 已追平 |
 | TTML | TTML 转 VTT/SRT | 已支持裸 TTML 和部分 MP4 TTML | 基本追平 |
 | MP4 WebVTT | wvtt/vttc/payl 抽取 | 已支持并保留 `iden` cue id | 基本追平 |
@@ -208,7 +208,7 @@
 4. 直播 producer/consumer 多轨状态机仍是简化实现，PipeMux 在 Windows 真实环境未实际运行验证。
 5. ANSI/Spectre 风格动态进度 UI 未复刻；当前只对齐了重定向时清除 ANSI 颜色的控制台初始化行为。
 6. 多语言资源系统已覆盖核心运行输出，但完整 `ResString` 资源表、帮助文本和全部错误提示仍未复刻。
-7. ffmpeg/mkvmerge 的全部参数边缘组合、媒体探测和清理策略还需要继续按样本补证据。
+7. ffmpeg/mkvmerge 的全部参数边缘组合和媒体探测还需要继续按样本补证据。
 
 ## 最近验证口径
 

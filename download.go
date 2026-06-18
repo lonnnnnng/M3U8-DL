@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -514,9 +515,22 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 		output = decrypted
 	}
 	if opt.DelAfterDone {
-		_ = os.RemoveAll(tmpDir)
+		_ = cleanupDownloadedTempDir(tmpDir, files)
 	}
 	return outputFile{Path: output, MediaType: s.MediaType, Language: s.Language, Name: s.Name}, nil
+}
+
+func cleanupDownloadedTempDir(tmpDir string, files []string) error {
+	for _, file := range files {
+		if err := os.Remove(file); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+	}
+	// long: concat.txt 是 Go 版为 ffmpeg concat demuxer 生成的任务内辅助文件；清掉它后再按上游 SafeDeleteDir 只删除空目录，用户额外放入的排障文件会阻止目录被删除。
+	if err := os.Remove(filepath.Join(tmpDir, "concat.txt")); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return safeDeleteEmptyParents(tmpDir)
 }
 
 func cleanupFixedSubtitleSourceFiles(files []string, honorImageKeepEnv bool) {

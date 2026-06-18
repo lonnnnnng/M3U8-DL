@@ -447,10 +447,37 @@ func cleanupRawMetaFiles(opt Options, p *parser) error {
 		return err
 	}
 	if len(entries) == 0 {
-		// long: 原版 SafeDeleteDir 只会向上清理空目录；这里不删除非空任务目录，避免误碰用户放入同目录的额外排障文件。
-		return os.Remove(dir)
+		// long: 上游 SafeDeleteDir 会沿父级继续清理空目录；非空目录会立刻停止，用户额外放入的排障文件不会被碰到。
+		return safeDeleteEmptyParents(dir)
 	}
 	return nil
+}
+
+func safeDeleteEmptyParents(dir string) error {
+	if dir == "" {
+		return nil
+	}
+	current := filepath.Clean(dir)
+	for {
+		entries, err := os.ReadDir(current)
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if len(entries) != 0 {
+			return nil
+		}
+		if err := os.Remove(current); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return nil
+		}
+		current = parent
+	}
 }
 
 func writeFileIfAbsent(path string, data []byte) error {

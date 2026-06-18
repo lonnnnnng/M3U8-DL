@@ -918,6 +918,9 @@ func TestCleanupRawMetaAfterDownloadMatchesUpstream(t *testing.T) {
 	if _, err := os.Stat(dir); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("empty raw/meta task dir should be removed like upstream, err=%v", err)
 	}
+	if _, err := os.Stat(tmp); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("empty tmp root should also be removed by upstream SafeDeleteDir recursion, err=%v", err)
+	}
 }
 
 func TestCleanupRawMetaKeepsFilesWhenSkipMerge(t *testing.T) {
@@ -959,6 +962,63 @@ func TestCleanupRawMetaPreservesNonEmptyTaskDir(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "raw.m3u8")); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("raw/meta files should still be removed from non-empty task dir, err=%v", err)
+	}
+}
+
+func TestCleanupDownloadedTempDirPreservesUnexpectedFilesLikeUpstream(t *testing.T) {
+	tmp := t.TempDir()
+	root := filepath.Join(tmp, "task")
+	streamDir := filepath.Join(root, "stream")
+	if err := os.MkdirAll(streamDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	segment := filepath.Join(streamDir, "000.ts")
+	note := filepath.Join(streamDir, "note.txt")
+	for path, content := range map[string]string{
+		segment:                                "segment",
+		filepath.Join(streamDir, "concat.txt"): "concat",
+		note:                                   "keep",
+	} {
+		if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := cleanupDownloadedTempDir(streamDir, []string{segment}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(segment); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("known segment should be removed, err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(streamDir, "concat.txt")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("Go concat helper file should be removed, err=%v", err)
+	}
+	if _, err := os.Stat(note); err != nil {
+		t.Fatalf("unexpected user file should keep non-empty dir alive, err=%v", err)
+	}
+}
+
+func TestCleanupDownloadedTempDirDeletesEmptyParentsLikeUpstream(t *testing.T) {
+	tmp := t.TempDir()
+	root := filepath.Join(tmp, "task")
+	streamDir := filepath.Join(root, "stream")
+	if err := os.MkdirAll(streamDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	segment := filepath.Join(streamDir, "000.ts")
+	if err := os.WriteFile(segment, []byte("segment"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := cleanupDownloadedTempDir(streamDir, []string{segment}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(streamDir); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("empty stream dir should be removed, err=%v", err)
+	}
+	if _, err := os.Stat(root); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("empty task root should be removed recursively, err=%v", err)
+	}
+	if _, err := os.Stat(tmp); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("empty tmp root should be removed recursively, err=%v", err)
 	}
 }
 
