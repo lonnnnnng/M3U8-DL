@@ -228,7 +228,7 @@ func decryptMP4File(path string, opt Options, kid string, initPath string) (stri
 		}
 	}
 	if bin == "" {
-		return path, fmt.Errorf("找不到解密工具，请设置 --decryption-binary-path")
+		return path, fmt.Errorf("%s", decryptToolNotFoundText(opt, engine))
 	}
 	if kid == "" && engine == "SHAKA_PACKAGER" {
 		if detected, err := detectKIDWithShaka(path, bin); err == nil && detected != "" {
@@ -398,6 +398,7 @@ func collectDecryptKeys(opt Options, kid string) []string {
 	keys = append(keys, opt.Keys...)
 	if opt.KeyTextFile != "" && kid != "" {
 		if b, err := os.ReadFile(opt.KeyTextFile); err == nil {
+			fmt.Println(tr(opt, "searchKey"))
 			for _, line := range strings.Split(string(b), "\n") {
 				line = strings.TrimSpace(line)
 				if line == "" || strings.HasPrefix(line, "#") {
@@ -406,11 +407,24 @@ func collectDecryptKeys(opt Options, kid string) []string {
 				// long: 上游 SearchKeyFromFileAsync 只在已知 KID 时查找 key 文件，并按 StartsWith 精确匹配，避免无 KID 分片误用 key 文件里的任意密钥。
 				if strings.HasPrefix(line, kid) {
 					keys = append(keys, line)
+					fmt.Printf("OK %s\n", line)
+					break
 				}
 			}
 		}
 	}
 	return keys
+}
+
+func decryptToolNotFoundText(opt Options, engine string) string {
+	switch strings.ToUpper(engine) {
+	case "SHAKA_PACKAGER":
+		return tr(opt, "shakaPackagerNotFound")
+	case "FFMPEG":
+		return tr(opt, "ffmpegNotFound")
+	default:
+		return tr(opt, "mp4decryptNotFound")
+	}
 }
 
 func selectDecryptKeyPair(keys []string, kid string) (string, bool) {

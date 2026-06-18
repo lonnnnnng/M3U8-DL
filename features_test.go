@@ -3768,10 +3768,33 @@ func TestCollectDecryptKeysByKID(t *testing.T) {
 		t.Fatal(err)
 	}
 	opt := defaultOptions()
+	opt.UILanguage = "zh-CN"
 	opt.KeyTextFile = keyFile
-	keys := collectDecryptKeys(opt, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
-	if len(keys) != 1 || !strings.Contains(keys[0], "222222") {
-		t.Fatalf("unexpected keys: %#v", keys)
+	output := captureStdout(t, func() {
+		keys := collectDecryptKeys(opt, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+		if len(keys) != 1 || !strings.Contains(keys[0], "222222") {
+			t.Fatalf("unexpected keys: %#v", keys)
+		}
+	})
+	if !strings.Contains(output, "正在尝试从文本文件搜索KEY...") || !strings.Contains(output, "OK bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:22222222222222222222222222222222") {
+		t.Fatalf("key-text-file search should print upstream progress text, got %q", output)
+	}
+}
+
+func TestCollectDecryptKeysUsesFirstMatchingKeyFileLineLikeUpstream(t *testing.T) {
+	tmp := t.TempDir()
+	keyFile := filepath.Join(tmp, "keys.txt")
+	if err := os.WriteFile(keyFile, []byte("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:11111111111111111111111111111111\nbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:22222222222222222222222222222222\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	opt := defaultOptions()
+	opt.KeyTextFile = keyFile
+	var keys []string
+	_ = captureStdout(t, func() {
+		keys = collectDecryptKeys(opt, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+	})
+	if len(keys) != 1 || !strings.Contains(keys[0], "111111") {
+		t.Fatalf("key-text-file should return the first matching line like upstream, got %#v", keys)
 	}
 }
 
@@ -3798,9 +3821,26 @@ func TestCollectDecryptKeysMatchesKIDPrefixCaseSensitivelyLikeUpstream(t *testin
 	}
 	opt := defaultOptions()
 	opt.KeyTextFile = keyFile
-	keys := collectDecryptKeys(opt, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+	var keys []string
+	_ = captureStdout(t, func() {
+		keys = collectDecryptKeys(opt, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+	})
 	if len(keys) != 1 || !strings.Contains(keys[0], "222222") {
 		t.Fatalf("key-text-file KID matching should be case-sensitive like upstream, got %#v", keys)
+	}
+}
+
+func TestDecryptToolNotFoundTextFollowsEngineResource(t *testing.T) {
+	opt := defaultOptions()
+	opt.UILanguage = "en-US"
+	if got := decryptToolNotFoundText(opt, "MP4DECRYPT"); got != "mp4decrypt not found, please download at: https://www.bento4.com/downloads/" {
+		t.Fatalf("mp4decrypt missing text wrong: %q", got)
+	}
+	if got := decryptToolNotFoundText(opt, "SHAKA_PACKAGER"); got != "shaka-packager not found, please download at: https://github.com/shaka-project/shaka-packager/releases" {
+		t.Fatalf("shaka missing text wrong: %q", got)
+	}
+	if got := decryptToolNotFoundText(opt, "FFMPEG"); got != "ffmpeg not found, please download at: https://ffmpeg.org/download.html" {
+		t.Fatalf("ffmpeg missing text wrong: %q", got)
 	}
 }
 

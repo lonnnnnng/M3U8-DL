@@ -119,6 +119,11 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "讀取媒體訊息...",
 		EnUS: "Reading media info...",
 	},
+	"searchKey": {
+		ZhCN: "正在尝试从文本文件搜索KEY...",
+		ZhTW: "正在嘗試從文本文件搜尋KEY...",
+		EnUS: "Trying to search for KEY from text file...",
+	},
 	"fixingTTML": {
 		ZhCN: "正在提取TTML(raw)字幕...",
 		ZhTW: "正在提取TTML(raw)字幕...",
