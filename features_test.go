@@ -256,13 +256,22 @@ func TestParseArgsCustomProxyValidatesURLLikeUpstream(t *testing.T) {
 	}
 }
 
-func TestParseArgsKeyNormalizesUpstreamFormats(t *testing.T) {
+func TestParseArgsKeyMatchesUpstreamFormats(t *testing.T) {
 	opt, err := parseArgs([]string{"--key", "ABCDEFABCDEFABCDEFABCDEFABCDEFAB", "https://example.com/main.m3u8"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := opt.Keys[0]; got != "abcdefabcdefabcdefabcdefabcdefab" {
-		t.Fatalf("hex key should be normalized to lowercase, got %s", got)
+	if got := opt.Keys[0]; got != "ABCDEFABCDEFABCDEFABCDEFABCDEFAB" {
+		t.Fatalf("direct hex key should preserve casing like upstream, got %s", got)
+	}
+
+	directPair := "ABCDEFABCDEFABCDEFABCDEFABCDEFAB:00112233445566778899AABBCCDDEEFF"
+	opt, err = parseArgs([]string{"--key", directPair, "https://example.com/main.m3u8"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := opt.Keys[0]; got != directPair {
+		t.Fatalf("direct KID:KEY should preserve casing like upstream, got %s", got)
 	}
 
 	kidB64 := base64.StdEncoding.EncodeToString([]byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15})

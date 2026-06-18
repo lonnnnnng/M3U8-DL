@@ -899,7 +899,8 @@ func parseSpeed(input string) (int64, error) {
 func parseDecryptKey(input string) (string, error) {
 	input = strings.TrimSpace(input)
 	if pairKeyRE.MatchString(input) || idHexKeyRE.MatchString(input) || singleHexKeyRE.MatchString(input) {
-		return strings.ToLower(input), nil
+		// long: 上游对已匹配标准 HEX / KID:KEY / trackId:KEY 的输入会直接加入列表，不会归一化大小写；这会影响后续运行时 StartsWith(kid) 的精确匹配。
+		return input, nil
 	}
 	rawParts := strings.Split(input, ":")
 	parts := make([]string, 0, len(rawParts))
