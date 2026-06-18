@@ -29,6 +29,11 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "輸出被重定向, 將清除ANSI顏色",
 		EnUS: "Output is redirected, ANSI colors are cleared.",
 	},
+	"processImageSub": {
+		ZhCN: "正在处理图形字幕",
+		ZhTW: "正在處理圖形字幕",
+		EnUS: "Processing Image Sub",
+	},
 	"customRangeWarn": {
 		ZhCN: "请注意，自定义下载范围有时会导致音画不同步",
 		ZhTW: "請注意，自定義下載範圍有時會導致音畫不同步",

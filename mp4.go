@@ -377,6 +377,10 @@ func extractMP4WebVTTFiles(files []string, output string, format string) (bool, 
 }
 
 func extractMP4WebVTTFilesWithSegments(files []string, segments []Segment, output string, skippedDuration float64, format string) (bool, error) {
+	return extractMP4WebVTTFilesWithSegmentsOpt(files, segments, output, skippedDuration, format, defaultOptions())
+}
+
+func extractMP4WebVTTFilesWithSegmentsOpt(files []string, segments []Segment, output string, skippedDuration float64, format string, opt Options) (bool, error) {
 	var cues []vttCue
 	timescale := mp4WebVTTTimescale(files)
 	offsets := subtitleFileOffsets(segments, len(files))
@@ -405,7 +409,7 @@ func extractMP4WebVTTFilesWithSegments(files []string, segments []Segment, outpu
 		return false, nil
 	}
 	var err error
-	cues, err = writeImageSubtitleCues(cues, filepath.Dir(output))
+	cues, err = writeImageSubtitleCuesOpt(cues, filepath.Dir(output), opt)
 	if err != nil {
 		return false, err
 	}

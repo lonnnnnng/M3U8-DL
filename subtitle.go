@@ -34,6 +34,10 @@ func mergeVTTFilesWithSegments(files []string, segments []Segment, output string
 }
 
 func mergeVTTFilesWithSegmentsAndOffset(files []string, segments []Segment, output string, baseOffset time.Duration, format string) error {
+	return mergeVTTFilesWithSegmentsAndOffsetOpt(files, segments, output, baseOffset, format, defaultOptions())
+}
+
+func mergeVTTFilesWithSegmentsAndOffsetOpt(files []string, segments []Segment, output string, baseOffset time.Duration, format string, opt Options) error {
 	var cues []vttCue
 	offsets := subtitleFileOffsets(segments, len(files))
 	var baseMPEGTS *int64
@@ -73,7 +77,7 @@ func mergeVTTFilesWithSegmentsAndOffset(files []string, segments []Segment, outp
 		return cues[i].Start < cues[j].Start
 	})
 	var err error
-	cues, err = writeImageSubtitleCues(cues, filepath.Dir(output))
+	cues, err = writeImageSubtitleCuesOpt(cues, filepath.Dir(output), opt)
 	if err != nil {
 		return err
 	}
@@ -88,11 +92,21 @@ func mergeVTTFilesWithSegmentsAndOffset(files []string, segments []Segment, outp
 }
 
 func writeImageSubtitleCues(cues []vttCue, dir string) ([]vttCue, error) {
+	return writeImageSubtitleCuesOpt(cues, dir, defaultOptions())
+}
+
+func writeImageSubtitleCuesOpt(cues []vttCue, dir string, opt Options) ([]vttCue, error) {
 	out := append([]vttCue(nil), cues...)
 	nextIndex := 0
+	printed := false
 	for i := range out {
 		if !strings.HasPrefix(out[i].Payload, "Base64::") {
 			continue
+		}
+		if !printed {
+			// long: 原版在首次发现 Base64 图形字幕时会给出资源化提示，便于用户知道接下来会额外生成 PNG 文件。
+			fmt.Println(tr(opt, "processImageSub"))
+			printed = true
 		}
 		img, err := base64.StdEncoding.DecodeString(strings.TrimSpace(strings.TrimPrefix(out[i].Payload, "Base64::")))
 		if err != nil {

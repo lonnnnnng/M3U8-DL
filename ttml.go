@@ -15,6 +15,10 @@ func mergeTTMLFiles(files []string, output string, skippedDuration float64, form
 }
 
 func mergeTTMLFilesWithSegments(files []string, segments []Segment, output string, skippedDuration float64, format string) error {
+	return mergeTTMLFilesWithSegmentsOpt(files, segments, output, skippedDuration, format, defaultOptions())
+}
+
+func mergeTTMLFilesWithSegmentsOpt(files []string, segments []Segment, output string, skippedDuration float64, format string, opt Options) error {
 	var cues []vttCue
 	offsets := subtitleFileOffsets(segments, len(files))
 	for i, file := range files {
@@ -28,7 +32,7 @@ func mergeTTMLFilesWithSegments(files []string, segments []Segment, output strin
 		}
 		cues = append(cues, parsed...)
 	}
-	return writeSubtitleCues(cues, output, skippedDuration, format)
+	return writeSubtitleCuesOpt(cues, output, skippedDuration, format, opt)
 }
 
 func extractMP4TTMLFiles(files []string, output string, skippedDuration float64, format string) (bool, error) {
@@ -36,6 +40,10 @@ func extractMP4TTMLFiles(files []string, output string, skippedDuration float64,
 }
 
 func extractMP4TTMLFilesWithSegments(files []string, segments []Segment, output string, skippedDuration float64, format string) (bool, error) {
+	return extractMP4TTMLFilesWithSegmentsOpt(files, segments, output, skippedDuration, format, defaultOptions())
+}
+
+func extractMP4TTMLFilesWithSegmentsOpt(files []string, segments []Segment, output string, skippedDuration float64, format string, opt Options) (bool, error) {
 	var cues []vttCue
 	offsets := subtitleFileOffsets(segments, len(files))
 	for i, file := range files {
@@ -55,7 +63,7 @@ func extractMP4TTMLFilesWithSegments(files []string, segments []Segment, output 
 	if len(cues) == 0 {
 		return false, nil
 	}
-	return true, writeSubtitleCues(cues, output, skippedDuration, format)
+	return true, writeSubtitleCuesOpt(cues, output, skippedDuration, format, opt)
 }
 
 func parseTTMLCues(text string) []vttCue {
@@ -108,6 +116,10 @@ func parseTTMLCues(text string) []vttCue {
 }
 
 func writeSubtitleCues(cues []vttCue, output string, skippedDuration float64, format string) error {
+	return writeSubtitleCuesOpt(cues, output, skippedDuration, format, defaultOptions())
+}
+
+func writeSubtitleCuesOpt(cues []vttCue, output string, skippedDuration float64, format string, opt Options) error {
 	sort.SliceStable(cues, func(i, j int) bool {
 		if cues[i].Start == cues[j].Start {
 			return cues[i].End < cues[j].End
@@ -115,7 +127,7 @@ func writeSubtitleCues(cues []vttCue, output string, skippedDuration float64, fo
 		return cues[i].Start < cues[j].Start
 	})
 	var err error
-	cues, err = writeImageSubtitleCues(cues, filepath.Dir(output))
+	cues, err = writeImageSubtitleCuesOpt(cues, filepath.Dir(output), opt)
 	if err != nil {
 		return err
 	}

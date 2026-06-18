@@ -451,7 +451,7 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 			fixedOutput += ".vtt"
 		}
 		fixedOutput = collisionPathForStream(fixedOutput, s)
-		if err := mergeVTTFilesWithSegmentsAndOffset(files, fileSegments, fixedOutput, liveSubtitleOffset, opt.SubFormat); err != nil {
+		if err := mergeVTTFilesWithSegmentsAndOffsetOpt(files, fileSegments, fixedOutput, liveSubtitleOffset, opt.SubFormat, opt); err != nil {
 			return outputFile{}, err
 		}
 		cleanupFixedSubtitleSourceFiles(files, false)
@@ -465,7 +465,7 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 			fixedOutput += ".vtt"
 		}
 		fixedOutput = collisionPathForStream(fixedOutput, s)
-		if err := mergeTTMLFilesWithSegments(files, fileSegments, fixedOutput, s.SkippedDuration, opt.SubFormat); err != nil {
+		if err := mergeTTMLFilesWithSegmentsOpt(files, fileSegments, fixedOutput, s.SkippedDuration, opt.SubFormat, opt); err != nil {
 			return outputFile{}, err
 		}
 		cleanupFixedSubtitleSourceFiles(files, true)
@@ -479,7 +479,7 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 			fixedOutput += ".vtt"
 		}
 		fixedOutput = collisionPathForStream(fixedOutput, s)
-		ok, err := extractMP4TTMLFilesWithSegments(files, fileSegments, fixedOutput, s.SkippedDuration, opt.SubFormat)
+		ok, err := extractMP4TTMLFilesWithSegmentsOpt(files, fileSegments, fixedOutput, s.SkippedDuration, opt.SubFormat, opt)
 		if err != nil {
 			return outputFile{}, err
 		}
@@ -497,7 +497,7 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 			fixedOutput += ".vtt"
 		}
 		fixedOutput = collisionPathForStream(fixedOutput, s)
-		ok, err := extractMP4WebVTTFilesWithSegments(files, fileSegments, fixedOutput, s.SkippedDuration, opt.SubFormat)
+		ok, err := extractMP4WebVTTFilesWithSegmentsOpt(files, fileSegments, fixedOutput, s.SkippedDuration, opt.SubFormat, opt)
 		if err != nil {
 			return outputFile{}, err
 		}

@@ -1975,8 +1975,17 @@ func TestMergeVTTImageSubtitleWritesPNG(t *testing.T) {
 	if err := os.WriteFile(a, []byte("WEBVTT\n\n00:00:00.000 --> 00:00:01.000\nBase64::"+imagePayload+"\n\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := mergeVTTFilesWithSegments([]string{a}, nil, out, 0, "VTT"); err != nil {
-		t.Fatal(err)
+	opt := defaultOptions()
+	opt.UILanguage = "en-US"
+	var mergeErr error
+	output := captureStdout(t, func() {
+		mergeErr = mergeVTTFilesWithSegmentsAndOffsetOpt([]string{a}, nil, out, 0, "VTT", opt)
+	})
+	if mergeErr != nil {
+		t.Fatal(mergeErr)
+	}
+	if !strings.Contains(output, "Processing Image Sub") {
+		t.Fatalf("image subtitle message should follow ui language, got %q", output)
 	}
 	got, err := os.ReadFile(out)
 	if err != nil {
@@ -4891,6 +4900,9 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	}
 	if got := tr(opt, "fixingTTMLmp4"); got != "正在提取TTML(mp4)字幕..." {
 		t.Fatalf("traditional fixingTTMLmp4 wrong: %q", got)
+	}
+	if got := tr(opt, "processImageSub"); got != "正在處理圖形字幕" {
+		t.Fatalf("traditional processImageSub wrong: %q", got)
 	}
 	if got := tr(opt, "decryptionFailed"); got != "解密失敗" {
 		t.Fatalf("traditional decryptionFailed wrong: %q", got)
