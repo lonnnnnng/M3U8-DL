@@ -526,6 +526,13 @@ func TestPreProcessHLSContentMatchesUpstreamSiteFixes(t *testing.T) {
 		}
 	})
 
+	t.Run("key order keeps whitespace separator", func(t *testing.T) {
+		got := preProcessHLSContent("#EXTM3U\n#EXTINF:1,\n  \n#EXT-X-KEY:METHOD=AES-128,URI=\"key.bin\"\nseg.ts", "https://example.com/main.m3u8")
+		if !strings.Contains(got, "#EXT-X-KEY:METHOD=AES-128,URI=\"key.bin\"\n  \n#EXTINF:1,\nseg.ts") {
+			t.Fatalf("EXT-X-KEY should move across whitespace separator like upstream, got:\n%s", got)
+		}
+	})
+
 	t.Run("youku dolby vision map", func(t *testing.T) {
 		raw := "#EXTM3U\n#EXT-X-DISCONTINUITY\n#EXT-X-MAP:URI=\"https://ott.cibntv.net/init.mp4?ccode=0902\",BYTERANGE=\"100@0\"\n#EXTINF:4,\nseg.m4s"
 		got := preProcessHLSContent(raw, "https://example.com/main.m3u8")

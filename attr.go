@@ -139,7 +139,7 @@ func preProcessHLSContent(content, m3u8URL string) string {
 		}
 	}
 	// long: 上游先完成 YK/Disney/AppleTV 等站点修正，最后才修复 KEY/EXTINF 顺序；顺序不同会改变 AppleTV 裁剪后的内容。
-	re := regexp.MustCompile(`(?m)(#EXTINF[^\n\r]*)([\r\n]+)(#EXT-X-KEY[^\n\r]*)`)
+	re := regexp.MustCompile(`(#EXTINF[^\n\r]*)(\s+)(#EXT-X-KEY[^\n\r]*)`)
 	content = re.ReplaceAllString(content, "$3$2$1")
 	return content
 }
