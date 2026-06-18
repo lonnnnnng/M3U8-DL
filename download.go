@@ -678,12 +678,14 @@ func downloadSegment(ctx context.Context, client *http.Client, seg Segment, path
 			return dec, nil
 		}
 	}
-	if data, ok, err := readSpecialSegmentBytes(seg); ok || err != nil {
+	if data, ok, validateLength, err := readSpecialSegmentBytes(seg); ok || err != nil {
 		if err != nil {
 			return "", err
 		}
-		if err := validateDownloadedLength(seg, len(data), -1, false); err != nil {
-			return "", err
+		if validateLength {
+			if err := validateDownloadedLength(seg, len(data), -1, false); err != nil {
+				return "", err
+			}
 		}
 		if seg.IsEncrypted() {
 			data, err = decryptSegment(data, seg.Encrypt)
@@ -816,9 +818,10 @@ func validateDownloadedLength(seg Segment, actual int, responseLength int64, enc
 	return nil
 }
 
-func readSpecialSegmentBytes(seg Segment) ([]byte, bool, error) {
+func readSpecialSegmentBytes(seg Segment) ([]byte, bool, bool, error) {
 	var data []byte
 	var err error
+	applyRange := false
 	switch {
 	case strings.HasPrefix(seg.URL, "base64://"):
 		data, err = base64.StdEncoding.DecodeString(seg.URL[len("base64://"):])
@@ -827,19 +830,26 @@ func readSpecialSegmentBytes(seg Segment) ([]byte, bool, error) {
 	case strings.HasPrefix(seg.URL, "file:"):
 		u, parseErr := url.Parse(seg.URL)
 		if parseErr != nil {
-			return nil, true, parseErr
+			return nil, true, false, parseErr
 		}
 		data, err = os.ReadFile(fileURLPath(u))
+		applyRange = true
 	case !strings.HasPrefix(seg.URL, "http://") && !strings.HasPrefix(seg.URL, "https://"):
 		data, err = os.ReadFile(seg.URL)
+		applyRange = true
 	default:
-		return nil, false, nil
+		return nil, false, false, nil
 	}
 	if err != nil {
-		return nil, true, err
+		return nil, true, false, err
 	}
-	data, err = applySegmentRange(data, seg)
-	return data, true, err
+	if applyRange {
+		data, err = applySegmentRange(data, seg)
+		if err != nil {
+			return nil, true, true, err
+		}
+	}
+	return data, true, applyRange, nil
 }
 
 func applySegmentRange(data []byte, seg Segment) ([]byte, error) {

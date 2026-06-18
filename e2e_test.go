@@ -706,6 +706,40 @@ func TestDownloadBase64AndHexSegments(t *testing.T) {
 	}
 }
 
+func TestDownloadInlineSegmentsIgnoreByteRangeLikeUpstream(t *testing.T) {
+	tmp := t.TempDir()
+	start := int64(2)
+	length := int64(4)
+	tests := []struct {
+		name string
+		url  string
+		want string
+	}{
+		{name: "base64", url: "base64://MDEyMzQ1Njc4OQ==", want: "0123456789"},
+		{name: "hex", url: "hex://30313233343536373839", want: "0123456789"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := filepath.Join(tmp, tt.name+".ts")
+			seg := Segment{URL: tt.url, Index: 0, StartRange: &start, ExpectLength: &length}
+			got, err := downloadSegment(context.Background(), http.DefaultClient, seg, out, defaultOptions(), nil, "", "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != out {
+				t.Fatalf("expected output path %s, got %s", out, got)
+			}
+			data, err := os.ReadFile(out)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(data) != tt.want {
+				t.Fatalf("%s inline segment should ignore BYTERANGE like upstream, got %q", tt.name, data)
+			}
+		})
+	}
+}
+
 func TestDownloadMissingSegmentFailsWhenCheckEnabled(t *testing.T) {
 	var base string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
