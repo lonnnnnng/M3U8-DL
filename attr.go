@@ -124,14 +124,88 @@ func appendURLParams(target, source string) (string, error) {
 	if err != nil {
 		return target, err
 	}
-	tq := tu.Query()
-	for k, vals := range su.Query() {
-		tq.Del(k)
-		// long: 上游 HttpUtility.ParseQueryString(...).Get(key) 会把源 URL 的重复参数合成逗号分隔字符串，再覆盖目标 URL 同名参数。
-		tq.Add(k, strings.Join(vals, ","))
+	targetQuery := parseOrderedQuery(tu.RawQuery)
+	sourceQuery := parseOrderedQuery(su.RawQuery)
+	for _, sourceEntry := range sourceQuery {
+		joined := strings.Join(sourceEntry.values, ",")
+		if targetEntry := targetQuery.find(sourceEntry.key); targetEntry != nil {
+			// long: 上游 NameValueCollection.Set 会在原 key 位置替换，并把重复源参数通过 Get 合成逗号字符串。
+			targetEntry.values = []string{joined}
+		} else {
+			targetQuery = append(targetQuery, orderedQueryEntry{key: sourceEntry.key, values: []string{joined}})
+		}
 	}
-	tu.RawQuery = tq.Encode()
-	return tu.String(), nil
+	encoded := targetQuery.encode()
+	if encoded == "" {
+		return target, nil
+	}
+	return tu.Scheme + "://" + tu.Host + tu.EscapedPath() + "?" + encoded, nil
+}
+
+type orderedQueryEntry struct {
+	key    string
+	values []string
+}
+
+type orderedQuery []orderedQueryEntry
+
+func parseOrderedQuery(raw string) orderedQuery {
+	if raw == "" {
+		return nil
+	}
+	var out orderedQuery
+	for _, part := range strings.Split(raw, "&") {
+		key, value, _ := strings.Cut(part, "=")
+		decodedKey, err := url.QueryUnescape(key)
+		if err != nil {
+			decodedKey = key
+		}
+		decodedValue, err := url.QueryUnescape(value)
+		if err != nil {
+			decodedValue = value
+		}
+		if entry := out.find(decodedKey); entry != nil {
+			entry.values = append(entry.values, decodedValue)
+			continue
+		}
+		out = append(out, orderedQueryEntry{key: decodedKey, values: []string{decodedValue}})
+	}
+	return out
+}
+
+func (q orderedQuery) find(key string) *orderedQueryEntry {
+	for i := range q {
+		if q[i].key == key {
+			return &q[i]
+		}
+	}
+	return nil
+}
+
+func (q orderedQuery) encode() string {
+	parts := make([]string, 0, len(q))
+	for _, entry := range q {
+		value := strings.Join(entry.values, ",")
+		parts = append(parts, queryEscapeLower(entry.key)+"="+queryEscapeLower(value))
+	}
+	return strings.Join(parts, "&")
+}
+
+func queryEscapeLower(value string) string {
+	escaped := url.QueryEscape(value)
+	var b strings.Builder
+	b.Grow(len(escaped))
+	for i := 0; i < len(escaped); i++ {
+		if escaped[i] == '%' && i+2 < len(escaped) {
+			b.WriteByte('%')
+			b.WriteByte(byte(strings.ToLower(string(escaped[i+1]))[0]))
+			b.WriteByte(byte(strings.ToLower(string(escaped[i+2]))[0]))
+			i += 2
+			continue
+		}
+		b.WriteByte(escaped[i])
+	}
+	return b.String()
 }
 
 func preProcessHLSContent(content, m3u8URL string) string {

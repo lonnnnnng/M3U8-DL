@@ -23,11 +23,17 @@ func TestAppendURLParams(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(got, "token=new%2Csecond") || !strings.Contains(got, "hmac=abc") || !strings.Contains(got, "x=1") || !strings.Contains(got, "x=2") {
-		t.Fatalf("query not merged: %s", got)
+	want := "https://cdn.example.com/seg.ts?token=new%2csecond&x=1%2c2&hmac=abc"
+	if got != want {
+		t.Fatalf("query not merged like upstream:\nwant %s\ngot  %s", want, got)
 	}
-	if strings.Contains(got, "token=old") {
-		t.Fatalf("source query should replace target token like upstream: %s", got)
+	got, err = appendURLParams("https://cdn.example.com/seg.ts?z=hello world&token=old#frag", "https://cdn.example.com/main.m3u8?token=a,b&hmac=a b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want = "https://cdn.example.com/seg.ts?z=hello+world&token=a%2cb&hmac=a+b"
+	if got != want {
+		t.Fatalf("query encoding not merged like upstream:\nwant %s\ngot  %s", want, got)
 	}
 }
 
