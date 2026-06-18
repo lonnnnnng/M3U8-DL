@@ -16,6 +16,16 @@ func attr(line, key string) string {
 		}
 		return ""
 	}
+	quotedPrefix := key + "=\""
+	if i := strings.Index(line, quotedPrefix); i >= 0 {
+		rest := line[i+len(quotedPrefix):]
+		end := strings.IndexByte(rest, '"')
+		if end < 0 {
+			return rest
+		}
+		// long: 上游 ParserUtil.GetAttribute 会先查找带引号的 key，再查找裸 key；当 KEYFORMATURI=foo,URI="..." 同行出现时，真正的 quoted URI 应优先于前面的后缀属性。
+		return rest[:end]
+	}
 	prefix := key + "="
 	i := strings.Index(line, prefix)
 	if i < 0 {

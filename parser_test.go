@@ -1097,6 +1097,32 @@ func TestParseMediaKeyLooseURISuffixMatchesUpstream(t *testing.T) {
 	}
 }
 
+func TestParseMediaKeyQuotedURIWinsAfterLooseSuffixLikeUpstream(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}
+	raw := `#EXTM3U
+#EXT-X-TARGETDURATION:8
+#EXT-X-KEY:METHOD=AES-128,KEYFORMATURI=foo,URI="base64:MDEyMzQ1Njc4OWFiY2RlZg=="
+#EXTINF:8.0,
+0.ts
+#EXT-X-ENDLIST
+`
+	pl, err := p.parseMedia(context.Background(), raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segs := sortedSegments(pl)
+	if len(segs) != 1 {
+		t.Fatalf("want 1 segment, got %#v", segs)
+	}
+	if segs[0].Encrypt.Method != EncryptAES128 {
+		t.Fatalf("quoted URI should keep AES-128 like upstream, got %#v", segs[0].Encrypt)
+	}
+	if string(segs[0].Encrypt.Key) != "0123456789abcdef" {
+		t.Fatalf("quoted URI should beat earlier KEYFORMATURI=foo, got key %q", string(segs[0].Encrypt.Key))
+	}
+}
+
 func TestParseMediaKeyMethodIsCaseSensitiveLikeUpstream(t *testing.T) {
 	opt := defaultOptions()
 	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}
