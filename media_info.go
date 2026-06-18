@@ -101,18 +101,16 @@ func applyMediaInfoToStream(s *StreamSpec, opt *Options, infos []mediaInfo) {
 }
 
 func mediaInfosUseAACFilter(infos []mediaInfo) bool {
-	hasAudio := false
 	for _, info := range infos {
 		if info.Type != "audio" {
 			continue
 		}
-		hasAudio = true
 		if !strings.Contains(info.CodecName, "aac") {
 			return false
 		}
 	}
-	// long: 上游只有在 ffmpeg 探测出的音频流都是 AAC 时才添加 aac_adtstoasc，避免 EAC3/AC3 等音轨被错误套用 AAC bitstream filter。
-	return hasAudio
+	// long: 原版使用 LINQ All 判断“所有音频流都是 AAC”；没有音频流时 All 也为 true，所以纯视频或空探测结果也会沿用 aac_adtstoasc 参数。
+	return true
 }
 
 func anyDolbyVision(infos []mediaInfo) bool {

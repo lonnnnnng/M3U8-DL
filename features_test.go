@@ -2849,7 +2849,7 @@ func TestLiveAudioStartTrackerWaitsForStartTime(t *testing.T) {
 	<-done
 }
 
-func TestMediaInfosUseAACFilterRequiresAACAudio(t *testing.T) {
+func TestMediaInfosUseAACFilterMatchesUpstreamAllAudioAAC(t *testing.T) {
 	cases := []struct {
 		name  string
 		infos []mediaInfo
@@ -2860,8 +2860,8 @@ func TestMediaInfosUseAACFilterRequiresAACAudio(t *testing.T) {
 		{name: "aac with video", infos: []mediaInfo{{Type: "video", CodecName: "h264"}, {Type: "audio", CodecName: "aac"}}, want: true},
 		{name: "eac3 audio", infos: []mediaInfo{{Type: "audio", CodecName: "eac3"}}, want: false},
 		{name: "mixed audio", infos: []mediaInfo{{Type: "audio", CodecName: "aac"}, {Type: "audio", CodecName: "ac3"}}, want: false},
-		{name: "video only", infos: []mediaInfo{{Type: "video", CodecName: "h264"}}, want: false},
-		{name: "empty", infos: nil, want: false},
+		{name: "video only", infos: []mediaInfo{{Type: "video", CodecName: "h264"}}, want: true},
+		{name: "empty", infos: nil, want: true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
