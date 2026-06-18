@@ -228,6 +228,13 @@ func TestParseArgsMaxSpeedMatchesUpstreamUnits(t *testing.T) {
 	if opt.MaxSpeed != int64(1.5*1024*1024) {
 		t.Fatalf("unexpected max speed: %d", opt.MaxSpeed)
 	}
+	opt, err = parseArgs([]string{"--max-speed", "1MB", "https://example.com/main.m3u8"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opt.MaxSpeed != int64(1024*1024) {
+		t.Fatalf("speed parser should use first M/K match like upstream, got %d", opt.MaxSpeed)
+	}
 	if _, err := parseArgs([]string{"--max-speed", "1024", "https://example.com/main.m3u8"}); err == nil || !strings.Contains(err.Error(), "error in parse SpeedLimit") {
 		t.Fatalf("expected bare speed to be rejected like upstream, got %v", err)
 	}

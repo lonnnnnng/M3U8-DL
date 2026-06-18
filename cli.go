@@ -868,7 +868,7 @@ func parseOptionalBandwidthKbps(input string) *int {
 	return &v
 }
 
-var speedLimitRE = regexp.MustCompile(`^([\d.]+)(M|K)$`)
+var speedLimitRE = regexp.MustCompile(`([\d.]+)(M|K)`)
 var pairKeyRE = regexp.MustCompile(`^[0-9a-fA-F]{32}:[0-9a-fA-F]{32}$`)
 var idHexKeyRE = regexp.MustCompile(`^[0-9]+:[0-9a-fA-F]{32}$`)
 var singleHexKeyRE = regexp.MustCompile(`^[0-9a-fA-F]{32}$`)
