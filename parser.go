@@ -297,7 +297,8 @@ func (p *parser) parseMedia(ctx context.Context, raw string) (*Playlist, error) 
 			}
 			expectSegment = true
 		case strings.HasPrefix(line, "#EXT-X-PLAYLIST-TYPE"):
-			isEnd = strings.HasSuffix(line, "VOD")
+			// long: 上游先 Trim 再判断 VOD，尾部空白来自部分 CDN 重写器，不能因此把点播误判成直播并触发刷新逻辑。
+			isEnd = strings.HasSuffix(strings.TrimSpace(line), "VOD")
 		case strings.HasPrefix(line, "#UPLYNK-SEGMENT"):
 			if strings.Contains(line, ",ad") {
 				isAd = true
@@ -375,7 +376,9 @@ func (p *parser) parseMedia(ctx context.Context, raw string) (*Playlist, error) 
 		case strings.HasPrefix(line, "#EXT-X-MAP"):
 			if pl.MediaInit == nil || hasAd {
 				initSeg := Segment{URL: p.preProcessURL(combineURL(p.baseURL, attr(line, "URI"))), Index: -1}
-				if br := attr(line, "BYTERANGE"); br != "" {
+				if strings.Contains(line, "BYTERANGE") {
+					// long: 上游用 line.Contains("BYTERANGE") 决定是否解析，空值也会进入 GetRange 并报错；这里保留该失败信号，避免坏 init 范围被静默忽略。
+					br := attr(line, "BYTERANGE")
 					l, start, err := parseByteRange(br)
 					if err != nil {
 						return nil, err

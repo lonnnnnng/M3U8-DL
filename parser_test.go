@@ -213,6 +213,22 @@ func TestParseMediaLeadingSpaceTagIgnoredLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestParseMediaPlaylistTypeVODTrailingSpaceMatchesUpstream(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}
+	raw := "#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-PLAYLIST-TYPE:VOD   \n#EXTINF:4,\nseg.ts\n"
+	pl, err := p.parseMedia(context.Background(), raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pl.IsLive {
+		t.Fatal("PLAYLIST-TYPE VOD with trailing whitespace should be treated as VOD like upstream")
+	}
+	if len(pl.Parts) != 0 {
+		t.Fatalf("VOD without ENDLIST should not append live tail part, got %#v", pl.Parts)
+	}
+}
+
 func TestParseByteRangeTooManyAtSignsMatchesUpstream(t *testing.T) {
 	length, start, err := parseByteRange("100@20@30")
 	if err != nil {
@@ -229,6 +245,15 @@ func TestParseMediaByteRangeWithoutOffsetBeforeFirstSegmentFailsLikeUpstream(t *
 	raw := "#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-BYTERANGE:100\n#EXTINF:4,\nseg.ts\n#EXT-X-ENDLIST\n"
 	if _, err := p.parseMedia(context.Background(), raw); err == nil {
 		t.Fatal("first BYTERANGE without offset should fail like upstream segments.Last()")
+	}
+}
+
+func TestParseMediaMapEmptyByteRangeFailsLikeUpstream(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}
+	raw := "#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-MAP:URI=\"init.mp4\",BYTERANGE=\n#EXTINF:4,\nseg.m4s\n#EXT-X-ENDLIST\n"
+	if _, err := p.parseMedia(context.Background(), raw); err == nil {
+		t.Fatal("empty EXT-X-MAP BYTERANGE should fail like upstream GetRange")
 	}
 }
 
