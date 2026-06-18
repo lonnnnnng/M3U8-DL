@@ -200,7 +200,7 @@ func (s *liveRealtimeDownloadState) downloadAndAppend(ctx context.Context, batch
 	var files []string
 	if s.stream.Playlist != nil && s.stream.Playlist.MediaInit != nil && !s.initDone {
 		initSeg := *s.stream.Playlist.MediaInit
-		initFile, err := s.downloadLiveSegment(ctx, initSeg, s.nextLiveSegmentPath(initSeg, "mp4"))
+		initFile, kid, err := downloadRealtimeInitSegment(ctx, s.client, initSeg, s.nextLiveSegmentPath(initSeg, "mp4"), s.opt, s.limiter)
 		if err != nil {
 			return err
 		}
@@ -208,9 +208,7 @@ func (s *liveRealtimeDownloadState) downloadAndAppend(ctx context.Context, batch
 		segments = append(segments, initSeg)
 		s.initDone = true
 		s.initPath = initFile
-		if s.opt.MP4RealTimeDecryption && hasExternalMP4Encryption(s.stream) {
-			s.currentKID = extractDefaultKIDFromFile(initFile)
-		}
+		s.currentKID = kid
 	}
 	if len(batch) > 0 {
 		batchFiles := make([]string, len(batch))
@@ -351,13 +349,13 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 	if opt.MP4RealTimeDecryption && s.Playlist.MediaInit != nil && hasExternalMP4Encryption(s) {
 		initSeg := *s.Playlist.MediaInit
 		initPath = segmentTempPath(tmpDir, initSeg, 0, pad, "mp4", liveSegmentNames, liveDateTimeNames)
-		actual, err := downloadSegment(ctx, client, initSeg, initPath, opt, limiter, "", "")
+		actual, kid, err := downloadRealtimeInitSegment(ctx, client, initSeg, initPath, opt, limiter)
 		if err != nil {
 			return outputFile{}, err
 		}
 		files[0] = actual
 		initPath = actual
-		currentKID = extractDefaultKIDFromFile(initPath)
+		currentKID = kid
 		startAt = 1
 		atomic.AddInt64(&done, 1)
 	}
@@ -507,7 +505,7 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 		}
 		output = merged
 	}
-	if hasExternalMP4Encryption(s) && len(collectDecryptKeys(opt, "")) > 0 {
+	if !opt.MP4RealTimeDecryption && hasExternalMP4Encryption(s) && len(collectDecryptKeys(opt, "")) > 0 {
 		decrypted, err := decryptMP4Output(output, opt)
 		if err != nil {
 			return outputFile{}, err
@@ -747,6 +745,25 @@ func downloadSegment(ctx context.Context, client *http.Client, seg Segment, path
 		return path, nil
 	}
 	return "", lastErr
+}
+
+func downloadRealtimeInitSegment(ctx context.Context, client *http.Client, seg Segment, path string, opt Options, limiter *rateLimiter) (string, string, error) {
+	initOpt := opt
+	initOpt.MP4RealTimeDecryption = false
+	actual, err := downloadSegment(ctx, client, seg, path, initOpt, limiter, "", "")
+	if err != nil {
+		return "", "", err
+	}
+	kid := extractDefaultKIDFromFile(actual)
+	if !opt.MP4RealTimeDecryption || kid == "" || len(collectDecryptKeys(opt, kid)) == 0 {
+		return actual, kid, nil
+	}
+	// long: init 需要先保持原始盒结构读出 KID，再按匹配到的 key 解密；如果下载时直接解密，后续媒体分片会丢失用于选 key 的 KID。
+	dec, err := decryptMP4File(actual, opt, kid, "")
+	if err != nil {
+		return "", "", err
+	}
+	return dec, kid, nil
 }
 
 func decryptedSegmentPath(path string) string {

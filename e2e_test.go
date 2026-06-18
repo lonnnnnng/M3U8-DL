@@ -1178,13 +1178,17 @@ func TestRealtimeExternalDecrypt(t *testing.T) {
 	if os.Getenv("GOOS") == "windows" {
 		t.Skip("shell helper is unix-only")
 	}
+	kidBytes := []byte{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20}
+	kid := "1112131415161718191a1b1c1d1e1f20"
+	tencPayload := append([]byte{0, 0, 0, 0, 0, 0, 0, 0}, kidBytes...)
+	initData := mustMP4Box("moov", mustMP4Box("trak", mustMP4Box("mdia", mustMP4Box("minf", mustMP4Box("stbl", mustMP4Box("encv", mustMP4Box("sinf", mustMP4Box("schi", mustMP4Box("tenc", tencPayload)))))))))
 	var base string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/main.m3u8":
-			_, _ = w.Write([]byte("#EXTM3U\n#EXT-X-MAP:URI=\"" + base + "/init.mp4\"\n#EXT-X-KEY:METHOD=CENC,URI=\"data:;base64,AA==\"\n#EXTINF:1,\n" + base + "/seg.m4s\n#EXT-X-ENDLIST\n"))
+			_, _ = w.Write([]byte("#EXTM3U\n#EXT-X-KEY:METHOD=CENC,URI=\"data:;base64,AA==\"\n#EXT-X-MAP:URI=\"" + base + "/init.mp4\"\n#EXTINF:1,\n" + base + "/seg.m4s\n#EXT-X-ENDLIST\n"))
 		case "/init.mp4":
-			_, _ = w.Write([]byte("init"))
+			_, _ = w.Write(initData)
 		case "/seg.m4s":
 			_, _ = w.Write([]byte("encrypted-seg"))
 		default:
@@ -1196,7 +1200,7 @@ func TestRealtimeExternalDecrypt(t *testing.T) {
 
 	tmp := t.TempDir()
 	tool := filepath.Join(tmp, "mp4decrypt")
-	if err := os.WriteFile(tool, []byte("#!/bin/sh\nlast=\"\"\nfor arg in \"$@\"; do last2=\"$last\"; last=\"$arg\"; done\nprintf decrypted > \"$last\"\n"), 0755); err != nil {
+	if err := os.WriteFile(tool, []byte("#!/bin/sh\nlast=\"\"\nprev=\"\"\nfor arg in \"$@\"; do prev=\"$last\"; last=\"$arg\"; done\nprintf 'decrypted:%s;' \"$prev\" > \"$last\"\n"), 0755); err != nil {
 		t.Fatal(err)
 	}
 	opt := defaultOptions()
@@ -1208,7 +1212,7 @@ func TestRealtimeExternalDecrypt(t *testing.T) {
 	opt.SaveName = "rt"
 	opt.MP4RealTimeDecryption = true
 	opt.DecryptionBinaryPath = tool
-	opt.Keys = []string{"00000000000000000000000000000000:00112233445566778899aabbccddeeff"}
+	opt.Keys = []string{kid + ":00112233445566778899aabbccddeeff"}
 
 	client, err := newHTTPClient(opt)
 	if err != nil {
@@ -1226,8 +1230,8 @@ func TestRealtimeExternalDecrypt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Contains(got, []byte("decrypted")) {
-		t.Fatalf("realtime decrypt was not merged: %q", got)
+	if strings.Count(string(got), "decrypted:") != 2 {
+		t.Fatalf("realtime decrypt should include decrypted init and media segment, got %q", got)
 	}
 }
 

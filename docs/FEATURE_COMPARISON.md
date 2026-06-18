@@ -167,7 +167,7 @@
 | SAMPLE-AES | 原版支持外部解密入口，部分场景依赖 MP4 工具 | Go 版支持下载后外部解密入口，但缺媒体级原生 SAMPLE-AES 解密 | 部分追平 |
 | SAMPLE-AES-CTR | 外部工具路径 | Go 版支持外部解密入口 | 基本追平 |
 | 复杂 PSSH/KID | 多 DRM、复杂 box 场景 | 已支持 tenc、Widevine PSSH、PlayReady 文本/`VALUE`，复杂 PSSH 场景仍未完全证明 | 部分追平 |
-| MP4 实时解密 | `--mp4-real-time-decryption` | 已覆盖 init+fragment 基础实时外部解密，未完全等价原版状态机 | 部分追平 |
+| MP4 实时解密 | `--mp4-real-time-decryption` | 已覆盖 init+fragment 基础实时外部解密；init 会先保留原始盒读取 KID，再解密 init/媒体分片，并在实时解密开启时跳过最终整文件二次解密 | 部分追平 |
 | 自定义 HLS method/key/iv | 文件、HEX、Base64、枚举 method | 已支持，并按上游枚举校验 | 已追平 |
 | 轨道自动选择 | 最佳视频、音频、字幕 | 已支持最佳视频、每语言最高码率音频、全部字幕等路径 | 基本追平 |
 | 交互选择 | Spectre 交互多选 | Go 版实现了默认回车选择语义，但没有完整 Spectre UI | 部分追平 |
@@ -203,7 +203,7 @@
 
 1. SAMPLE-AES 媒体级原生解密仍未完整实现，当前主要依赖外部解密入口。
 2. CENC/PSSH/KID 已覆盖常见 box 和 PlayReady/Widevine 基础场景，但复杂 DRM 封装还缺系统性样本验证。
-3. MP4 实时解密已有基础流程，但还没有达到上游直播状态机里所有边缘分支的等价程度。
+3. MP4 实时解密已补齐 init 先读 KID 再解密、合并后不二次整文件解密的路径，但还没有达到上游直播状态机里所有边缘分支的等价程度。
 4. 直播 producer/consumer 多轨状态机仍是简化实现，PipeMux 在 Windows 真实环境未实际运行验证。
 5. ANSI/Spectre 风格动态进度 UI 未复刻。
 6. 完整多语言资源系统未复刻。
