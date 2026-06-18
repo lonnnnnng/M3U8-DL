@@ -139,7 +139,10 @@ func appendURLParams(target, source string) (string, error) {
 	if encoded == "" {
 		return target, nil
 	}
-	return tu.Scheme + "://" + tu.Host + tu.EscapedPath() + "?" + encoded, nil
+	out := *tu
+	out.RawQuery = encoded
+	out.Fragment = ""
+	return out.String(), nil
 }
 
 type orderedQueryEntry struct {

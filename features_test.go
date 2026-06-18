@@ -35,6 +35,14 @@ func TestAppendURLParams(t *testing.T) {
 	if got != want {
 		t.Fatalf("query encoding not merged like upstream:\nwant %s\ngot  %s", want, got)
 	}
+	got, err = appendURLParams("https://user:pass@cdn.example.com:8443/a%20b/seg.ts?x=1#frag", "https://cdn.example.com/main.m3u8?token=abc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want = "https://user:pass@cdn.example.com:8443/a%20b/seg.ts?x=1&token=abc"
+	if got != want {
+		t.Fatalf("URL authority/path should match upstream append semantics:\nwant %s\ngot  %s", want, got)
+	}
 	tests := []struct {
 		name   string
 		target string
