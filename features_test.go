@@ -2328,8 +2328,10 @@ func TestMuxOutputsByMkvmergeCommand(t *testing.T) {
 	if err := os.WriteFile(in, []byte("video"), 0644); err != nil {
 		t.Fatal(err)
 	}
+	logPath := filepath.Join(tmp, "mkvmerge-args.txt")
 	tool := filepath.Join(tmp, "mkvmerge")
-	if err := os.WriteFile(tool, []byte("#!/bin/sh\nout=\"\"\nwhile [ $# -gt 0 ]; do if [ \"$1\" = \"--output\" ]; then shift; out=\"$1\"; fi; shift; done\nprintf mkv > \"$out\"\n"), 0755); err != nil {
+	script := fmt.Sprintf("#!/bin/sh\nlog=%q\n: > \"$log\"\nout=\"\"\nwhile [ $# -gt 0 ]; do printf '%%s\\n' \"$1\" >> \"$log\"; if [ \"$1\" = \"--output\" ]; then shift; printf '%%s\\n' \"$1\" >> \"$log\"; out=\"$1\"; fi; shift; done\nprintf mkv > \"$out\"\n", logPath)
+	if err := os.WriteFile(tool, []byte(script), 0755); err != nil {
 		t.Fatal(err)
 	}
 	opt := defaultOptions()
@@ -2346,6 +2348,19 @@ func TestMuxOutputsByMkvmergeCommand(t *testing.T) {
 	}
 	if string(b) != "mkv" {
 		t.Fatalf("bad mux output: %q", b)
+	}
+	argsBytes, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	args := "\n" + string(argsBytes)
+	for _, want := range []string{
+		"\n--no-chapters\n",
+		"\n--language\n0:und\n",
+	} {
+		if !strings.Contains(args, want) {
+			t.Fatalf("mkvmerge args missing %q:\n%s", want, args)
+		}
 	}
 }
 
