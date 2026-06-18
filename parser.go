@@ -24,6 +24,14 @@ type parser struct {
 }
 
 const hlsKeyRetryCount = 3
+const maxHLSLineSize = 16 * 1024 * 1024
+
+func newHLSScanner(raw string) *bufio.Scanner {
+	sc := bufio.NewScanner(strings.NewReader(raw))
+	// long: HLS 里常见带长签名的分片 URL 或 data URI key；上游逐行读取没有 64KB 限制，Go 版必须显式放大 Scanner 缓冲。
+	sc.Buffer(make([]byte, 1024), maxHLSLineSize)
+	return sc
+}
 
 func parseSource(ctx context.Context, client *http.Client, opt Options) ([]StreamSpec, *parser, error) {
 	raw, finalURL, err := fetchText(ctx, client, opt.Input, opt.Headers)
@@ -62,7 +70,7 @@ func (p *parser) extract(ctx context.Context, raw string) ([]StreamSpec, *parser
 func (p *parser) parseMaster(raw string) ([]StreamSpec, error) {
 	p.rawFiles["raw.m3u8"] = raw
 	var streams []StreamSpec
-	sc := bufio.NewScanner(strings.NewReader(raw))
+	sc := newHLSScanner(raw)
 	expectPlaylist := false
 	cur := StreamSpec{OriginalURL: p.originalURL}
 	for sc.Scan() {
@@ -235,7 +243,7 @@ func (p *parser) parseMedia(ctx context.Context, raw string) (*Playlist, error) 
 	hasAd := false
 	isAd := false
 	lastKeyLine := ""
-	sc := bufio.NewScanner(strings.NewReader(raw))
+	sc := newHLSScanner(raw)
 	for sc.Scan() {
 		line := strings.TrimSpace(sc.Text())
 		if line == "" {

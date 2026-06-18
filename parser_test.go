@@ -34,6 +34,35 @@ video.m3u8
 	}
 }
 
+func TestParseMasterAcceptsLongVariantURLLikeUpstream(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/master.m3u8", currentURL: "https://example.com/master.m3u8", baseURL: "https://example.com/master.m3u8", rawFiles: map[string]string{}}
+	token := strings.Repeat("a", 70*1024)
+	raw := "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=2000,RESOLUTION=1920x1080\nvideo.m3u8?token=" + token + "\n"
+	streams, err := p.parseMaster(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(streams) != 1 || !strings.Contains(streams[0].URL, token) {
+		t.Fatalf("long variant URL should be preserved, got %#v", streams)
+	}
+}
+
+func TestParseMediaAcceptsLongSegmentURLLikeUpstream(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}
+	token := strings.Repeat("b", 70*1024)
+	raw := "#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:4,\nseg.ts?token=" + token + "\n#EXT-X-ENDLIST\n"
+	pl, err := p.parseMedia(context.Background(), raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segs := sortedSegments(pl)
+	if len(segs) != 1 || !strings.Contains(segs[0].URL, token) {
+		t.Fatalf("long segment URL should be preserved, got %#v", segs)
+	}
+}
+
 func TestParseSourceRetriesHTTPTextLikeUpstream(t *testing.T) {
 	var hits int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

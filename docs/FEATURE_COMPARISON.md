@@ -143,8 +143,8 @@
 | HLS 输入 | URL、`file:`、本地 m3u8 | 支持 HTTP、本地文件、`file:` 及本地相对路径规范化 | 已追平 |
 | DASH/MSS | 完整支持 DASH/MSS | 不实现 | 不在范围 |
 | Live TS | 原版支持 Live TS extractor | Go 版只围绕 HLS | 不在范围 |
-| HLS Master | 视频、音频、字幕、多属性解析 | 已解析基础流、音频、字幕、码率、分辨率、帧率、语言、声道、HDR/DV 等 | 已追平 |
-| HLS Media | EXTINF、MAP、BYTERANGE、DISCONTINUITY、PDT、ENDLIST | 已实现并覆盖空直播窗口、多 MAP、fMP4 init 保留、PDT 容错 | 已追平 |
+| HLS Master | 视频、音频、字幕、多属性解析 | 已解析基础流、音频、字幕、码率、分辨率、帧率、语言、声道、HDR/DV 等，并兼容长签名 URL | 已追平 |
+| HLS Media | EXTINF、MAP、BYTERANGE、DISCONTINUITY、PDT、ENDLIST | 已实现并覆盖空直播窗口、多 MAP、fMP4 init 保留、PDT 容错、长签名分片 URL | 已追平 |
 | HLS 内容预处理 | YSP、Youku、Disney+、AppleTV、KEY 顺序修正 | 已实现，并新增站点级预处理回归测试 | 已追平 |
 | URL 合并 | 相对 URL、BaseURL、URL Processor | HLS URL 合并和 `--base-url` 已支持；DASH 专用 URL Processor 不在范围 | 已追平 |
 | Append URL Params | 分片 URL 继承输入 URL 参数 | 已覆盖媒体分片、init、HLS key URL | 已追平 |
