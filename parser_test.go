@@ -146,6 +146,25 @@ func TestParseMasterInvalidNumericFieldsFailLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestParseMasterNumericFieldsTrimWhitespaceLikeUpstreamConvert(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/master.m3u8", currentURL: "https://example.com/master.m3u8", baseURL: "https://example.com/master.m3u8", rawFiles: map[string]string{}}
+	raw := "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=\" 2000 \",FRAME-RATE=\" 29.97 \",RESOLUTION=1280x720\nvideo.m3u8\n"
+	streams, err := p.parseMaster(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(streams) != 1 {
+		t.Fatalf("want 1 stream, got %#v", streams)
+	}
+	if streams[0].Bandwidth != 2000 {
+		t.Fatalf("BANDWIDTH whitespace should parse like upstream Convert.ToInt32, got %d", streams[0].Bandwidth)
+	}
+	if streams[0].FrameRate != 29.97 {
+		t.Fatalf("FRAME-RATE whitespace should parse like upstream Convert.ToDouble, got %f", streams[0].FrameRate)
+	}
+}
+
 func TestParseMasterMalformedQuotedAttributesFailLikeUpstream(t *testing.T) {
 	tests := []struct {
 		name string
@@ -875,6 +894,34 @@ func TestParseMediaInvalidNumericFieldsFailLikeUpstream(t *testing.T) {
 				t.Fatal("invalid media numeric field should fail like upstream Convert")
 			}
 		})
+	}
+}
+
+func TestParseMediaNumericFieldsTrimWhitespaceLikeUpstreamConvert(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}
+	raw := "#EXTM3U\n" +
+		"#EXT-X-TARGETDURATION: 4 \x20\n" +
+		"#EXT-X-MEDIA-SEQUENCE: 7 \x20\n" +
+		"#EXTINF: 8.5 ,\n" +
+		"seg.ts\n" +
+		"#EXT-X-ENDLIST\n"
+	pl, err := p.parseMedia(context.Background(), raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pl.TargetDuration != 4 {
+		t.Fatalf("TARGETDURATION whitespace should parse like upstream Convert.ToDouble, got %f", pl.TargetDuration)
+	}
+	segs := sortedSegments(pl)
+	if len(segs) != 1 {
+		t.Fatalf("want 1 segment, got %#v", segs)
+	}
+	if segs[0].Index != 7 {
+		t.Fatalf("MEDIA-SEQUENCE whitespace should parse like upstream Convert.ToInt64, got %d", segs[0].Index)
+	}
+	if segs[0].Duration != 8.5 {
+		t.Fatalf("EXTINF whitespace should parse like upstream Convert.ToDouble, got %f", segs[0].Duration)
 	}
 }
 

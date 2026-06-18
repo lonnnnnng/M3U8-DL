@@ -92,7 +92,8 @@ func (p *parser) parseMaster(raw string) ([]StreamSpec, error) {
 				bw = attr(line, "BANDWIDTH")
 			}
 			if bw != "" || attrExistsLoose(line, "AVERAGE-BANDWIDTH") || attrExistsLoose(line, "BANDWIDTH") {
-				bandwidth, err := strconv.Atoi(bw)
+				// long: 上游 Convert.ToInt32/ToDouble/ToInt64 会接受 HLS 数值字段两侧空白；CDN 重写出的带空格属性不能因此被 Go 的严格解析拒绝。
+				bandwidth, err := strconv.Atoi(strings.TrimSpace(bw))
 				if err != nil {
 					return nil, err
 				}
@@ -101,7 +102,7 @@ func (p *parser) parseMaster(raw string) ([]StreamSpec, error) {
 			cur.Codecs = attr(line, "CODECS")
 			cur.Resolution = attr(line, "RESOLUTION")
 			if frameRate := attr(line, "FRAME-RATE"); frameRate != "" {
-				parsedFrameRate, err := strconv.ParseFloat(frameRate, 64)
+				parsedFrameRate, err := strconv.ParseFloat(strings.TrimSpace(frameRate), 64)
 				if err != nil {
 					return nil, err
 				}
@@ -325,13 +326,13 @@ func (p *parser) parseMedia(ctx context.Context, raw string) (*Playlist, error) 
 		case isAd:
 			continue
 		case strings.HasPrefix(line, "#EXT-X-TARGETDURATION"):
-			targetDuration, err := strconv.ParseFloat(attr(line, ""), 64)
+			targetDuration, err := strconv.ParseFloat(strings.TrimSpace(attr(line, "")), 64)
 			if err != nil {
 				return nil, err
 			}
 			pl.TargetDuration = targetDuration
 		case strings.HasPrefix(line, "#EXT-X-MEDIA-SEQUENCE"):
-			parsedSeq, err := strconv.ParseInt(attr(line, ""), 10, 64)
+			parsedSeq, err := strconv.ParseInt(strings.TrimSpace(attr(line, "")), 10, 64)
 			if err != nil {
 				return nil, err
 			}
@@ -368,7 +369,7 @@ func (p *parser) parseMedia(ctx context.Context, raw string) (*Playlist, error) 
 			lastKeyLine = line
 		case strings.HasPrefix(line, "#EXTINF"):
 			// long: 原版 Convert.ToDouble/ToInt64 遇到坏数值会中断解析，不能静默置 0 继续下载错误清单。
-			d, err := strconv.ParseFloat(strings.Split(attr(line, ""), ",")[0], 64)
+			d, err := strconv.ParseFloat(strings.TrimSpace(strings.Split(attr(line, ""), ",")[0]), 64)
 			if err != nil {
 				return nil, err
 			}
