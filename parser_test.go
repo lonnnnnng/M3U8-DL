@@ -106,6 +106,27 @@ func TestParseMasterCharacteristicsUsesLastCommaThenLastDotLikeUpstream(t *testi
 	}
 }
 
+func TestParseMasterUnknownMediaTypeKeepsNilMediaTypeLikeUpstream(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/master.m3u8", currentURL: "https://example.com/master.m3u8", baseURL: "https://example.com/master.m3u8", rawFiles: map[string]string{}}
+	raw := `#EXTM3U
+#EXT-X-MEDIA:TYPE=DATA,GROUP-ID="data",NAME="Timed Metadata",URI="data.m3u8"
+`
+	streams, err := p.parseMaster(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(streams) != 1 {
+		t.Fatalf("unknown media TYPE with URI should still be kept like upstream, got %#v", streams)
+	}
+	if streams[0].MediaType != nil {
+		t.Fatalf("unknown media TYPE should leave MediaType nil like upstream, got %#v", streams[0].MediaType)
+	}
+	if streams[0].URL != "https://example.com/data.m3u8" {
+		t.Fatalf("unknown media TYPE URL wrong: %s", streams[0].URL)
+	}
+}
+
 func TestParseMediaAcceptsLongSegmentURLLikeUpstream(t *testing.T) {
 	opt := defaultOptions()
 	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}

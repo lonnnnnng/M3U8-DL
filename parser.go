@@ -109,10 +109,14 @@ func (p *parser) parseMaster(raw string) ([]StreamSpec, error) {
 			if uri == "" {
 				continue
 			}
-			mt := MediaType(mtText)
+			var mediaType *MediaType
+			if mt := MediaType(mtText); mt == MediaVideo || mt == MediaAudio || mt == MediaSubtitles {
+				// long: 上游使用 nullable enum，未知 TYPE 不会写入 MediaType，但轨道本身仍会保留给后续选择。
+				mediaType = &mt
+			}
 			s := StreamSpec{
 				OriginalURL:     p.originalURL,
-				MediaType:       &mt,
+				MediaType:       mediaType,
 				URL:             p.preProcessURL(combineURL(p.baseURL, uri)),
 				GroupID:         attr(line, "GROUP-ID"),
 				Language:        attr(line, "LANGUAGE"),
