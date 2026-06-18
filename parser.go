@@ -88,10 +88,20 @@ func (p *parser) parseMaster(raw string) ([]StreamSpec, error) {
 			if bw == "" {
 				bw = attr(line, "BANDWIDTH")
 			}
-			cur.Bandwidth, _ = strconv.Atoi(bw)
+			bandwidth, err := strconv.Atoi(bw)
+			if err != nil {
+				return nil, err
+			}
+			cur.Bandwidth = bandwidth
 			cur.Codecs = attr(line, "CODECS")
 			cur.Resolution = attr(line, "RESOLUTION")
-			cur.FrameRate, _ = strconv.ParseFloat(attr(line, "FRAME-RATE"), 64)
+			if frameRate := attr(line, "FRAME-RATE"); frameRate != "" {
+				parsedFrameRate, err := strconv.ParseFloat(frameRate, 64)
+				if err != nil {
+					return nil, err
+				}
+				cur.FrameRate = parsedFrameRate
+			}
 			cur.AudioID = attr(line, "AUDIO")
 			cur.VideoID = attr(line, "VIDEO")
 			cur.SubtitleID = attr(line, "SUBTITLES")
@@ -291,9 +301,17 @@ func (p *parser) parseMedia(ctx context.Context, raw string) (*Playlist, error) 
 		case isAd:
 			continue
 		case strings.HasPrefix(line, "#EXT-X-TARGETDURATION"):
-			pl.TargetDuration, _ = strconv.ParseFloat(attr(line, ""), 64)
+			targetDuration, err := strconv.ParseFloat(attr(line, ""), 64)
+			if err != nil {
+				return nil, err
+			}
+			pl.TargetDuration = targetDuration
 		case strings.HasPrefix(line, "#EXT-X-MEDIA-SEQUENCE"):
-			seq, _ = strconv.ParseInt(attr(line, ""), 10, 64)
+			parsedSeq, err := strconv.ParseInt(attr(line, ""), 10, 64)
+			if err != nil {
+				return nil, err
+			}
+			seq = parsedSeq
 		case strings.HasPrefix(line, "#EXT-X-PROGRAM-DATE-TIME"):
 			t, err := parseHLSProgramDateTime(attr(line, ""))
 			if err != nil {
@@ -325,7 +343,11 @@ func (p *parser) parseMedia(ctx context.Context, raw string) (*Playlist, error) 
 			}
 			lastKeyLine = line
 		case strings.HasPrefix(line, "#EXTINF"):
-			d, _ := strconv.ParseFloat(strings.Split(attr(line, ""), ",")[0], 64)
+			// long: 原版 Convert.ToDouble/ToInt64 遇到坏数值会中断解析，不能静默置 0 继续下载错误清单。
+			d, err := strconv.ParseFloat(strings.Split(attr(line, ""), ",")[0], 64)
+			if err != nil {
+				return nil, err
+			}
 			seg.Duration = d
 			seg.Index = seq
 			if current.Method != "" && current.Method != EncryptNone {

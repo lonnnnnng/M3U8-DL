@@ -106,6 +106,31 @@ func TestParseMasterCharacteristicsUsesLastCommaThenLastDotLikeUpstream(t *testi
 	}
 }
 
+func TestParseMasterInvalidNumericFieldsFailLikeUpstream(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+	}{
+		{
+			name: "bandwidth",
+			raw:  "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=bad,RESOLUTION=1280x720\nvideo.m3u8\n",
+		},
+		{
+			name: "frame rate",
+			raw:  "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=2000,FRAME-RATE=bad\nvideo.m3u8\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opt := defaultOptions()
+			p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/master.m3u8", currentURL: "https://example.com/master.m3u8", baseURL: "https://example.com/master.m3u8", rawFiles: map[string]string{}}
+			if _, err := p.parseMaster(tt.raw); err == nil {
+				t.Fatal("invalid master numeric field should fail like upstream Convert")
+			}
+		})
+	}
+}
+
 func TestParseMasterUnknownMediaTypeKeepsNilMediaTypeLikeUpstream(t *testing.T) {
 	opt := defaultOptions()
 	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/master.m3u8", currentURL: "https://example.com/master.m3u8", baseURL: "https://example.com/master.m3u8", rawFiles: map[string]string{}}
@@ -620,6 +645,35 @@ seg.ts
 `
 	if _, err := p.parseMedia(context.Background(), raw); err == nil {
 		t.Fatal("invalid PROGRAM-DATE-TIME should fail like upstream DateTime.Parse")
+	}
+}
+
+func TestParseMediaInvalidNumericFieldsFailLikeUpstream(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+	}{
+		{
+			name: "target duration",
+			raw:  "#EXTM3U\n#EXT-X-TARGETDURATION:bad\n#EXTINF:4,\nseg.ts\n",
+		},
+		{
+			name: "media sequence",
+			raw:  "#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-MEDIA-SEQUENCE:bad\n#EXTINF:4,\nseg.ts\n",
+		},
+		{
+			name: "extinf",
+			raw:  "#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:bad,\nseg.ts\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opt := defaultOptions()
+			p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}
+			if _, err := p.parseMedia(context.Background(), tt.raw); err == nil {
+				t.Fatal("invalid media numeric field should fail like upstream Convert")
+			}
+		})
 	}
 }
 
