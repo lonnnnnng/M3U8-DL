@@ -360,7 +360,6 @@ func queryEscapeLower(value string) string {
 }
 
 func preProcessHLSContent(content, m3u8URL string) string {
-	content = strings.TrimSpace(content)
 	if strings.Contains(content, "\r") && !strings.Contains(content, "\n") {
 		content = strings.ReplaceAll(content, "\r", "\n")
 	}

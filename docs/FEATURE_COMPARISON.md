@@ -1,6 +1,6 @@
 # N_m3u8DL-RE 功能清单与 Go HLS 复刻进度对比
 
-更新时间：2026-06-19 02:55:20（北京时间）
+更新时间：2026-06-19 03:03:32（北京时间）
 
 ## 代码目录
 
@@ -146,7 +146,7 @@
 | Live TS | 原版支持 Live TS extractor | Go 版只围绕 HLS | 不在范围 |
 | HLS Master | 视频、音频、字幕、多属性解析 | 已解析基础流、音频、字幕、码率、分辨率、帧率、语言、声道、HDR/DV 等，并兼容长签名 URL | 已追平 |
 | HLS Media | EXTINF、MAP、BYTERANGE、DISCONTINUITY、PDT、ENDLIST | 已实现并覆盖空直播窗口、多 MAP、fMP4 init 保留、PDT 容错、长签名分片 URL | 已追平 |
-| HLS 内容预处理 | YSP、Youku、Disney+、AppleTV、KEY 顺序修正 | 已实现，并新增站点级预处理回归测试 | 已追平 |
+| HLS 内容预处理 | 孤立 `\r` 换行、YSP、Youku、Disney+、AppleTV、KEY 顺序修正 | 已实现，并新增站点级预处理回归测试；普通内容首尾空白也按上游保留 | 已追平 |
 | URL 合并 | 相对 URL、BaseURL、URL Processor | HLS URL 合并和 `--base-url` 已支持；DASH 专用 URL Processor 不在范围 | 已追平 |
 | Append URL Params | 分片 URL 继承输入 URL 参数 | 已覆盖媒体分片、init、HLS key URL | 已追平 |
 | HTTP Header/文本编码/解压 | 默认 UA、自定义 Header、多 Header，playlist/key 默认 `Accept-Encoding: gzip, deflate` 与 `Cache-Control: no-cache`，播放列表文本按响应 charset 解码，gzip/deflate/br 响应自动解压 | 已支持；用户自定义 `Accept-Encoding` 不会被覆盖，跳转后保留 Header/Range，非 UTF-8 playlist 文本按 `Content-Type` charset 解码，playlist/key/分片 HTTP deflate 和 Brotli 响应可解压 | 已追平 |

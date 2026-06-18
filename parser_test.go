@@ -629,6 +629,14 @@ func brotliBytes(t *testing.T, data []byte) []byte {
 }
 
 func TestPreProcessHLSContentMatchesUpstreamSiteFixes(t *testing.T) {
+	t.Run("preserves surrounding whitespace", func(t *testing.T) {
+		raw := " \n#EXTM3U\n#EXT-X-ENDLIST\n "
+		got := preProcessHLSContent(raw, "https://example.com/main.m3u8")
+		if got != raw {
+			t.Fatalf("HLS preprocessing should not trim surrounding whitespace like upstream:\nwant %q\ngot  %q", raw, got)
+		}
+	})
+
 	t.Run("carriage returns and YSP endlist", func(t *testing.T) {
 		got := preProcessHLSContent("#EXTM3U\r#EXT-X-TARGETDURATION:1\r#EXTINF:1,\rseg.ts", "https://tlivecloud-playback-cdn.ysp.cctv.cn/live.m3u8?endtime=1")
 		if !strings.Contains(got, "\n#EXTINF:1,") || !strings.HasSuffix(got, "#EXT-X-ENDLIST") {
