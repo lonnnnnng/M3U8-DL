@@ -73,6 +73,21 @@ video.m3u8
 	}
 }
 
+func TestParseMasterCharacteristicsUsesLastCommaThenLastDotLikeUpstream(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/master.m3u8", currentURL: "https://example.com/master.m3u8", baseURL: "https://example.com/master.m3u8", rawFiles: map[string]string{}}
+	raw := `#EXTM3U
+#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="CC",URI="cc.m3u8",CHARACTERISTICS="public.accessibility.describes-music-and-sound,forced"
+`
+	streams, err := p.parseMaster(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(streams) != 1 || streams[0].Characteristics != "forced" {
+		t.Fatalf("CHARACTERISTICS should follow upstream last comma/last dot rule, got %#v", streams)
+	}
+}
+
 func TestParseMediaAcceptsLongSegmentURLLikeUpstream(t *testing.T) {
 	opt := defaultOptions()
 	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}

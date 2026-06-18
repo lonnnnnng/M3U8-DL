@@ -115,7 +115,7 @@ func (p *parser) parseMaster(raw string) ([]StreamSpec, error) {
 				Language:        attr(line, "LANGUAGE"),
 				Name:            attr(line, "NAME"),
 				Channels:        attr(line, "CHANNELS"),
-				Characteristics: lastToken(attr(line, "CHARACTERISTICS"), "."),
+				Characteristics: characteristicToken(attr(line, "CHARACTERISTICS")),
 				Default:         strings.EqualFold(attr(line, "DEFAULT"), "YES"),
 			}
 			streams = append(streams, s)
@@ -543,4 +543,12 @@ func lastToken(input, sep string) string {
 	}
 	parts := strings.Split(input, sep)
 	return parts[len(parts)-1]
+}
+
+func characteristicToken(input string) string {
+	if input == "" {
+		return ""
+	}
+	// long: 上游先取 CHARACTERISTICS 逗号列表最后一项，再取点号命名空间最后一段；不能直接按点号切整个字符串，否则最后项无命名空间时会混入前一项。
+	return lastToken(lastToken(input, ","), ".")
 }
