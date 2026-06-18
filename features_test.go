@@ -347,6 +347,23 @@ func TestParseCustomRangeOpenEndedLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestParseArgsCustomRangeErrorsLikeUpstream(t *testing.T) {
+	opt, err := parseArgs([]string{"--custom-range", "", "https://example.com/main.m3u8"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opt.CustomRange != nil {
+		t.Fatalf("empty custom-range should be ignored like upstream, got %#v", opt.CustomRange)
+	}
+
+	if _, err := parseArgs([]string{"--custom-range", "bad", "https://example.com/main.m3u8"}); err == nil || !strings.Contains(err.Error(), "error in parse CustomRange: Bad format!") {
+		t.Fatalf("expected upstream custom-range format error, got %v", err)
+	}
+	if _, err := parseArgs([]string{"--custom-range", "1-x", "https://example.com/main.m3u8"}); err == nil || !strings.Contains(err.Error(), "error in parse CustomRange:") {
+		t.Fatalf("expected upstream custom-range parser prefix, got %v", err)
+	}
+}
+
 func TestParseDurationColonUsesUpstreamDayHourMinuteSecondOrder(t *testing.T) {
 	got, err := parseDuration("1:02:03:04")
 	if err != nil {
@@ -380,6 +397,9 @@ func TestParseDurationBareNumberMeansSecondsLikeUpstream(t *testing.T) {
 	}
 	if opt.LiveRecordLimit == nil || *opt.LiveRecordLimit != 30*time.Second {
 		t.Fatalf("live-record-limit bare number should be 30s, got %#v", opt.LiveRecordLimit)
+	}
+	if _, err := parseArgs([]string{"--live-record-limit", "not-duration", "https://example.com/main.m3u8"}); err == nil || !strings.Contains(err.Error(), "error in parse LiveRecordLimit: not-duration") {
+		t.Fatalf("expected upstream live-record-limit parse error, got %v", err)
 	}
 }
 

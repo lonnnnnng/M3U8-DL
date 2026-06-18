@@ -310,7 +310,7 @@ func parseArgs(args []string) (Options, error) {
 			if err != nil {
 				return opt, err
 			}
-			cr, err := parseCustomRange(v)
+			cr, err := parseCustomRangeOption(v)
 			if err != nil {
 				return opt, err
 			}
@@ -338,7 +338,7 @@ func parseArgs(args []string) (Options, error) {
 			if err != nil {
 				return opt, err
 			}
-			d, err := parseDuration(v)
+			d, err := parseLiveRecordLimit(v)
 			if err != nil {
 				return opt, err
 			}
@@ -547,7 +547,7 @@ func parseCustomRange(input string) (*CustomRange, error) {
 	cr := &CustomRange{Raw: input}
 	left, right, ok := strings.Cut(input, "-")
 	if !ok {
-		return nil, fmt.Errorf("custom-range 格式应为 a-b")
+		return nil, errors.New("Bad format!")
 	}
 	if strings.Contains(input, ":") {
 		if left != "" {
@@ -597,6 +597,18 @@ func parseCustomRange(input string) (*CustomRange, error) {
 	return cr, nil
 }
 
+func parseCustomRangeOption(input string) (*CustomRange, error) {
+	if input == "" {
+		return nil, nil
+	}
+	cr, err := parseCustomRange(input)
+	if err != nil {
+		// long: 原版 ParseCustomRange 会把所有格式和时长错误包成统一前缀，避免 CLI 暴露底层数字/时间解析实现差异。
+		return nil, fmt.Errorf("error in parse CustomRange: %s", err.Error())
+	}
+	return cr, nil
+}
+
 func parseDuration(input string) (time.Duration, error) {
 	input = strings.ReplaceAll(input, "：", ":")
 	if strings.Count(input, ":") > 0 {
@@ -627,6 +639,15 @@ func parseDuration(input string) (time.Duration, error) {
 		return time.Duration(seconds) * time.Second, nil
 	}
 	return time.ParseDuration(input)
+}
+
+func parseLiveRecordLimit(input string) (time.Duration, error) {
+	d, err := parseDuration(input)
+	if err != nil {
+		// long: 原版直播录制上限解析失败只回显用户输入，不拼接底层时长错误，便于保持三语言 CLI 行为稳定。
+		return 0, fmt.Errorf("error in parse LiveRecordLimit: %s", input)
+	}
+	return d, nil
 }
 
 func parseTaskStartAt(input string) (time.Time, error) {
