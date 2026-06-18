@@ -322,6 +322,11 @@ func prepareSelectedStreams(selected []StreamSpec, opt *Options) []string {
 		opt.BinaryMerge = true
 		messages = append(messages, tr(*opt, "autoBinaryMerge"))
 	}
+	if living {
+		// long: 原版直播录制会在任务启动时强制多轨并发和 MP4 实时解密，避免直播 fMP4/CENC 等到整轨结束后才补救解密。
+		opt.ConcurrentDownload = true
+		opt.MP4RealTimeDecryption = true
+	}
 	if !living {
 		for i := range selected {
 			applyCustomRange(&selected[i], opt.CustomRange)

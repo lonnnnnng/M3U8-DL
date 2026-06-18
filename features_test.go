@@ -1503,6 +1503,27 @@ func TestPrepareSelectedStreamsSkipsCustomRangeForLive(t *testing.T) {
 	}
 }
 
+func TestPrepareSelectedStreamsLiveForcesRecordOptionsLikeUpstream(t *testing.T) {
+	streams := []StreamSpec{{
+		Playlist: &Playlist{IsLive: true, Parts: []MediaPart{{Segments: []Segment{{Index: 0, Duration: 1}}}}},
+	}}
+	opt := defaultOptions()
+	prepareSelectedStreams(streams, &opt)
+	if !opt.ConcurrentDownload {
+		t.Fatal("live recording should force concurrent download like upstream")
+	}
+	if !opt.MP4RealTimeDecryption {
+		t.Fatal("live recording should force MP4 real-time decryption like upstream")
+	}
+
+	opt = defaultOptions()
+	opt.LivePerformAsVOD = true
+	prepareSelectedStreams(streams, &opt)
+	if opt.ConcurrentDownload || opt.MP4RealTimeDecryption {
+		t.Fatal("live-perform-as-vod should not enable live recording-only options")
+	}
+}
+
 func TestPrepareSelectedStreamsUnknownEncryptionBeforeCustomRange(t *testing.T) {
 	start, end := int64(1), int64(1)
 	streams := []StreamSpec{{
