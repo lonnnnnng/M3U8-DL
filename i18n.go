@@ -69,6 +69,11 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "檢測到fMP4，自動開啟二進位制合併",
 		EnUS: "fMP4 is detected, binary merging is automatically enabled",
 	},
+	"autoBinaryMerge2": {
+		ZhCN: "检测到杜比视界内容，自动开启二进制合并",
+		ZhTW: "檢測到杜比視界內容，自動開啟二進位制合併",
+		EnUS: "Dolby Vision content is detected, binary merging is automatically enabled",
+	},
 	"autoBinaryMergeUnknown": {
 		ZhCN: "检测到无法识别的加密方式，自动开启二进制合并",
 		ZhTW: "檢測到無法識別的加密方式，自動開啟二進位制合併",
@@ -78,6 +83,11 @@ var localizedTexts = map[string]localizedText{
 		ZhCN: "检测到CENC加密方式，自动开启二进制合并",
 		ZhTW: "檢測到CENC加密方式，自動開啟二進位制合併",
 		EnUS: "When CENC encryption is detected, binary merging is automatically enabled",
+	},
+	"autoBinaryMerge5": {
+		ZhCN: "检测到杜比视界内容，混流功能已禁用",
+		ZhTW: "檢測到杜比視界內容，混流功能已禁用",
+		EnUS: "Dolby Vision content is detected, mux after done is automatically disabled",
 	},
 	"realTimeDecMessage": {
 		ZhCN: "启用实时解密时，建议用shaka-packager而非mp4decrypt/ffmpeg",

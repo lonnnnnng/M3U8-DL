@@ -142,19 +142,26 @@ func mediaInfosAudioStart(infos []mediaInfo) (time.Duration, bool) {
 	return 0, false
 }
 
-func applyMediaInfoToStream(s *StreamSpec, opt *Options, infos []mediaInfo) {
+func applyMediaInfoToStream(s *StreamSpec, opt *Options, infos []mediaInfo) []string {
+	var messages []string
 	if len(infos) == 0 {
-		return
+		return nil
 	}
 	if anyDolbyVision(infos) {
-		// long: Dolby Vision 片段在上游会强制二进制合并，避免普通 ffmpeg copy 破坏 DV 元数据或产生不可用输出。
-		opt.BinaryMerge = true
-		opt.MuxAfterDone = nil
+		if !opt.BinaryMerge {
+			// long: Dolby Vision 片段在上游会强制二进制合并，避免普通 ffmpeg copy 破坏 DV 元数据或产生不可用输出。
+			opt.BinaryMerge = true
+			messages = append(messages, tr(*opt, "autoBinaryMerge2"))
+		}
+		if opt.MuxAfterDone != nil {
+			opt.MuxAfterDone = nil
+			messages = append(messages, tr(*opt, "autoBinaryMerge5"))
+		}
 	}
 	if allMediaInfoType(infos, "audio") {
 		audio := MediaAudio
 		s.MediaType = &audio
-		return
+		return messages
 	}
 	if allMediaInfoType(infos, "subtitle") {
 		sub := MediaSubtitles
@@ -164,6 +171,7 @@ func applyMediaInfoToStream(s *StreamSpec, opt *Options, infos []mediaInfo) {
 			s.Extension = "vtt"
 		}
 	}
+	return messages
 }
 
 func mediaInfosUseAACFilter(infos []mediaInfo) bool {

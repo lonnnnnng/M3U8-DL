@@ -3204,13 +3204,25 @@ func TestApplyMediaInfoConvertsSubtitleTSToVTT(t *testing.T) {
 func TestApplyMediaInfoDolbyVisionForcesBinaryMerge(t *testing.T) {
 	stream := StreamSpec{}
 	opt := defaultOptions()
+	opt.UILanguage = "zh-CN"
 	opt.MuxAfterDone = &MuxOptions{Format: "mp4"}
-	applyMediaInfoToStream(&stream, &opt, []mediaInfo{{Type: "video", CodecName: "dvhe.05.06", DolbyVision: true}})
+	messages := applyMediaInfoToStream(&stream, &opt, []mediaInfo{{Type: "video", CodecName: "dvhe.05.06", DolbyVision: true}})
 	if !opt.BinaryMerge {
 		t.Fatal("Dolby Vision should force binary merge like upstream")
 	}
 	if opt.MuxAfterDone != nil {
 		t.Fatal("Dolby Vision should disable final mux like upstream")
+	}
+	if len(messages) != 2 || messages[0] != "检测到杜比视界内容，自动开启二进制合并" || messages[1] != "检测到杜比视界内容，混流功能已禁用" {
+		t.Fatalf("Dolby Vision should emit upstream auto-merge resources, got %#v", messages)
+	}
+
+	opt = defaultOptions()
+	opt.UILanguage = "zh-CN"
+	opt.BinaryMerge = true
+	messages = applyMediaInfoToStream(&stream, &opt, []mediaInfo{{Type: "video", CodecName: "dvhe.05.06", DolbyVision: true}})
+	if len(messages) != 0 {
+		t.Fatalf("already-enabled binary merge should not emit duplicate Dolby Vision warning, got %#v", messages)
 	}
 }
 
@@ -4838,6 +4850,12 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	}
 	if got := tr(opt, "singleFileSplitWarn"); got != "整段文件已被自動切割為小分片以加速下載" {
 		t.Fatalf("traditional singleFileSplitWarn wrong: %q", got)
+	}
+	if got := tr(opt, "autoBinaryMerge2"); got != "檢測到杜比視界內容，自動開啟二進位制合併" {
+		t.Fatalf("traditional autoBinaryMerge2 wrong: %q", got)
+	}
+	if got := tr(opt, "autoBinaryMerge5"); got != "檢測到杜比視界內容，混流功能已禁用" {
+		t.Fatalf("traditional autoBinaryMerge5 wrong: %q", got)
 	}
 	if got := tr(opt, "selectedStream"); got != "已選擇的流:" {
 		t.Fatalf("traditional selectedStream wrong: %q", got)

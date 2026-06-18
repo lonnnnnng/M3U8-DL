@@ -420,7 +420,9 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 	}
 	fmt.Println(tr(opt, "readingInfo"))
 	mediaInfos := probeMediaInfo(firstMediaProbeFile(files), opt)
-	applyMediaInfoToStream(&s, &opt, mediaInfos)
+	for _, msg := range applyMediaInfoToStream(&s, &opt, mediaInfos) {
+		fmt.Println(msg)
+	}
 	useAACFilter := mediaInfosUseAACFilter(mediaInfos)
 	if audioStart != nil && s.MediaType != nil && *s.MediaType == MediaAudio {
 		start, ok := mediaInfosAudioStart(mediaInfos)
