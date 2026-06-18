@@ -383,6 +383,20 @@ func TestParseDurationBareNumberMeansSecondsLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestParseArgsTaskStartAtMatchesUpstreamFormat(t *testing.T) {
+	opt, err := parseArgs([]string{"--task-start-at", "20260618123456", "https://example.com/main.m3u8"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opt.TaskStartAt == nil || opt.TaskStartAt.Format("20060102150405") != "20260618123456" {
+		t.Fatalf("task-start-at should parse yyyyMMddHHmmss like upstream, got %#v", opt.TaskStartAt)
+	}
+
+	if _, err := parseArgs([]string{"--task-start-at", "2026-06-18 12:34:56", "https://example.com/main.m3u8"}); err == nil || !strings.Contains(err.Error(), "error in parse TaskStartTime: 2026-06-18 12:34:56") {
+		t.Fatalf("expected upstream task-start-at parse error, got %v", err)
+	}
+}
+
 func TestParseArgsMuxAfterDoneStrictValidation(t *testing.T) {
 	cases := []struct {
 		name string

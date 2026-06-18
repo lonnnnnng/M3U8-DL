@@ -320,7 +320,7 @@ func parseArgs(args []string) (Options, error) {
 			if err != nil {
 				return opt, err
 			}
-			t, err := time.ParseInLocation("20060102150405", v, time.Local)
+			t, err := parseTaskStartAt(v)
 			if err != nil {
 				return opt, err
 			}
@@ -627,6 +627,15 @@ func parseDuration(input string) (time.Duration, error) {
 		return time.Duration(seconds) * time.Second, nil
 	}
 	return time.ParseDuration(input)
+}
+
+func parseTaskStartAt(input string) (time.Time, error) {
+	t, err := time.ParseInLocation("20060102150405", input, time.Local)
+	if err != nil {
+		// long: 原版 ParseStartTime 把格式错误统一映射成这个固定文案，CLI 用户和测试都不需要感知底层时间库的细节。
+		return time.Time{}, fmt.Errorf("error in parse TaskStartTime: %s", input)
+	}
+	return t, nil
 }
 
 func parseMux(input string) (*MuxOptions, error) {
