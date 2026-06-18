@@ -2840,6 +2840,38 @@ func TestProbeMediaInfoDetectsDolbyVisionAliasesLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestProbeMediaInfoDetectsDolbyVisionSideDataLikeUpstream(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell helper is unix-only")
+	}
+	tmp := t.TempDir()
+	ffmpeg := filepath.Join(tmp, "ffmpeg")
+	ffprobe := filepath.Join(tmp, "ffprobe")
+	if err := os.WriteFile(ffmpeg, []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	script := "#!/bin/sh\nprintf '%s\\n' '{\"streams\":[{\"codec_type\":\"video\",\"codec_name\":\"hevc\",\"codec_tag_string\":\"hev1\",\"side_data_list\":[{\"side_data_type\":\"DOVI configuration record\"}]},{\"codec_type\":\"audio\",\"codec_name\":\"aac\",\"codec_tag_string\":\"mp4a\",\"side_data_list\":[{\"side_data_type\":\"DOVI configuration record\"}]}]}'\n"
+	if err := os.WriteFile(ffprobe, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	media := filepath.Join(tmp, "dolby-side-data.mp4")
+	if err := os.WriteFile(media, []byte("probe"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	opt := defaultOptions()
+	opt.FFmpegBinaryPath = ffmpeg
+	infos := probeMediaInfo(media, opt)
+	if len(infos) != 2 {
+		t.Fatalf("unexpected media info: %#v", infos)
+	}
+	if !infos[0].DolbyVision {
+		t.Fatalf("video DOVI side data should be detected like upstream DoViRegex: %#v", infos)
+	}
+	if infos[1].DolbyVision {
+		t.Fatalf("DoViRegex branch should only mark video streams like upstream: %#v", infos)
+	}
+}
+
 func TestApplyMediaInfoConvertsSubtitleTSToVTT(t *testing.T) {
 	stream := StreamSpec{Extension: "ts"}
 	opt := defaultOptions()

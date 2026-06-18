@@ -12,6 +12,7 @@ type mediaInfo struct {
 	Type        string
 	CodecName   string
 	CodecTag    string
+	SideData    []string
 	StartTime   time.Duration
 	DolbyVision bool
 }
@@ -22,6 +23,9 @@ type ffprobeStreams struct {
 		CodecName      string `json:"codec_name"`
 		CodecTagString string `json:"codec_tag_string"`
 		StartTime      string `json:"start_time"`
+		SideDataList   []struct {
+			SideDataType string `json:"side_data_type"`
+		} `json:"side_data_list"`
 	} `json:"streams"`
 }
 
@@ -30,7 +34,7 @@ func probeMediaInfo(path string, opt Options) []mediaInfo {
 	if bin == "" || path == "" {
 		return nil
 	}
-	cmd := exec.Command(bin, "-v", "error", "-show_entries", "stream=codec_type,codec_name,codec_tag_string,start_time", "-of", "json", path)
+	cmd := exec.Command(bin, "-v", "error", "-show_streams", "-of", "json", path)
 	out, err := cmd.Output()
 	if err != nil {
 		return nil
@@ -47,6 +51,9 @@ func probeMediaInfo(path string, opt Options) []mediaInfo {
 			CodecTag:  strings.ToLower(stream.CodecTagString),
 			StartTime: parseMediaStartTime(stream.StartTime),
 		}
+		for _, sideData := range stream.SideDataList {
+			info.SideData = append(info.SideData, strings.ToLower(sideData.SideDataType))
+		}
 		info.DolbyVision = isDolbyVisionMediaInfo(info)
 		infos = append(infos, info)
 	}
@@ -62,6 +69,15 @@ func isDolbyVisionMediaInfo(info mediaInfo) bool {
 			strings.Contains(text, "dvvideo") {
 			// long: 原版从 ffmpeg stderr 的 BaseInfo/Type 中识别 dvhe、dvh1、DOVI 和 dvvideo；Go 版用 ffprobe JSON 时同样要覆盖这些别名。
 			return true
+		}
+	}
+	if info.Type == "video" {
+		for _, sideData := range info.SideData {
+			if strings.Contains(sideData, "dovi configuration record") ||
+				strings.Contains(sideData, "dolby vision") {
+				// long: 原版还会用全局 “DOVI configuration record” stderr 正则把视频轨标记为 Dolby Vision；ffprobe JSON 的 side_data_list 是 Go 版对应的信息来源。
+				return true
+			}
 		}
 	}
 	return false
