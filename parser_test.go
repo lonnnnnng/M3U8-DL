@@ -609,6 +609,20 @@ seg.ts
 	}
 }
 
+func TestParseMediaProgramDateTimeInvalidFailsLikeUpstream(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}
+	raw := `#EXTM3U
+#EXT-X-TARGETDURATION:4
+#EXT-X-PROGRAM-DATE-TIME:not-a-date
+#EXTINF:4.0,
+seg.ts
+`
+	if _, err := p.parseMedia(context.Background(), raw); err == nil {
+		t.Fatal("invalid PROGRAM-DATE-TIME should fail like upstream DateTime.Parse")
+	}
+}
+
 func TestParseMediaMarksOriginalLivePlaylist(t *testing.T) {
 	opt := defaultOptions()
 	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}

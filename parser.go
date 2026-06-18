@@ -295,9 +295,11 @@ func (p *parser) parseMedia(ctx context.Context, raw string) (*Playlist, error) 
 		case strings.HasPrefix(line, "#EXT-X-MEDIA-SEQUENCE"):
 			seq, _ = strconv.ParseInt(attr(line, ""), 10, 64)
 		case strings.HasPrefix(line, "#EXT-X-PROGRAM-DATE-TIME"):
-			if t, err := parseHLSProgramDateTime(attr(line, "")); err == nil {
-				seg.DateTime = &t
+			t, err := parseHLSProgramDateTime(attr(line, ""))
+			if err != nil {
+				return nil, err
 			}
+			seg.DateTime = &t
 		case strings.HasPrefix(line, "#EXT-X-DISCONTINUITY"):
 			if hasAd && len(parts) > 0 {
 				segs = parts[len(parts)-1].Segments
