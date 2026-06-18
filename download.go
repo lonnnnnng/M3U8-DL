@@ -585,10 +585,10 @@ func splitSingleMediaSegment(ctx context.Context, client *http.Client, s StreamS
 		return nil, err
 	}
 	var split []Segment
-	for start, index := int64(0), int64(0); start < size; index++ {
-		end := start + largeSingleFileSplitSize - 1
-		if end >= size {
-			end = size - 1
+	for remaining, start, index := size, int64(0), int64(0); remaining > 0; index++ {
+		end := start + largeSingleFileSplitSize
+		if remaining-largeSingleFileSplitSize <= 0 {
+			end = size
 		}
 		length := end - start + 1
 		next := seg
@@ -597,7 +597,13 @@ func splitSingleMediaSegment(ctx context.Context, client *http.Client, s StreamS
 		next.ExpectLength = cloneInt64(length)
 		next.Duration = 0
 		split = append(split, next)
-		start = end + 1
+		if remaining-largeSingleFileSplitSize > 0 {
+			// long: 原版 LargeSingleFileSplitUtil 用闭区间生成 0-10MiB、下一段从 10MiB+1 开始；最后一段 end 还会等于 Content-Length，交给 HTTP Range 语义截到文件尾。
+			remaining -= largeSingleFileSplitSize
+			start = end + 1
+			continue
+		}
+		break
 	}
 	return split, nil
 }

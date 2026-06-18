@@ -333,6 +333,14 @@ func TestSingleLargeSegmentUsesRangeSplitting(t *testing.T) {
 				w.WriteHeader(http.StatusRequestedRangeNotSatisfiable)
 				return
 			}
+			if end >= int64(len(payload)) {
+				end = int64(len(payload)) - 1
+			}
+			if start < 0 || start > end {
+				t.Errorf("unsatisfiable range %q after clipping to payload size", rangeHeader)
+				w.WriteHeader(http.StatusRequestedRangeNotSatisfiable)
+				return
+			}
 			w.Header().Set("Content-Range", fmt.Sprintf("bytes %d-%d/%d", start, end, len(payload)))
 			w.WriteHeader(http.StatusPartialContent)
 			_, _ = w.Write(payload[start : end+1])
@@ -375,8 +383,11 @@ func TestSingleLargeSegmentUsesRangeSplitting(t *testing.T) {
 	if len(ranges) < 2 {
 		t.Fatalf("expected at least two range requests, got %#v", ranges)
 	}
-	if !containsString(ranges, "bytes=0-10485759") {
+	if !containsString(ranges, "bytes=0-10485760") {
 		t.Fatalf("expected first split range, got %#v", ranges)
+	}
+	if !containsString(ranges, "bytes=10485761-10485777") {
+		t.Fatalf("expected last split range to keep upstream oversized end, got %#v", ranges)
 	}
 }
 
