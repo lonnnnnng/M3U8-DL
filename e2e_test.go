@@ -776,7 +776,7 @@ func TestDownloadMissingSegmentFailsWhenCheckEnabled(t *testing.T) {
 	}
 }
 
-func TestDownloadByteRangeShortReadFails(t *testing.T) {
+func TestDownloadByteRangeShortReadKeepsResponseLikeUpstream(t *testing.T) {
 	var base string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -811,8 +811,16 @@ func TestDownloadByteRangeShortReadFails(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := downloadAll(context.Background(), client, streams, opt); err == nil {
-		t.Fatal("expected short BYTERANGE response to fail")
+	outs, err := downloadAll(context.Background(), client, streams, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(outs[0].Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "short" {
+		t.Fatalf("short BYTERANGE response should be kept like upstream, got %q", got)
 	}
 }
 

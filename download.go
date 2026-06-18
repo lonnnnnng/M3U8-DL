@@ -809,10 +809,8 @@ func decryptedSegmentPath(path string) string {
 
 func validateDownloadedLength(seg Segment, actual int, responseLength int64, encoded bool) error {
 	actualLength := int64(actual)
-	if seg.ExpectLength != nil && actualLength != *seg.ExpectLength {
-		return fmt.Errorf("分片长度校验失败: 期望 %d, 实际 %d, url=%s", *seg.ExpectLength, actualLength, seg.URL)
-	}
 	if !encoded && responseLength >= 0 && responseLength != actualLength {
+		// long: 上游 DownloadResult.Success 只比较 HTTP Content-Length 和实际写入长度；HLS BYTERANGE 的 ExpectLength 不参与成功判定。
 		return fmt.Errorf("响应长度校验失败: Content-Length %d, 实际 %d, url=%s", responseLength, actualLength, seg.URL)
 	}
 	return nil
