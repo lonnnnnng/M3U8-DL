@@ -30,7 +30,7 @@ func normalizeEncryptMethod(input string) EncryptMethod {
 }
 
 func parseHLSPlaylistEncryptMethod(input string) EncryptMethod {
-	normalized := strings.ReplaceAll(strings.TrimSpace(input), "-", "_")
+	normalized := strings.ReplaceAll(input, "-", "_")
 	switch normalized {
 	case "NONE":
 		return EncryptNone
@@ -49,7 +49,7 @@ func parseHLSPlaylistEncryptMethod(input string) EncryptMethod {
 	case "UNKNOWN":
 		return EncryptUnknown
 	default:
-		// long: HLS 清单里的 METHOD 走上游 EncryptInfo.ParseMethod，Enum.TryParse 默认大小写敏感；小写 aes-128 这类值会降级 UNKNOWN，而不是被宽松修正。
+		// long: HLS 清单里的 METHOD 走上游 EncryptInfo.ParseMethod，Enum.TryParse 默认大小写敏感且不会修剪属性值；小写或带空格都会降级 UNKNOWN。
 		return EncryptUnknown
 	}
 }

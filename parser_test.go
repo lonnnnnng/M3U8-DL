@@ -1055,7 +1055,7 @@ func TestParseMediaKeyMethodIsCaseSensitiveLikeUpstream(t *testing.T) {
 	}
 }
 
-func TestParseMediaKeyMethodTrimsWhitespaceLikeUpstream(t *testing.T) {
+func TestParseMediaKeyMethodWhitespaceBecomesUnknownLikeUpstream(t *testing.T) {
 	opt := defaultOptions()
 	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}
 	raw := `#EXTM3U
@@ -1070,8 +1070,11 @@ func TestParseMediaKeyMethodTrimsWhitespaceLikeUpstream(t *testing.T) {
 		t.Fatal(err)
 	}
 	segs := sortedSegments(pl)
-	if len(segs) != 1 || segs[0].Encrypt.Method != EncryptAES128 {
-		t.Fatalf("HLS METHOD should trim whitespace like upstream Enum.TryParse, got %#v", segs)
+	if len(segs) != 1 || segs[0].Encrypt.Method != EncryptUnknown {
+		t.Fatalf("HLS METHOD with whitespace should become UNKNOWN like upstream Enum.TryParse, got %#v", segs)
+	}
+	if string(segs[0].Encrypt.Key) != "0123456789abcdef" {
+		t.Fatalf("key bytes should still load before whitespace method downgrade is observed, got %#v", segs)
 	}
 }
 
