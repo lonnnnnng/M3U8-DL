@@ -857,17 +857,26 @@ func applySegmentRange(data []byte, seg Segment) ([]byte, error) {
 		return data, nil
 	}
 	start := *seg.StartRange
-	if start < 0 || start > int64(len(data)) {
+	if start < 0 {
 		return nil, fmt.Errorf("分片 Range 起点无效: %d", start)
 	}
-	end := int64(len(data))
-	if seg.ExpectLength != nil {
-		end = start + *seg.ExpectLength
-		if end > int64(len(data)) {
-			return nil, fmt.Errorf("分片 Range 超出文件长度: %d-%d/%d", start, end-1, len(data))
+	if seg.ExpectLength == nil {
+		if start > int64(len(data)) {
+			return []byte{}, nil
 		}
+		return data[start:], nil
 	}
-	return data[start:end], nil
+	length := *seg.ExpectLength
+	if length < 0 {
+		return nil, fmt.Errorf("分片 Range 长度无效: %d", length)
+	}
+	out := make([]byte, length)
+	if start >= int64(len(data)) {
+		// long: 原版 FileStream.ReadAsync 读不到完整本地 BYTERANGE 时仍会写出预分配缓冲区，未读到的尾部保持 0。
+		return out, nil
+	}
+	copy(out, data[start:])
+	return out, nil
 }
 
 func isExternalEncryptedSegment(seg Segment) bool {

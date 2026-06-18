@@ -873,6 +873,39 @@ func TestDownloadFileURLByteRangeUsesLocalPathLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestDownloadLocalByteRangeShortReadPadsZerosLikeUpstream(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "short.ts")
+	if err := os.WriteFile(source, []byte("0123456789"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name   string
+		start  int64
+		length int64
+		want   []byte
+	}{
+		{name: "partial tail", start: 8, length: 5, want: []byte{'8', '9', 0, 0, 0}},
+		{name: "past eof", start: 20, length: 4, want: []byte{0, 0, 0, 0}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := filepath.Join(tmp, tt.name+".ts")
+			seg := Segment{URL: source, Index: 0, StartRange: &tt.start, ExpectLength: &tt.length}
+			if _, err := downloadSegment(context.Background(), http.DefaultClient, seg, out, defaultOptions(), nil, "", ""); err != nil {
+				t.Fatal(err)
+			}
+			data, err := os.ReadFile(out)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(data, tt.want) {
+				t.Fatalf("local BYTERANGE short read should pad zeros like upstream, got %v want %v", data, tt.want)
+			}
+		})
+	}
+}
+
 func TestDownloadSubtitleFixRemovesSourceSegmentsLikeUpstream(t *testing.T) {
 	tmp := t.TempDir()
 	source := filepath.Join(tmp, "source.vtt")
