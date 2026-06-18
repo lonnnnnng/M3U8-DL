@@ -645,13 +645,28 @@ func TestParseArgsStreamFilterRejectsInvalidValuesLikeUpstream(t *testing.T) {
 	}
 }
 
-func TestParseArgsMuxAfterDoneBareBoolFlagsMatchUpstream(t *testing.T) {
-	opt, err := parseArgs([]string{"-M", "format=mp4:keep:skip_sub", "https://example.com/main.m3u8"})
-	if err != nil {
-		t.Fatal(err)
+func TestParseArgsMuxAfterDoneBareBoolFlagsMatchUpstreamSuffixRule(t *testing.T) {
+	tests := []struct {
+		name    string
+		mux     string
+		keep    bool
+		skipSub bool
+	}{
+		{name: "keep suffix", mux: "format=mp4:keep", keep: true},
+		{name: "skip suffix", mux: "format=mp4:skip_sub", skipSub: true},
+		{name: "only trailing skip_sub wins", mux: "format=mp4:keep:skip_sub", skipSub: true},
+		{name: "only trailing keep wins", mux: "format=mp4:skip_sub:keep", keep: true},
 	}
-	if opt.MuxAfterDone == nil || !opt.MuxAfterDone.Keep || !opt.MuxAfterDone.SkipSubtitle {
-		t.Fatalf("bare keep/skip_sub should parse as true like upstream, got %#v", opt.MuxAfterDone)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opt, err := parseArgs([]string{"-M", tt.mux, "https://example.com/main.m3u8"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if opt.MuxAfterDone == nil || opt.MuxAfterDone.Keep != tt.keep || opt.MuxAfterDone.SkipSubtitle != tt.skipSub {
+				t.Fatalf("bare keep/skip_sub should follow upstream suffix rule, got %#v", opt.MuxAfterDone)
+			}
+		})
 	}
 }
 

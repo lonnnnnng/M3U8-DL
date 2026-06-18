@@ -708,11 +708,11 @@ func parseMux(input string) (*MuxOptions, error) {
 	if muxer == "mkvmerge" && format == "mp4" {
 		return nil, errors.New("mkvmerge can not do mp4")
 	}
-	keep, err := parseStrictMuxBool(p, "keep")
+	keep, err := parseStrictMuxBool(input, p, "keep")
 	if err != nil {
 		return nil, err
 	}
-	skipSub, err := parseStrictMuxBool(p, "skip_sub")
+	skipSub, err := parseStrictMuxBool(input, p, "skip_sub")
 	if err != nil {
 		return nil, err
 	}
@@ -725,14 +725,15 @@ func parseMux(input string) (*MuxOptions, error) {
 	}, nil
 }
 
-func parseStrictMuxBool(params map[string]string, key string) (bool, error) {
+func parseStrictMuxBool(input string, params map[string]string, key string) (bool, error) {
+	hasExplicitValue := strings.Contains(input, key+"=")
 	value := params[key]
-	if value == "" {
+	if !hasExplicitValue {
+		if strings.Contains(input, key) && strings.HasSuffix(input, key) {
+			// long: 上游 ComplexParamParser 只有在整串参数以 keep/skip_sub 结尾且没有 key= 时才把裸布尔解释为 true。
+			return true, nil
+		}
 		return false, nil
-	}
-	if value == key {
-		// long: 上游 ComplexParamParser 在参数以 keep/skip_sub 结尾且没有等号时会返回 "true"，裸布尔写法要和 keep=true 等价。
-		return true, nil
 	}
 	if value != "true" && value != "false" {
 		// long: 混流选项直接影响临时文件保留和字幕是否参与封装，非法布尔值应像上游一样立即拒绝，避免误删或漏封轨道。
