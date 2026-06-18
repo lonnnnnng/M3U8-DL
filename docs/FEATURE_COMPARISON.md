@@ -178,7 +178,7 @@
 | meta 输出 | `raw.m3u8`、`meta.json`、`meta_selected.json`，`--write-meta-json false` 关闭写出，已有文件不覆盖 | 已支持 | 已追平 |
 | 保存名/模板 | 文件名清理、模板变量、冲突处理 | 已支持上游清理语义、模板变量和冲突命名；`<Id>` 按本次下载任务序号而非原始流编号生成 | 已追平 |
 | 二进制合并 | 普通分片合并、分批预合并 | 已支持，超长列表可分批预合并 | 已追平 |
-| ffmpeg 单轨合并 | concat protocol/demuxer、多输出格式 | 已支持 `mp4/mkv/flv/ts/m4a/aac/eac3/ac3` 等常见路径，MP4 date metadata 按上游 `.NET` round-trip `"o"` 格式写入，`aac_adtstoasc` 按上游 `Where(Audio).All(...)` 空集合为真的语义启用 | 基本追平 |
+| ffmpeg 单轨合并 | concat protocol/demuxer，下载主流程按音频 `m4a`、其他 `mp4` 输出 | 下载主流程已按上游固定为音频 `.m4a`、非音频 `.mp4`；底层 ffmpeg 合并函数保留 `mp4/mkv/flv/ts/m4a/aac/eac3/ac3` 分支，MP4 date metadata 按上游 `.NET` round-trip `"o"` 格式写入，`aac_adtstoasc` 按上游 `Where(Audio).All(...)` 空集合为真的语义启用 | 基本追平 |
 | 最终混流 | ffmpeg/mkvmerge、metadata、disposition | 已支持多轨混流、语言/标题元数据、date metadata、默认轨道标记、外部导入；无语言轨道会按上游写入 `und`，并按上游处理 keep=false 清理范围；媒体探测识别 HDR bt2020 信号、Dolby Vision 的 `dvhe`、`dvh1`、`DOVI`、`dvvideo` 别名和 `DOVI configuration record` side data 后，DV 会按上游禁用最终混流；空探测结果会按上游保留 `Unknown` 占位，音频起点可从 stream 或全局 format `start_time` 读取 | 基本追平 |
 | `--mux-import` | 多外部轨道导入 | 已支持多条导入和存在性校验 | 已追平 |
 | `--skip-download` | 只解析/写 meta | 已支持 | 已追平 |
