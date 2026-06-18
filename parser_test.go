@@ -36,6 +36,9 @@ video.m3u8
 	if streams[1].Resolution != "1920x1080" {
 		t.Fatalf("resolution wrong: %s", streams[1].Resolution)
 	}
+	if streams[0].Default {
+		t.Fatalf("EXT-X-MEDIA DEFAULT should remain unset like upstream parser bug, got true")
+	}
 }
 
 func TestParseMasterAcceptsLongVariantURLLikeUpstream(t *testing.T) {

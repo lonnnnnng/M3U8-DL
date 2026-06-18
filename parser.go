@@ -133,7 +133,6 @@ func (p *parser) parseMaster(raw string) ([]StreamSpec, error) {
 				Name:            attr(line, "NAME"),
 				Channels:        attr(line, "CHANNELS"),
 				Characteristics: characteristicToken(attr(line, "CHARACTERISTICS")),
-				Default:         strings.EqualFold(attr(line, "DEFAULT"), "YES"),
 			}
 			streams = append(streams, s)
 		case strings.HasPrefix(line, "#"):
