@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -3417,6 +3418,29 @@ func TestBuildLivePipeMuxArgsHonorsEnvironmentOptions(t *testing.T) {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("raw pipe ffmpeg options missing %q:\n%s", want, joined)
 		}
+	}
+}
+
+func TestBuildLivePipeMuxArgsPreservesQuotedEnvironmentOptions(t *testing.T) {
+	now := time.Date(2026, 6, 18, 12, 0, 0, 0, time.UTC)
+	args := buildLivePipeMuxArgs([]string{"v"}, "/ignored.ts", now, livePipeEnv{Options: `-metadata title="Live Stream" -f flv 'rtmp://example/live app'`, TmpDir: "/pipes"}, false)
+	joined := "\n" + strings.Join(args, "\n") + "\n"
+	for _, want := range []string{
+		"\n-re\n",
+		"\n-metadata\ntitle=Live Stream\n",
+		"\n-f\nflv\nrtmp://example/live app\n",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("quoted raw pipe ffmpeg option missing %q:\n%s", want, joined)
+		}
+	}
+}
+
+func TestSplitLivePipeOptionArgsFallsBackOnBrokenQuotes(t *testing.T) {
+	got := splitLivePipeOptionArgs(`-metadata title="Live Stream`)
+	want := []string{"-metadata", `title="Live`, "Stream"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("broken quoted pipe option should fall back to Fields, got %#v", got)
 	}
 }
 

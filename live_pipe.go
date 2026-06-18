@@ -313,8 +313,8 @@ func buildLivePipeMuxArgs(pipeNames []string, outputPath string, now time.Time, 
 	custom := strings.TrimSpace(env.Options)
 	if custom != "" {
 		if strings.HasPrefix(custom, "-") {
-			// long: 上游允许 RE_LIVE_PIPE_OPTIONS 直接追加一整段 ffmpeg 参数；Go 版用空白切分保留这个逃生口，复杂引用场景仍留给后续完整 pipe mux 管线处理。
-			args = append(args, strings.Fields(custom)...)
+			// long: 上游允许 RE_LIVE_PIPE_OPTIONS 直接追加一整段 ffmpeg 参数；Go 版必须先按 shell 风格拆分，保住标题、URL 等包含空格的引号参数。
+			args = append(args, splitLivePipeOptionArgs(custom)...)
 		} else {
 			args = append(args, "-f", "mpegts", "-shortest", custom)
 		}
@@ -322,6 +322,70 @@ func buildLivePipeMuxArgs(pipeNames []string, outputPath string, now time.Time, 
 		args = append(args, "-f", "mpegts", "-shortest", outputPath)
 	}
 	return args
+}
+
+func splitLivePipeOptionArgs(input string) []string {
+	args, err := splitQuotedArgs(input)
+	if err != nil {
+		return strings.Fields(input)
+	}
+	return args
+}
+
+func splitQuotedArgs(input string) ([]string, error) {
+	var args []string
+	var b strings.Builder
+	var quote rune
+	escaped := false
+	inToken := false
+	for _, r := range input {
+		if escaped {
+			b.WriteRune(r)
+			inToken = true
+			escaped = false
+			continue
+		}
+		if r == '\\' {
+			escaped = true
+			inToken = true
+			continue
+		}
+		if quote != 0 {
+			if r == quote {
+				quote = 0
+				inToken = true
+				continue
+			}
+			b.WriteRune(r)
+			inToken = true
+			continue
+		}
+		if r == '\'' || r == '"' {
+			quote = r
+			inToken = true
+			continue
+		}
+		if r == ' ' || r == '\t' || r == '\n' || r == '\r' {
+			if inToken {
+				args = append(args, b.String())
+				b.Reset()
+				inToken = false
+			}
+			continue
+		}
+		b.WriteRune(r)
+		inToken = true
+	}
+	if escaped {
+		b.WriteRune('\\')
+	}
+	if quote != 0 {
+		return nil, fmt.Errorf("unterminated quote")
+	}
+	if inToken {
+		args = append(args, b.String())
+	}
+	return args, nil
 }
 
 func startLivePipeMux(binary string, pipeNames []string, outputPath string) error {
