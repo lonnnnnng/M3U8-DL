@@ -1349,6 +1349,38 @@ func TestOutputExtSubtitleUsesSubFormatWhenAutoFixEnabled(t *testing.T) {
 	}
 }
 
+func TestLiveRealtimeOutputExtMatchesUpstream(t *testing.T) {
+	audio := MediaAudio
+	video := MediaVideo
+	sub := MediaSubtitles
+	opt := defaultOptions()
+	opt.SubFormat = "SRT"
+
+	cases := []struct {
+		name string
+		spec StreamSpec
+		want string
+	}{
+		{name: "audio m4s", spec: StreamSpec{MediaType: &audio, Extension: "m4s"}, want: ".m4a"},
+		{name: "audio mp4", spec: StreamSpec{MediaType: &audio, Extension: "mp4"}, want: ".mp4"},
+		{name: "video m4s", spec: StreamSpec{MediaType: &video, Extension: "m4s"}, want: ".mp4"},
+		{name: "video ts", spec: StreamSpec{MediaType: &video, Extension: "ts"}, want: ".ts"},
+		{name: "no extension", spec: StreamSpec{MediaType: &video}, want: ".ts"},
+		{name: "subtitle", spec: StreamSpec{MediaType: &sub, Extension: "ttml"}, want: ".srt"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := liveRealtimeOutputExt(tc.spec, opt); got != tc.want {
+				t.Fatalf("live realtime extension mismatch: got %s want %s", got, tc.want)
+			}
+		})
+	}
+
+	if got := outputExt(StreamSpec{MediaType: &audio, Extension: "mp4"}, opt); got != ".m4a" {
+		t.Fatalf("VOD audio mp4 should keep existing outputExt behavior, got %s", got)
+	}
+}
+
 func TestCollisionPathForStreamUsesVideoMetadata(t *testing.T) {
 	tmp := t.TempDir()
 	original := filepath.Join(tmp, "movie.mp4")

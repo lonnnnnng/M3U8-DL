@@ -173,7 +173,7 @@ func newLiveRealtimeDownloadState(client *http.Client, s StreamSpec, opt Options
 	if err := os.MkdirAll(saveDir, 0755); err != nil {
 		return nil, outputFile{}, err
 	}
-	output := collisionPathForStream(filepath.Join(saveDir, outputBaseName(defaultName(opt, s, dirName), dirName)+outputExt(s, opt)), s)
+	output := collisionPathForStream(filepath.Join(saveDir, outputBaseName(defaultName(opt, s, dirName), dirName)+liveRealtimeOutputExt(s, opt)), s)
 	pad := len(fmt.Sprintf("%d", playlistSegmentCount(s.Playlist)+1000))
 	state := &liveRealtimeDownloadState{
 		stream:  s,
@@ -439,6 +439,9 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 	}
 
 	outputExt := outputExt(s, opt)
+	if opt.LiveRealTimeMerge && s.Playlist != nil && s.Playlist.IsLive {
+		outputExt = liveRealtimeOutputExt(s, opt)
+	}
 	outName := outputBaseName(defaultName(opt, s, dirName), dirName) + outputExt
 	output := collisionPathForStream(filepath.Join(saveDir, outName), s)
 	if opt.SkipMerge {
@@ -1166,6 +1169,26 @@ func outputExt(s StreamSpec, opt Options) string {
 		return "." + s.Extension
 	}
 	return ".ts"
+}
+
+func liveRealtimeOutputExt(s StreamSpec, opt Options) string {
+	if s.Extension == "" {
+		return ".ts"
+	}
+	if s.MediaType != nil && *s.MediaType == MediaAudio && s.Extension == "m4s" {
+		return ".m4a"
+	}
+	if (s.MediaType == nil || *s.MediaType != MediaSubtitles) && s.Extension == "m4s" {
+		return ".mp4"
+	}
+	if s.MediaType != nil && *s.MediaType == MediaSubtitles {
+		if strings.EqualFold(opt.SubFormat, "SRT") {
+			return ".srt"
+		}
+		return ".vtt"
+	}
+	// long: 直播实时合并的后缀判断来自原版 SimpleLiveRecordManager2；音频 mp4 不像点播那样改成 m4a，而是保留原始 mp4。
+	return "." + s.Extension
 }
 
 func singleTrackFFmpegFormat(s StreamSpec) string {

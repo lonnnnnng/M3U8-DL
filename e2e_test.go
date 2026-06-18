@@ -205,6 +205,51 @@ func TestDownloadLiveRealTimeMergeUsesAppendPath(t *testing.T) {
 	}
 }
 
+func TestDownloadLiveRealTimeMergeAudioMP4KeepsMP4ExtensionLikeUpstream(t *testing.T) {
+	tmp := t.TempDir()
+	seg := filepath.Join(tmp, "a.mp4")
+	if err := os.WriteFile(seg, []byte("audio-mp4"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	audio := MediaAudio
+	stream := StreamSpec{
+		ID:        1,
+		Extension: "mp4",
+		MediaType: &audio,
+		Playlist: &Playlist{IsLive: true, Parts: []MediaPart{{Segments: []Segment{
+			{Index: 1, URL: (&url.URL{Scheme: "file", Path: seg}).String(), Duration: 1},
+		}}}},
+	}
+	opt := defaultOptions()
+	opt.SaveDir = tmp
+	opt.TmpDir = filepath.Join(tmp, "tmp")
+	opt.SaveName = "live-audio"
+	opt.LiveRealTimeMerge = true
+	opt.LiveKeepSegments = false
+	opt.DelAfterDone = false
+	client, err := newHTTPClient(opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	outs, err := downloadAll(context.Background(), client, []StreamSpec{stream}, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(outs) != 1 {
+		t.Fatalf("want 1 output, got %d", len(outs))
+	}
+	if filepath.Ext(outs[0].Path) != ".mp4" {
+		t.Fatalf("live realtime audio mp4 should keep mp4 extension like upstream, got %s", outs[0].Path)
+	}
+	got, err := os.ReadFile(outs[0].Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "audio-mp4" {
+		t.Fatalf("live realtime audio output mismatch: %q", got)
+	}
+}
+
 func TestDownloadLiveRealtimeRefreshesAndAppendsIncrementally(t *testing.T) {
 	var playlistHits int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
