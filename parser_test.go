@@ -93,6 +93,47 @@ func TestParseSourceRetriesHTTPTextLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestParseSourceSendsHTTPUtilHeadersLikeUpstream(t *testing.T) {
+	var acceptEncoding, cacheControl string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		acceptEncoding = r.Header.Get("Accept-Encoding")
+		cacheControl = r.Header.Get("Cache-Control")
+		_, _ = w.Write([]byte("#EXTM3U\n#EXT-X-TARGETDURATION:1\n#EXTINF:1,\nseg.ts\n#EXT-X-ENDLIST\n"))
+	}))
+	defer srv.Close()
+
+	opt := defaultOptions()
+	opt.Input = srv.URL + "/main.m3u8"
+	if _, _, err := parseSource(context.Background(), srv.Client(), opt); err != nil {
+		t.Fatal(err)
+	}
+	if acceptEncoding != "gzip, deflate" {
+		t.Fatalf("playlist request should send upstream Accept-Encoding, got %q", acceptEncoding)
+	}
+	if cacheControl != "no-cache" {
+		t.Fatalf("playlist request should send no-cache, got %q", cacheControl)
+	}
+}
+
+func TestParseSourceKeepsCustomAcceptEncoding(t *testing.T) {
+	var acceptEncoding string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		acceptEncoding = r.Header.Get("Accept-Encoding")
+		_, _ = w.Write([]byte("#EXTM3U\n#EXT-X-TARGETDURATION:1\n#EXTINF:1,\nseg.ts\n#EXT-X-ENDLIST\n"))
+	}))
+	defer srv.Close()
+
+	opt := defaultOptions()
+	opt.Input = srv.URL + "/main.m3u8"
+	opt.Headers["accept-encoding"] = "identity"
+	if _, _, err := parseSource(context.Background(), srv.Client(), opt); err != nil {
+		t.Fatal(err)
+	}
+	if acceptEncoding != "identity" {
+		t.Fatalf("custom Accept-Encoding should not be overwritten, got %q", acceptEncoding)
+	}
+}
+
 func TestParseSourceDecodesHTTPCharsetLikeUpstream(t *testing.T) {
 	gbkName := []byte{0xd6, 0xd0, 0xce, 0xc4}
 	var raw []byte
@@ -164,6 +205,36 @@ func TestParseMediaLoadsDeflateHLSKeyLikeUpstream(t *testing.T) {
 	segs := sortedSegments(pl)
 	if len(segs) != 1 || !bytes.Equal(segs[0].Encrypt.Key, key) {
 		t.Fatalf("deflate HLS key should be decompressed before use, got %#v", segs)
+	}
+}
+
+func TestParseMediaHLSKeySendsHTTPUtilHeadersLikeUpstream(t *testing.T) {
+	var acceptEncoding, cacheControl string
+	var base string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/key.bin":
+			acceptEncoding = r.Header.Get("Accept-Encoding")
+			cacheControl = r.Header.Get("Cache-Control")
+			_, _ = w.Write([]byte("0123456789abcdef"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	base = srv.URL
+
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: srv.Client(), originalURL: base + "/main.m3u8", currentURL: base + "/main.m3u8", baseURL: base + "/main.m3u8", rawFiles: map[string]string{}}
+	raw := "#EXTM3U\n#EXT-X-TARGETDURATION:1\n#EXT-X-KEY:METHOD=AES-128,URI=\"key.bin\"\n#EXTINF:1,\nseg.ts\n#EXT-X-ENDLIST\n"
+	if _, err := p.parseMedia(context.Background(), raw); err != nil {
+		t.Fatal(err)
+	}
+	if acceptEncoding != "gzip, deflate" {
+		t.Fatalf("HLS key request should send upstream Accept-Encoding, got %q", acceptEncoding)
+	}
+	if cacheControl != "no-cache" {
+		t.Fatalf("HLS key request should send no-cache, got %q", cacheControl)
 	}
 }
 

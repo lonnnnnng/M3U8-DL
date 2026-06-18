@@ -120,7 +120,7 @@ func fetchText(ctx context.Context, client *http.Client, input string, headers m
 }
 
 func fetchHTTPTextOnce(ctx context.Context, client *http.Client, input string, headers map[string]string) (string, string, error) {
-	resp, err := doRequestWithRedirects(ctx, client, http.MethodGet, input, headers, nil)
+	resp, err := doRequestWithRedirects(ctx, client, http.MethodGet, input, headers, applyHTTPUtilRequestHeaders)
 	if err != nil {
 		return "", input, err
 	}
@@ -163,7 +163,7 @@ func decodeHTTPText(data []byte, contentType string) string {
 
 func fetchBytes(ctx context.Context, client *http.Client, input string, headers map[string]string) ([]byte, error) {
 	if strings.HasPrefix(input, "http://") || strings.HasPrefix(input, "https://") {
-		resp, err := doRequestWithRedirects(ctx, client, http.MethodGet, input, headers, nil)
+		resp, err := doRequestWithRedirects(ctx, client, http.MethodGet, input, headers, applyHTTPUtilRequestHeaders)
 		if err != nil {
 			return nil, err
 		}
@@ -186,6 +186,16 @@ func fetchBytes(ctx context.Context, client *http.Client, input string, headers 
 		return os.ReadFile(fileURLPath(u))
 	}
 	return os.ReadFile(input)
+}
+
+func applyHTTPUtilRequestHeaders(req *http.Request) {
+	if req.Header.Get("Accept-Encoding") == "" {
+		// long: 原版 HTTPUtil 明确声明 gzip/deflate 并手动跟随跳转；playlist 与 HLS key 请求也要带上同样能力声明。
+		req.Header.Set("Accept-Encoding", "gzip, deflate")
+	}
+	if req.Header.Get("Cache-Control") == "" {
+		req.Header.Set("Cache-Control", "no-cache")
+	}
 }
 
 func decodedResponseBody(resp *http.Response) (io.Reader, func(), bool, error) {

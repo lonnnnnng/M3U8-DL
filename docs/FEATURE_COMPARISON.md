@@ -149,7 +149,7 @@
 | HLS 内容预处理 | YSP、Youku、Disney+、AppleTV、KEY 顺序修正 | 已实现，并新增站点级预处理回归测试 | 已追平 |
 | URL 合并 | 相对 URL、BaseURL、URL Processor | HLS URL 合并和 `--base-url` 已支持；DASH 专用 URL Processor 不在范围 | 已追平 |
 | Append URL Params | 分片 URL 继承输入 URL 参数 | 已覆盖媒体分片、init、HLS key URL | 已追平 |
-| HTTP Header/文本编码/解压 | 默认 UA、自定义 Header、多 Header，播放列表文本按响应 charset 解码，gzip/deflate/br 响应自动解压 | 已支持；跳转后保留 Header/Range，非 UTF-8 playlist 文本按 `Content-Type` charset 解码，playlist/key/分片 HTTP deflate 和 Brotli 响应可解压 | 已追平 |
+| HTTP Header/文本编码/解压 | 默认 UA、自定义 Header、多 Header，playlist/key 默认 `Accept-Encoding: gzip, deflate` 与 `Cache-Control: no-cache`，播放列表文本按响应 charset 解码，gzip/deflate/br 响应自动解压 | 已支持；用户自定义 `Accept-Encoding` 不会被覆盖，跳转后保留 Header/Range，非 UTF-8 playlist 文本按 `Content-Type` charset 解码，playlist/key/分片 HTTP deflate 和 Brotli 响应可解压 | 已追平 |
 | 代理 | 系统代理、自定义代理 | 已支持系统代理和 `--custom-proxy` 校验 | 已追平 |
 | 重试/超时 | 请求超时、下载重试、key 重试 | 已支持，`--http-request-timeout` 支持小数秒 | 已追平 |
 | 并发下载 | 分片并发、多轨并发 | 已支持，且多轨输出顺序稳定 | 已追平 |
