@@ -1000,19 +1000,34 @@ func appendNewLiveSegmentsDetailed(current *StreamSpec, next StreamSpec) ([]Segm
 		added := liveFirstPartSegments(*current)
 		return added, liveFirstPartDuration(*current)
 	}
+	currentSegments := current.Playlist.Parts[0].Segments
+	nextSegments := append([]Segment(nil), next.Playlist.Parts[0].Segments...)
 	seen := map[string]bool{}
-	for _, seg := range current.Playlist.Parts[0].Segments {
+	for _, seg := range currentSegments {
 		seen[liveSegmentKey(seg)] = true
 	}
 	maxIndex := int64(-1)
-	for _, seg := range current.Playlist.Parts[0].Segments {
+	for _, seg := range currentSegments {
 		if seg.Index > maxIndex {
 			maxIndex = seg.Index
 		}
 	}
 	var addedSegments []Segment
 	var addedDuration float64
-	for _, seg := range next.Playlist.Parts[0].Segments {
+	if allMediaSegmentsHaveProgramDateTime(currentSegments) && !allMediaSegmentsHaveProgramDateTime(nextSegments) {
+		// long: 原版上一轮用 PDT 时间戳命名、下一轮因混入无 PDT 分片改用序号命名时，找不到上次文件名，会把本轮窗口整体送给下载器。
+		adjustLiveRefreshIndexes(nextSegments, maxIndex)
+		for _, seg := range nextSegments {
+			current.Playlist.Parts[0].Segments = append(current.Playlist.Parts[0].Segments, seg)
+			addedSegments = append(addedSegments, seg)
+			addedDuration += seg.Duration
+		}
+		current.Playlist.IsLive = next.Playlist.IsLive
+		current.Playlist.WasLive = true
+		current.Playlist.RefreshIntervalMS = next.Playlist.RefreshIntervalMS
+		return addedSegments, addedDuration
+	}
+	for _, seg := range nextSegments {
 		key := liveSegmentKey(seg)
 		if seen[key] {
 			continue
@@ -1030,6 +1045,25 @@ func appendNewLiveSegmentsDetailed(current *StreamSpec, next StreamSpec) ([]Segm
 	current.Playlist.WasLive = true
 	current.Playlist.RefreshIntervalMS = next.Playlist.RefreshIntervalMS
 	return addedSegments, addedDuration
+}
+
+func adjustLiveRefreshIndexes(segments []Segment, oldMax int64) {
+	if len(segments) == 0 || oldMax < 0 {
+		return
+	}
+	newMin := segments[0].Index
+	for _, seg := range segments[1:] {
+		if seg.Index < newMin {
+			newMin = seg.Index
+		}
+	}
+	if newMin >= oldMax {
+		return
+	}
+	offset := oldMax - newMin + 1
+	for i := range segments {
+		segments[i].Index += offset
+	}
 }
 
 func liveSegmentKey(seg Segment) string {

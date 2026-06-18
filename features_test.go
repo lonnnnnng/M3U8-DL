@@ -2147,6 +2147,43 @@ func TestAppendNewLiveSegmentsUsesIndexForRepeatedHLSURL(t *testing.T) {
 	}
 }
 
+func TestAppendNewLiveSegmentsKeepsWholeMixedPDTWindowLikeUpstream(t *testing.T) {
+	t0 := time.Unix(1781784000, 0).UTC()
+	t1 := t0.Add(4 * time.Second)
+	cur := StreamSpec{Playlist: &Playlist{IsLive: true, Parts: []MediaPart{{Segments: []Segment{
+		{Index: 10, URL: "old.ts", DateTime: &t0, Duration: 4},
+	}}}}}
+	next := StreamSpec{Playlist: &Playlist{IsLive: true, Parts: []MediaPart{{Segments: []Segment{
+		{Index: 10, URL: "old.ts", DateTime: &t0, Duration: 4},
+		{Index: 11, URL: "new.ts", DateTime: &t1, Duration: 4},
+		{Index: 12, URL: "no-pdt.ts", Duration: 4},
+	}}}}}
+
+	added, duration := appendNewLiveSegmentsDetailed(&cur, next)
+	if len(added) != 3 || duration != 12 {
+		t.Fatalf("mixed PDT refresh should append whole window like upstream, added=%#v duration=%f", added, duration)
+	}
+	segs := cur.Playlist.Parts[0].Segments
+	if len(segs) != 4 || segs[1].URL != "old.ts" || segs[2].URL != "new.ts" || segs[3].URL != "no-pdt.ts" {
+		t.Fatalf("mixed PDT refresh should keep overlapping old segment, got %#v", segs)
+	}
+	if segs[1].Index != 10 {
+		t.Fatalf("equal newMin/oldMax should not shift indexes like upstream, got %#v", segs)
+	}
+}
+
+func TestAdjustLiveRefreshIndexesMatchesUpstreamStrictLess(t *testing.T) {
+	segs := []Segment{{Index: 6}, {Index: 7}}
+	adjustLiveRefreshIndexes(segs, 6)
+	if segs[0].Index != 6 || segs[1].Index != 7 {
+		t.Fatalf("newMin < oldMax only should shift; equal/greater max alone is not enough, got %#v", segs)
+	}
+	adjustLiveRefreshIndexes(segs, 7)
+	if segs[0].Index != 8 || segs[1].Index != 9 {
+		t.Fatalf("index shift should follow oldMax-newMin+1, got %#v", segs)
+	}
+}
+
 func TestAppendNewLiveSegmentsReturnsAddedDuration(t *testing.T) {
 	cur := StreamSpec{Playlist: &Playlist{IsLive: true, Parts: []MediaPart{{Segments: []Segment{{Index: 1, URL: "1.ts", Duration: 2}}}}}}
 	next := StreamSpec{Playlist: &Playlist{IsLive: true, Parts: []MediaPart{{Segments: []Segment{
