@@ -327,6 +327,10 @@ func prepareSelectedStreams(selected []StreamSpec, opt *Options) []string {
 		opt.ConcurrentDownload = true
 		opt.MP4RealTimeDecryption = true
 	}
+	if shouldWarnRealtimeDecryption(opt) {
+		// long: 上游在 MP4 实时解密配合 mp4decrypt/ffmpeg 和明文 key 时会提示更推荐 Shaka，避免用户误以为所有实时分片解密引擎稳定性相同。
+		messages = append(messages, tr(*opt, "realTimeDecMessage"))
+	}
 	if !living {
 		for i := range selected {
 			applyCustomRange(&selected[i], opt.CustomRange)
@@ -334,6 +338,10 @@ func prepareSelectedStreams(selected []StreamSpec, opt *Options) []string {
 	}
 	cleanAdSegments(selected, opt.AdKeywords)
 	return messages
+}
+
+func shouldWarnRealtimeDecryption(opt *Options) bool {
+	return opt.MP4RealTimeDecryption && !strings.EqualFold(opt.DecryptionEngine, "SHAKA_PACKAGER") && len(opt.Keys) > 0
 }
 
 func hasLiveStream(selected []StreamSpec) bool {

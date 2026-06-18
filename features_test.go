@@ -1524,6 +1524,35 @@ func TestPrepareSelectedStreamsLiveForcesRecordOptionsLikeUpstream(t *testing.T)
 	}
 }
 
+func TestPrepareSelectedStreamsWarnsRealtimeDecryptEngineLikeUpstream(t *testing.T) {
+	streams := []StreamSpec{{
+		Playlist: &Playlist{Parts: []MediaPart{{Segments: []Segment{{Index: 0, Duration: 1}}}}},
+	}}
+	opt := defaultOptions()
+	opt.UILanguage = "en-US"
+	opt.MP4RealTimeDecryption = true
+	opt.DecryptionEngine = "MP4DECRYPT"
+	opt.Keys = []string{"00112233445566778899aabbccddeeff"}
+	messages := prepareSelectedStreams(streams, &opt)
+	if len(messages) != 1 || messages[0] != "When enabling real-time decryption, it is recommended to use shaka-packager instead of mp4decrypt/ffmpeg" {
+		t.Fatalf("unexpected realtime decrypt warning: %#v", messages)
+	}
+
+	opt.DecryptionEngine = "SHAKA_PACKAGER"
+	messages = prepareSelectedStreams(streams, &opt)
+	if len(messages) != 0 {
+		t.Fatalf("shaka realtime decrypt should not warn like upstream: %#v", messages)
+	}
+
+	opt = defaultOptions()
+	opt.MP4RealTimeDecryption = true
+	opt.KeyTextFile = "keys.txt"
+	messages = prepareSelectedStreams(streams, &opt)
+	if len(messages) != 0 {
+		t.Fatalf("key-text-file alone should not trigger Keys.Length warning like upstream: %#v", messages)
+	}
+}
+
 func TestPrepareSelectedStreamsUnknownEncryptionBeforeCustomRange(t *testing.T) {
 	start, end := int64(1), int64(1)
 	streams := []StreamSpec{{

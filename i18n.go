@@ -44,6 +44,11 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "檢測到CENC加密方式，自動開啟二進位制合併",
 		EnUS: "When CENC encryption is detected, binary merging is automatically enabled",
 	},
+	"realTimeDecMessage": {
+		ZhCN: "启用实时解密时，建议用shaka-packager而非mp4decrypt/ffmpeg",
+		ZhTW: "啟用即時解密時，建議用shaka-packager而非mp4decrypt/ffmpeg",
+		EnUS: "When enabling real-time decryption, it is recommended to use shaka-packager instead of mp4decrypt/ffmpeg",
+	},
 	"taskStartAt": {
 		ZhCN: "等待任务开始: %s",
 		ZhTW: "等待任務開始: %s",
