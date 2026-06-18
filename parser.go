@@ -581,16 +581,23 @@ func parseHLSProgramDateTime(raw string) (time.Time, error) {
 }
 
 func subtitleExt(pl *Playlist) string {
+	hasTTML := false
+	hasVTT := false
 	for _, part := range pl.Parts {
 		for _, seg := range part.Segments {
-			u := strings.ToLower(seg.URL)
-			if strings.Contains(u, ".ttml") {
-				return "ttml"
+			if strings.Contains(seg.URL, ".ttml") {
+				hasTTML = true
 			}
-			if strings.Contains(u, ".vtt") || strings.Contains(u, ".webvtt") {
-				return "vtt"
+			if strings.Contains(seg.URL, ".vtt") || strings.Contains(seg.URL, ".webvtt") {
+				hasVTT = true
 			}
 		}
+	}
+	if hasVTT {
+		return "vtt"
+	}
+	if hasTTML {
+		return "ttml"
 	}
 	return "vtt"
 }

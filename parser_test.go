@@ -1140,3 +1140,13 @@ b.m4s
 		t.Fatalf("refresh should replace media parts with new segments, got %#v", segs)
 	}
 }
+
+func TestSubtitleExtPrefersVTTWhenPlaylistContainsBothLikeUpstream(t *testing.T) {
+	pl := &Playlist{Parts: []MediaPart{{Segments: []Segment{
+		{URL: "https://example.com/subtitle.ttml"},
+		{URL: "https://example.com/subtitle.vtt"},
+	}}}}
+	if got := subtitleExt(pl); got != "vtt" {
+		t.Fatalf("subtitle extension should let VTT override TTML like upstream, got %s", got)
+	}
+}
