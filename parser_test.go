@@ -407,6 +407,13 @@ func TestPreProcessHLSContentMatchesUpstreamSiteFixes(t *testing.T) {
 		}
 	})
 
+	t.Run("YSP endlist is appended even when already present", func(t *testing.T) {
+		got := preProcessHLSContent("#EXTM3U\n#EXT-X-ENDLIST", "https://tlivecloud-playback-cdn.ysp.cctv.cn/live.m3u8?endtime=1")
+		if strings.Count(got, "#EXT-X-ENDLIST") != 2 {
+			t.Fatalf("YSP replay should append ENDLIST unconditionally like upstream, got:\n%s", got)
+		}
+	})
+
 	t.Run("key order", func(t *testing.T) {
 		got := preProcessHLSContent("#EXTM3U\n#EXTINF:1,\n#EXT-X-KEY:METHOD=AES-128,URI=\"key.bin\"\nseg.ts", "https://example.com/main.m3u8")
 		if !strings.Contains(got, "#EXT-X-KEY:METHOD=AES-128,URI=\"key.bin\"\n#EXTINF:1,\nseg.ts") {

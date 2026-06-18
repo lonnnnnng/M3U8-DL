@@ -99,7 +99,8 @@ func preProcessHLSContent(content, m3u8URL string) string {
 	if strings.Contains(content, "\r") && !strings.Contains(content, "\n") {
 		content = strings.ReplaceAll(content, "\r", "\n")
 	}
-	if strings.Contains(m3u8URL, "tlivecloud-playback-cdn.ysp.cctv.cn") && strings.Contains(m3u8URL, "endtime=") && !strings.Contains(content, "#EXT-X-ENDLIST") {
+	if strings.Contains(m3u8URL, "tlivecloud-playback-cdn.ysp.cctv.cn") && strings.Contains(m3u8URL, "endtime=") {
+		// long: 原版对 YSP 回放会无条件补 ENDLIST，即使源内容已经带有结束标记；这里保留重复标记以贴近上游预处理输出。
 		content += "\n#EXT-X-ENDLIST"
 	}
 	// long: 少数站点会把 EXT-X-KEY 放在 EXTINF 后面，提前调正顺序才能让后续分片继承正确密钥。
