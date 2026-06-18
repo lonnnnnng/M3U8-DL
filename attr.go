@@ -111,6 +111,8 @@ func combineURL(baseURL, ref string) string {
 	if strings.TrimSpace(baseURL) == "" {
 		return ref
 	}
+	// long: 上游 new Uri(base, ref) 会吞掉相对地址两侧空白；清单分片行被 CDN 插入空格时仍应解析到同一个媒体资源。
+	ref = strings.TrimSpace(ref)
 	b, err := url.Parse(baseURL)
 	if err != nil {
 		return ref

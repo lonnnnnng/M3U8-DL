@@ -787,6 +787,37 @@ func TestParseSourceLocalRelativeKeyLoadsFromPlaylistDir(t *testing.T) {
 	}
 }
 
+func TestParseSourceRelativeKeyTrimsWhitespaceLikeUpstreamUri(t *testing.T) {
+	tmp := t.TempDir()
+	key := []byte("0123456789abcdef")
+	if err := os.WriteFile(filepath.Join(tmp, "key.bin"), key, 0644); err != nil {
+		t.Fatal(err)
+	}
+	playlist := "#EXTM3U\n#EXT-X-TARGETDURATION:1\n#EXT-X-KEY:METHOD=AES-128,URI=\" key.bin \",IV=0x00000000000000000000000000000000\n#EXTINF:1,\nseg.ts\n#EXT-X-ENDLIST\n"
+	if err := os.WriteFile(filepath.Join(tmp, "main.m3u8"), []byte(playlist), 0644); err != nil {
+		t.Fatal(err)
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(wd) })
+
+	opt := defaultOptions()
+	opt.Input = "main.m3u8"
+	streams, _, err := parseSource(context.Background(), http.DefaultClient, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segs := sortedSegments(streams[0].Playlist)
+	if len(segs) != 1 || string(segs[0].Encrypt.Key) != string(key) {
+		t.Fatalf("relative key URI whitespace should be trimmed like upstream Uri, got %#v", segs)
+	}
+}
+
 func TestParseMediaAES(t *testing.T) {
 	opt := defaultOptions()
 	opt.CustomHLSKey = []byte("0123456789abcdef")
@@ -1539,6 +1570,28 @@ func TestParseMediaHLSIVTrimsWhitespaceLikeUpstream(t *testing.T) {
 	segs := sortedSegments(pl)
 	if len(segs) != 1 || len(segs[0].Encrypt.IV) != 16 || segs[0].Encrypt.IV[15] != 1 {
 		t.Fatalf("HLS IV should trim whitespace before hex parsing like upstream, got %#v", segs)
+	}
+}
+
+func TestParseMediaRelativeURLsTrimWhitespaceLikeUpstreamUri(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/a/main.m3u8", currentURL: "https://example.com/a/main.m3u8", baseURL: "https://example.com/a/main.m3u8", rawFiles: map[string]string{}}
+	raw := "#EXTM3U\n" +
+		"#EXT-X-TARGETDURATION:4\n" +
+		"#EXT-X-MAP:URI=\" init.mp4 \"\n" +
+		"#EXTINF:4.0,\n" +
+		"\tseg.m4s \n" +
+		"#EXT-X-ENDLIST\n"
+	pl, err := p.parseMedia(context.Background(), raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pl.MediaInit == nil || pl.MediaInit.URL != "https://example.com/a/init.mp4" {
+		t.Fatalf("EXT-X-MAP URI whitespace should be trimmed like upstream Uri, got %#v", pl.MediaInit)
+	}
+	segs := sortedSegments(pl)
+	if len(segs) != 1 || segs[0].URL != "https://example.com/a/seg.m4s" {
+		t.Fatalf("segment URL whitespace should be trimmed like upstream Uri, got %#v", segs)
 	}
 }
 
