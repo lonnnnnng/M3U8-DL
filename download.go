@@ -861,10 +861,16 @@ func applySegmentRange(data []byte, seg Segment) ([]byte, error) {
 		return nil, fmt.Errorf("分片 Range 起点无效: %d", start)
 	}
 	if seg.ExpectLength == nil {
-		if start > int64(len(data)) {
-			return []byte{}, nil
+		if start == 0 {
+			return data, nil
 		}
-		return data[start:], nil
+		if start > int64(len(data)) {
+			return nil, fmt.Errorf("分片 Range 起点无效: %d", start)
+		}
+		out := make([]byte, int64(len(data))-start+1)
+		// long: 原版本地文件 fromPosition 有值但 toPosition 为空时会按 Length-Position+1 分配缓冲区，因此起点非 0 的开放范围会多写一个尾部 0。
+		copy(out, data[start:])
+		return out, nil
 	}
 	length := *seg.ExpectLength
 	if length < 0 {

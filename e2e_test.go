@@ -906,6 +906,28 @@ func TestDownloadLocalByteRangeShortReadPadsZerosLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestDownloadLocalOpenByteRangeAddsTrailingZeroLikeUpstream(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "open.ts")
+	if err := os.WriteFile(source, []byte("0123456789"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	start := int64(2)
+	out := filepath.Join(tmp, "open-out.ts")
+	seg := Segment{URL: source, Index: 0, StartRange: &start}
+	if _, err := downloadSegment(context.Background(), http.DefaultClient, seg, out, defaultOptions(), nil, "", ""); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []byte{'2', '3', '4', '5', '6', '7', '8', '9', 0}
+	if !bytes.Equal(data, want) {
+		t.Fatalf("local open BYTERANGE should keep upstream trailing zero, got %v want %v", data, want)
+	}
+}
+
 func TestDownloadSubtitleFixRemovesSourceSegmentsLikeUpstream(t *testing.T) {
 	tmp := t.TempDir()
 	source := filepath.Join(tmp, "source.vtt")
