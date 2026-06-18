@@ -3883,6 +3883,28 @@ func TestCheckLatestReleaseFromRedirect(t *testing.T) {
 	}
 }
 
+func TestUpdateFoundMessageMatchesUpstreamResourceText(t *testing.T) {
+	cases := []struct {
+		lang string
+		want string
+	}{
+		{lang: "zh-CN", want: "检测到新版本，请尽快升级！ v9.9.9"},
+		{lang: "zh-TW", want: "檢測到新版本，請盡快升級！ v9.9.9"},
+		{lang: "en-US", want: "New version detected! v9.9.9"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.lang, func(t *testing.T) {
+			got := updateFoundMessage(Options{UILanguage: tc.lang}, "v9.9.9")
+			if got != tc.want {
+				t.Fatalf("update message mismatch:\nwant %q\ngot  %q", tc.want, got)
+			}
+			if strings.Contains(got, "%!(EXTRA") {
+				t.Fatalf("update message should not format latest through resource text: %q", got)
+			}
+		})
+	}
+}
+
 func TestCompareVersionTags(t *testing.T) {
 	if compareVersionTags("v1.2.10", "v1.2.9") <= 0 {
 		t.Fatal("expected v1.2.10 to be newer")

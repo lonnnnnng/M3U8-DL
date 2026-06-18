@@ -10,9 +10,9 @@ type localizedText struct {
 
 var localizedTexts = map[string]localizedText{
 	"newVersionFound": {
-		ZhCN: "发现新版本: %s",
-		ZhTW: "發現新版本: %s",
-		EnUS: "New version found: %s",
+		ZhCN: "检测到新版本，请尽快升级！",
+		ZhTW: "檢測到新版本，請盡快升級！",
+		EnUS: "New version detected!",
 	},
 	"consoleRedirected": {
 		ZhCN: "输出被重定向, 将清除ANSI颜色",

@@ -30,7 +30,12 @@ func maybeCheckUpdate(opt Options) {
 	if err != nil || !newer {
 		return
 	}
-	fmt.Println(tr(opt, "newVersionFound", latest))
+	fmt.Println(updateFoundMessage(opt, latest))
+}
+
+func updateFoundMessage(opt Options, latest string) string {
+	// long: 原版 ResString.newVersionFound 是固定资源文本，latest tag 作为后续红色片段单独追加；不要把版本号塞进资源模板。
+	return strings.TrimSpace(tr(opt, "newVersionFound") + " " + latest)
 }
 
 func newUpdateHTTPClient(opt Options) (*http.Client, error) {

@@ -1,6 +1,6 @@
 # N_m3u8DL-RE 功能清单与 Go HLS 复刻进度对比
 
-更新时间：2026-06-19 02:39:03（北京时间）
+更新时间：2026-06-19 02:45:57（北京时间）
 
 ## 代码目录
 
@@ -195,7 +195,7 @@
 | 直播实时合并 | 刷新过程中追加输出 | 非字幕输出已按批次实时追加；系统信号取消会进入已下载内容收尾；字幕收尾会按上游在无音频时关闭 VTT 音频时间轴修正，并在可探测音频输出时复用 start_time | 部分追平 |
 | PipeMux | Unix FIFO、Windows named pipe、ffmpeg 参数 | 已实现 Unix FIFO/Windows 命名管道、参数构造和上游 date metadata 格式，Windows 仅交叉编译验证 | 部分追平 |
 | ANSI 进度 UI | Spectre Console 动态进度列 | Go 版已按上游在 stdout/stderr 重定向时清除 ANSI 颜色并强制 console 状态，但没有完整动态进度 UI | 部分追平 |
-| 多语言资源 | zh-CN/zh-TW/en-US 完整资源 | Go 版已接入默认环境语言映射、核心运行输出、自动派生选项提示、更新检查提示、实时解密引擎建议、下载进度文本和 `--morehelp` 详细帮助；完整 `ResString` 资源表仍未复刻 | 部分追平 |
+| 多语言资源 | zh-CN/zh-TW/en-US 完整资源 | Go 版已接入默认环境语言映射、核心运行输出、自动派生选项提示、按上游固定资源文本追加版本号的更新检查提示、实时解密引擎建议、下载进度文本和 `--morehelp` 详细帮助；完整 `ResString` 资源表仍未复刻 | 部分追平 |
 | 更新检查 | GitHub latest release | 已支持，可 `--disable-update-check` 禁用 | 已追平 |
 | 日志文件 | 日志路径、文件名校验、等级、禁用 | 已支持 `--log-file-path` 文件名清理和非法名拒绝、`--log-level`、`--no-log` | 已追平 |
 | 跨平台构建 | 原版 .NET 多平台发布 | Go 版可本地构建，Windows 测试二进制可交叉编译；已新增 GitHub Actions 测试、跨平台构建和 `v*` tag Release 产物流水线 | 基本追平 |
