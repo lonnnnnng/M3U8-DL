@@ -89,6 +89,26 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "檢測到單分片大文件，已啟用 Range 切片下載",
 		EnUS: "Single large segment detected, Range split download enabled",
 	},
+	"ffmpegNotFound": {
+		ZhCN: "找不到ffmpeg，请自行下载：https://ffmpeg.org/download.html",
+		ZhTW: "找不到ffmpeg，請自行下載：https://ffmpeg.org/download.html",
+		EnUS: "ffmpeg not found, please download at: https://ffmpeg.org/download.html",
+	},
+	"mkvmergeNotFound": {
+		ZhCN: "找不到mkvmerge，请自行下载：https://mkvtoolnix.download/downloads.html",
+		ZhTW: "找不到mkvmerge，請自行下載：https://mkvtoolnix.download/downloads.html",
+		EnUS: "mkvmerge not found, please download at: https://mkvtoolnix.download/downloads.html",
+	},
+	"shakaPackagerNotFound": {
+		ZhCN: "找不到shaka-packager，请自行下载：https://github.com/shaka-project/shaka-packager/releases",
+		ZhTW: "找不到shaka-packager，請自行下載：https://github.com/shaka-project/shaka-packager/releases",
+		EnUS: "shaka-packager not found, please download at: https://github.com/shaka-project/shaka-packager/releases",
+	},
+	"mp4decryptNotFound": {
+		ZhCN: "找不到mp4decrypt，请自行下载：https://www.bento4.com/downloads/",
+		ZhTW: "找不到mp4decrypt，請自行下載：https://www.bento4.com/downloads/",
+		EnUS: "mp4decrypt not found, please download at: https://www.bento4.com/downloads/",
+	},
 	"downloadProgress": {
 		ZhCN: "%s 下载进度 %d/%d",
 		ZhTW: "%s 下載進度 %d/%d",

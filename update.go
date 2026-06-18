@@ -179,7 +179,7 @@ func validateDecryptionTool(opt Options) error {
 	switch strings.ToUpper(opt.DecryptionEngine) {
 	case "SHAKA_PACKAGER":
 		if firstExecutable("shaka-packager", "packager-linux-x64", "packager-osx-x64", "packager-win-x64") == "" {
-			return errors.New("找不到 shaka-packager，请设置 --decryption-binary-path")
+			return errors.New(tr(opt, "shakaPackagerNotFound"))
 		}
 	case "FFMPEG":
 		bin := opt.FFmpegBinaryPath
@@ -187,11 +187,11 @@ func validateDecryptionTool(opt Options) error {
 			bin = "ffmpeg"
 		}
 		if firstExecutable(bin) == "" {
-			return errors.New("找不到 ffmpeg，请设置 --ffmpeg-binary-path 或 --decryption-binary-path")
+			return errors.New(tr(opt, "ffmpegNotFound"))
 		}
 	default:
 		if firstExecutable("mp4decrypt") == "" {
-			return errors.New("找不到 mp4decrypt，请设置 --decryption-binary-path")
+			return errors.New(tr(opt, "mp4decryptNotFound"))
 		}
 	}
 	return nil
@@ -202,7 +202,7 @@ func validateFFmpegTool(opt Options) error {
 		return nil
 	}
 	if resolveToolPath(opt.FFmpegBinaryPath, "ffmpeg") == "" {
-		return errors.New("找不到 ffmpeg，请设置 --ffmpeg-binary-path")
+		return errors.New(tr(opt, "ffmpegNotFound"))
 	}
 	return nil
 }
@@ -216,11 +216,11 @@ func validateMuxTool(opt Options) error {
 	case "", "ffmpeg":
 		bin := muxFFmpegBinary(opt)
 		if bin != "" && resolveToolPath(bin, "ffmpeg") == "" {
-			return errors.New("找不到 ffmpeg，请设置 --ffmpeg-binary-path 或 muxer 的 bin_path")
+			return errors.New(tr(opt, "ffmpegNotFound"))
 		}
 	case "mkvmerge":
 		if resolveToolPath(mux.BinPath, "mkvmerge") == "" {
-			return errors.New("找不到 mkvmerge，请设置 muxer 的 bin_path")
+			return errors.New(tr(opt, "mkvmergeNotFound"))
 		}
 	}
 	return nil

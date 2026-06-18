@@ -4474,9 +4474,10 @@ func containsPipeWrite(values []string, want string) bool {
 
 func TestValidateOptionsRejectsMissingFFmpegBinary(t *testing.T) {
 	opt := defaultOptions()
+	opt.UILanguage = "zh-CN"
 	opt.FFmpegBinaryPath = "/no/such/ffmpeg"
 	err := validateOptions(opt)
-	if err == nil || !strings.Contains(err.Error(), "找不到 ffmpeg") {
+	if err == nil || err.Error() != "找不到ffmpeg，请自行下载：https://ffmpeg.org/download.html" {
 		t.Fatalf("expected missing ffmpeg error, got %v", err)
 	}
 }
@@ -4593,6 +4594,14 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	if got := tr(opt, "downloadProgress", "VIDEO", 1, 2); got != "VIDEO 下载进度 1/2" {
 		t.Fatalf("simplified downloadProgress wrong: %q", got)
 	}
+	opt.UILanguage = "en-US"
+	if got := tr(opt, "ffmpegNotFound"); got != "ffmpeg not found, please download at: https://ffmpeg.org/download.html" {
+		t.Fatalf("english ffmpegNotFound wrong: %q", got)
+	}
+	opt.UILanguage = "zh-TW"
+	if got := tr(opt, "mkvmergeNotFound"); got != "找不到mkvmerge，請自行下載：https://mkvtoolnix.download/downloads.html" {
+		t.Fatalf("traditional mkvmergeNotFound wrong: %q", got)
+	}
 }
 
 func TestOptionImplicationMessagesFollowUILanguage(t *testing.T) {
@@ -4659,15 +4668,51 @@ func TestValidateOptionsAcceptsExistingMuxImportPath(t *testing.T) {
 
 func TestValidateOptionsRejectsMissingMuxFFmpegBinPath(t *testing.T) {
 	err := validateOptions(Options{MuxAfterDone: &MuxOptions{Format: "mp4", Muxer: "ffmpeg", BinPath: "/no/such/ffmpeg"}})
-	if err == nil || !strings.Contains(err.Error(), "找不到 ffmpeg") {
+	if err == nil || err.Error() != "找不到ffmpeg，请自行下载：https://ffmpeg.org/download.html" {
 		t.Fatalf("expected missing mux ffmpeg error, got %v", err)
 	}
 }
 
 func TestValidateOptionsRejectsMissingMkvmergeBinPath(t *testing.T) {
 	err := validateOptions(Options{MuxAfterDone: &MuxOptions{Format: "mkv", Muxer: "mkvmerge", BinPath: "/no/such/mkvmerge"}})
-	if err == nil || !strings.Contains(err.Error(), "找不到 mkvmerge") {
+	if err == nil || err.Error() != "找不到mkvmerge，请自行下载：https://mkvtoolnix.download/downloads.html" {
 		t.Fatalf("expected missing mkvmerge error, got %v", err)
+	}
+}
+
+func TestValidateOptionsToolNotFoundMessagesFollowResString(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	tests := []struct {
+		name string
+		opt  Options
+		want string
+	}{
+		{
+			name: "shaka english",
+			opt: Options{
+				UILanguage:       "en-US",
+				Keys:             []string{"00000000000000000000000000000000:00112233445566778899aabbccddeeff"},
+				DecryptionEngine: "SHAKA_PACKAGER",
+			},
+			want: "shaka-packager not found, please download at: https://github.com/shaka-project/shaka-packager/releases",
+		},
+		{
+			name: "mp4decrypt traditional",
+			opt: Options{
+				UILanguage:       "zh-TW",
+				Keys:             []string{"00000000000000000000000000000000:00112233445566778899aabbccddeeff"},
+				DecryptionEngine: "MP4DECRYPT",
+			},
+			want: "找不到mp4decrypt，請自行下載：https://www.bento4.com/downloads/",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateOptions(tc.opt)
+			if err == nil || err.Error() != tc.want {
+				t.Fatalf("tool-not-found message mismatch:\nwant %q\ngot  %v", tc.want, err)
+			}
+		})
 	}
 }
 
