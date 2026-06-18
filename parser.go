@@ -284,9 +284,14 @@ func (p *parser) parseMedia(ctx context.Context, raw string) (*Playlist, error) 
 			seg.ExpectLength = &l
 			if start != nil {
 				seg.StartRange = start
-			} else if len(segs) > 0 && segs[len(segs)-1].StartRange != nil && segs[len(segs)-1].ExpectLength != nil {
-				v := *segs[len(segs)-1].StartRange + *segs[len(segs)-1].ExpectLength
-				seg.StartRange = &v
+			} else {
+				if len(segs) == 0 {
+					return nil, fmt.Errorf("EXT-X-BYTERANGE missing offset before first segment")
+				}
+				if segs[len(segs)-1].StartRange != nil && segs[len(segs)-1].ExpectLength != nil {
+					v := *segs[len(segs)-1].StartRange + *segs[len(segs)-1].ExpectLength
+					seg.StartRange = &v
+				}
 			}
 			expectSegment = true
 		case strings.HasPrefix(line, "#EXT-X-PLAYLIST-TYPE"):

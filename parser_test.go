@@ -177,6 +177,15 @@ func TestParseByteRangeTooManyAtSignsMatchesUpstream(t *testing.T) {
 	}
 }
 
+func TestParseMediaByteRangeWithoutOffsetBeforeFirstSegmentFailsLikeUpstream(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}
+	raw := "#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXT-X-BYTERANGE:100\n#EXTINF:4,\nseg.ts\n#EXT-X-ENDLIST\n"
+	if _, err := p.parseMedia(context.Background(), raw); err == nil {
+		t.Fatal("first BYTERANGE without offset should fail like upstream segments.Last()")
+	}
+}
+
 func TestParseSourceRetriesHTTPTextLikeUpstream(t *testing.T) {
 	var hits int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
