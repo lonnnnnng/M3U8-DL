@@ -103,9 +103,6 @@ func preProcessHLSContent(content, m3u8URL string) string {
 		// long: 原版对 YSP 回放会无条件补 ENDLIST，即使源内容已经带有结束标记；这里保留重复标记以贴近上游预处理输出。
 		content += "\n#EXT-X-ENDLIST"
 	}
-	// long: 少数站点会把 EXT-X-KEY 放在 EXTINF 后面，提前调正顺序才能让后续分片继承正确密钥。
-	re := regexp.MustCompile(`(?m)(#EXTINF[^\n\r]*)([\r\n]+)(#EXT-X-KEY[^\n\r]*)`)
-	content = re.ReplaceAllString(content, "$3$2$1")
 	if strings.Contains(content, "#EXT-X-DISCONTINUITY") && strings.Contains(content, "#EXT-X-MAP") && strings.Contains(content, "ott.cibntv.net") && strings.Contains(content, "ccode=") {
 		yk := regexp.MustCompile(`#EXT-X-DISCONTINUITY\s+#EXT-X-MAP:URI="(.*?)",BYTERANGE="(.*?)"`)
 		content = yk.ReplaceAllString(content, "#EXTINF:0.000000,\n#EXT-X-BYTERANGE:$2\n$1")
@@ -124,6 +121,9 @@ func preProcessHLSContent(content, m3u8URL string) string {
 			content = "#EXTM3U\n" + m[1] + "\n#EXT-X-ENDLIST"
 		}
 	}
+	// long: 上游先完成 YK/Disney/AppleTV 等站点修正，最后才修复 KEY/EXTINF 顺序；顺序不同会改变 AppleTV 裁剪后的内容。
+	re := regexp.MustCompile(`(?m)(#EXTINF[^\n\r]*)([\r\n]+)(#EXT-X-KEY[^\n\r]*)`)
+	content = re.ReplaceAllString(content, "$3$2$1")
 	return content
 }
 
