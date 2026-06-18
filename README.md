@@ -60,7 +60,7 @@ go run . "<m3u8-url-or-file>" --auto-select --save-dir ./downloads -M format=mp4
 - 裸 TTML、MP4 stpp 字幕基础抽取；MP4 WebVTT 按 `mdhd/tfdt/tfhd/trun` 解析真实字幕时间
 - CENC `tenc` / `schm` / Widevine PSSH / PlayReady PSSH XML 解析，Widevine 会暴露原始 PSSH data、支持 v1 KID 列表和 protobuf `key_id`，PlayReady 支持文本节点和 `VALUE` 属性两种 KID 写法；`tenc default_KID` 为全 0 时会按上游继续从 Widevine PSSH 回退真实 KID，并在外部解密时使用 track/label `1` 的 MultiDRM 参数形态；使用 `SHAKA_PACKAGER` 且本地解析不到 KID 时，会按上游从 shaka 的缺 key 错误里探测 `key_id`，用于匹配 `--key-text-file`
 - 并发分片共享 `--max-speed` 速度预算
-- `raw.m3u8`、全部轨道 `meta.json` 与选中轨道 `meta_selected.json` 输出
+- `raw.m3u8`、全部轨道 `meta.json` 与选中轨道 `meta_selected.json` 输出；`--write-meta-json false` 可关闭，重跑时不会覆盖已有 raw/meta 文件
 
 ## 仍需继续追平的细节
 

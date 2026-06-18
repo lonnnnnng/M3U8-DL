@@ -174,7 +174,7 @@
 | 选择/丢弃过滤 | `-sv/-sa/-ss`、`-dv/-da/-ds` | 已支持主要过滤条件、Role、`bestN/worstN/all`、先 drop 后 keep | 已追平 |
 | 广告清理 | Uplynk/Youku 内置和 `--ad-keyword` | 已支持上游内置广告条件和自定义正则 | 已追平 |
 | 自定义范围 | 分片序号和时间范围 | 已支持开区间、冒号时长、字幕偏移；直播按上游跳过 | 已追平 |
-| meta 输出 | `raw.m3u8`、`meta.json`、`meta_selected.json` | 已支持 | 已追平 |
+| meta 输出 | `raw.m3u8`、`meta.json`、`meta_selected.json`，`--write-meta-json false` 关闭写出，已有文件不覆盖 | 已支持 | 已追平 |
 | 保存名/模板 | 文件名清理、模板变量、冲突处理 | 已支持上游清理语义、模板变量和冲突命名 | 已追平 |
 | 二进制合并 | 普通分片合并、分批预合并 | 已支持，超长列表可分批预合并 | 已追平 |
 | ffmpeg 单轨合并 | concat protocol/demuxer、多输出格式 | 已支持 `mp4/mkv/flv/ts/m4a/aac/eac3/ac3` 等常见路径 | 基本追平 |

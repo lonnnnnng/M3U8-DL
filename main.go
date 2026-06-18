@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -367,6 +368,9 @@ func matchesAnyAdKeyword(url string, regs []*regexp.Regexp) bool {
 }
 
 func writeMeta(opt Options, p *parser, all []StreamSpec, selected []StreamSpec) error {
+	if !opt.WriteMetaJSON {
+		return nil
+	}
 	dir := opt.TmpDir
 	if dir == "" {
 		dir = "."
@@ -375,20 +379,34 @@ func writeMeta(opt Options, p *parser, all []StreamSpec, selected []StreamSpec) 
 		return err
 	}
 	for name, content := range p.rawFiles {
-		_ = os.WriteFile(filepath.Join(dir, name), []byte(content), 0644)
+		if err := writeFileIfAbsent(filepath.Join(dir, name), []byte(content)); err != nil {
+			return err
+		}
 	}
 	allJSON, err := json.MarshalIndent(all, "", "  ")
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile(filepath.Join(dir, "meta.json"), allJSON, 0644); err != nil {
+	if err := writeFileIfAbsent(filepath.Join(dir, "meta.json"), allJSON); err != nil {
 		return err
 	}
 	selectedJSON, err := json.MarshalIndent(selected, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(dir, "meta_selected.json"), selectedJSON, 0644)
+	return writeFileIfAbsent(filepath.Join(dir, "meta_selected.json"), selectedJSON)
+}
+
+func writeFileIfAbsent(path string, data []byte) error {
+	_, err := os.Stat(path)
+	if err == nil {
+		// long: 原版 WriteRawFilesAsync 只补齐缺失的解析结果，重跑任务时要保留用户已经留下的 raw/meta 文件。
+		return nil
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return os.WriteFile(path, data, 0644)
 }
 
 func recordLiveIfNeeded(ctx context.Context, client *http.Client, selected []StreamSpec, p *parser, opt Options) error {

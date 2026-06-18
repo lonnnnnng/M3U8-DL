@@ -430,6 +430,53 @@ func TestWriteMetaWritesAllAndSelected(t *testing.T) {
 	}
 }
 
+func TestWriteMetaDisabledSkipsRawAndMetaFiles(t *testing.T) {
+	tmp := t.TempDir()
+	opt := defaultOptions()
+	opt.TmpDir = tmp
+	opt.WriteMetaJSON = false
+	p := &parser{rawFiles: map[string]string{"raw.m3u8": "#EXTM3U\n"}}
+	if err := writeMeta(opt, p, []StreamSpec{{ID: 1, URL: "video.m3u8"}}, []StreamSpec{{ID: 1, URL: "video.m3u8"}}); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("write-meta-json=false should not create raw/meta files, got %d entries", len(entries))
+	}
+}
+
+func TestWriteMetaDoesNotOverwriteExistingFiles(t *testing.T) {
+	tmp := t.TempDir()
+	opt := defaultOptions()
+	opt.TmpDir = tmp
+	p := &parser{rawFiles: map[string]string{"raw.m3u8": "#EXTM3U\n#EXTINF:1,\nnew.ts\n"}}
+	existing := map[string]string{
+		"raw.m3u8":           "existing raw",
+		"meta.json":          "existing all",
+		"meta_selected.json": "existing selected",
+	}
+	for name, content := range existing {
+		if err := os.WriteFile(filepath.Join(tmp, name), []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := writeMeta(opt, p, []StreamSpec{{ID: 1, URL: "video.m3u8"}}, []StreamSpec{{ID: 1, URL: "video.m3u8"}}); err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range existing {
+		got, err := os.ReadFile(filepath.Join(tmp, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(got) != want {
+			t.Fatalf("%s should keep existing content, got %q want %q", name, got, want)
+		}
+	}
+}
+
 func TestDeriveSaveNameFromInputURL(t *testing.T) {
 	now := time.Date(2026, 6, 18, 12, 34, 56, 0, time.Local)
 	got := deriveSaveNameFromInput("https://example.com/path/master.m3u8?token=abc", now)
