@@ -1055,6 +1055,26 @@ func TestParseMediaKeyMethodIsCaseSensitiveLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestParseMediaKeyMethodTrimsWhitespaceLikeUpstream(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}
+	raw := `#EXTM3U
+#EXT-X-TARGETDURATION:8
+#EXT-X-KEY:METHOD=" AES-128 ",URI="base64:MDEyMzQ1Njc4OWFiY2RlZg=="
+#EXTINF:8.0,
+0.ts
+#EXT-X-ENDLIST
+`
+	pl, err := p.parseMedia(context.Background(), raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segs := sortedSegments(pl)
+	if len(segs) != 1 || segs[0].Encrypt.Method != EncryptAES128 {
+		t.Fatalf("HLS METHOD should trim whitespace like upstream Enum.TryParse, got %#v", segs)
+	}
+}
+
 func TestParseMediaKeyLoadRetriesBeforeDowngrade(t *testing.T) {
 	var keyHits int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

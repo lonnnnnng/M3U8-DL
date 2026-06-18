@@ -30,7 +30,7 @@ func normalizeEncryptMethod(input string) EncryptMethod {
 }
 
 func parseHLSPlaylistEncryptMethod(input string) EncryptMethod {
-	normalized := strings.ReplaceAll(input, "-", "_")
+	normalized := strings.ReplaceAll(strings.TrimSpace(input), "-", "_")
 	switch normalized {
 	case "NONE":
 		return EncryptNone
