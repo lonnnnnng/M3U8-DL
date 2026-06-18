@@ -1142,6 +1142,39 @@ func TestDefaultNameSavePatternFrameRate(t *testing.T) {
 	}
 }
 
+func TestDownloadSavePatternIdUsesTaskOrderLikeUpstream(t *testing.T) {
+	tmp := t.TempDir()
+	opt := defaultOptions()
+	opt.SaveDir = tmp
+	opt.TmpDir = filepath.Join(tmp, "tmp")
+	opt.SaveName = "movie"
+	opt.SavePattern = "<SaveName>_<Id>"
+	opt.BinaryMerge = true
+	opt.DelAfterDone = false
+	stream := StreamSpec{
+		ID:        7,
+		Extension: "ts",
+		Playlist: &Playlist{Parts: []MediaPart{{Segments: []Segment{{
+			Index:    0,
+			URL:      "base64://c2VnbWVudA==",
+			Duration: 1,
+		}}}}},
+	}
+	outs, err := downloadAll(context.Background(), http.DefaultClient, []StreamSpec{stream}, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(outs) != 1 {
+		t.Fatalf("unexpected outputs: %#v", outs)
+	}
+	if got := filepath.Base(outs[0].Path); got != "movie_0.ts" {
+		t.Fatalf("<Id> should use task order instead of original stream id, got %s", got)
+	}
+	if _, err := os.Stat(filepath.Join(opt.TmpDir, opt.SaveName, "0___0")); err != nil {
+		t.Fatalf("task temp dir should also use task order like upstream, err=%v", err)
+	}
+}
+
 func TestDefaultNameSavePatternCleansEmptySeparators(t *testing.T) {
 	opt := Options{SavePattern: "__<SaveName>__<Language>..<Resolution>..", SaveName: "movie"}
 	got := defaultName(opt, StreamSpec{}, "fallback")

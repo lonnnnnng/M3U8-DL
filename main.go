@@ -175,7 +175,7 @@ func downloadLiveRealtimeIfNeeded(ctx context.Context, client *http.Client, sele
 			continue
 		}
 		if stream.Playlist.IsLive && (stream.MediaType == nil || *stream.MediaType != MediaSubtitles) {
-			state, out, err := newLiveRealtimeDownloadState(client, stream, opt, limiter)
+			state, out, err := newLiveRealtimeDownloadState(client, streamForTask(stream, i), opt, limiter)
 			if err != nil {
 				return nil, true, err
 			}
@@ -191,7 +191,7 @@ func downloadLiveRealtimeIfNeeded(ctx context.Context, client *http.Client, sele
 		if stream.Playlist.IsLive {
 			continue
 		}
-		out, err := downloadStream(ctx, client, stream, opt, limiter, nil)
+		out, err := downloadStream(ctx, client, streamForTask(stream, i), opt, limiter, nil)
 		if err != nil {
 			return nil, true, err
 		}
@@ -282,7 +282,7 @@ func downloadLiveRealtimeIfNeeded(ctx context.Context, client *http.Client, sele
 		if ok[i] || selected[i].Playlist == nil {
 			continue
 		}
-		out, err := downloadStream(ctx, client, selected[i], opt, limiter, nil)
+		out, err := downloadStream(ctx, client, streamForTask(selected[i], i), opt, limiter, nil)
 		if err != nil {
 			return nil, true, err
 		}

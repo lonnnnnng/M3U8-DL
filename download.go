@@ -101,7 +101,7 @@ func downloadAll(ctx context.Context, client *http.Client, streams []StreamSpec,
 			wg.Add(1)
 			go func(s StreamSpec) {
 				defer wg.Done()
-				o, err := downloadStream(ctx, client, s, opt, limiter, audioStart)
+				o, err := downloadStream(ctx, client, streamForTask(s, i), opt, limiter, audioStart)
 				mu.Lock()
 				defer mu.Unlock()
 				if err != nil && firstErr == nil {
@@ -124,14 +124,20 @@ func downloadAll(ctx context.Context, client *http.Client, streams []StreamSpec,
 		return ordered, firstErr
 	}
 	var outs []outputFile
-	for _, s := range streams {
-		o, err := downloadStream(ctx, client, s, opt, limiter, audioStart)
+	for i, s := range streams {
+		o, err := downloadStream(ctx, client, streamForTask(s, i), opt, limiter, audioStart)
 		if err != nil {
 			return outs, err
 		}
 		outs = append(outs, o)
 	}
 	return outs, nil
+}
+
+func streamForTask(s StreamSpec, taskID int) StreamSpec {
+	// long: 原版保存模板里的 <Id> 和临时目录前缀来自 Spectre 的下载任务 ID，而不是 master 列表里的原始流编号；过滤后仍要按本次选择顺序重新编号。
+	s.ID = taskID
+	return s
 }
 
 func hasSelectedAudio(streams []StreamSpec) bool {
