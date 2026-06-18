@@ -133,7 +133,7 @@ func splitComplex(input string) map[string]string {
 			out[part] = part
 			continue
 		}
-		out[strings.TrimSpace(k)] = strings.Trim(strings.TrimSpace(v), "\"")
+		out[strings.TrimSpace(k)] = strings.Trim(strings.TrimSpace(v), "\"'")
 	}
 	return out
 }
@@ -141,14 +141,26 @@ func splitComplex(input string) map[string]string {
 func splitRespectQuotes(input string, sep rune) []string {
 	var res []string
 	var b strings.Builder
-	quoted := false
+	var quote rune
 	for _, r := range input {
-		if r == '"' {
-			quoted = !quoted
+		if r == '"' || r == '\'' {
+			if quote == 0 {
+				quote = r
+			} else if quote == r {
+				quote = 0
+			}
 			b.WriteRune(r)
 			continue
 		}
-		if r == sep && !quoted {
+		if r == sep && quote == 0 {
+			current := b.String()
+			if strings.HasSuffix(current, `\`) {
+				// long: 上游复杂参数允许用 \: 表示值里的冒号，例如外部轨道标题或工具路径，不能在这里误拆成下一个参数。
+				b.Reset()
+				b.WriteString(strings.TrimSuffix(current, `\`))
+				b.WriteRune(r)
+				continue
+			}
 			res = append(res, b.String())
 			b.Reset()
 			continue

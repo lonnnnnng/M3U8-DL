@@ -341,6 +341,13 @@ func TestParseArgsMuxImportAcceptsMultipleValuesAfterOneFlag(t *testing.T) {
 	}
 }
 
+func TestSplitComplexEscapedColonAndSingleQuotesLikeUpstream(t *testing.T) {
+	p := splitComplex(`path=extra.srt:lang='zh-Hans':name=Part\:One`)
+	if p["path"] != "extra.srt" || p["lang"] != "zh-Hans" || p["name"] != "Part:One" {
+		t.Fatalf("complex params should preserve escaped colon and trim single quotes, got %#v", p)
+	}
+}
+
 func TestMoreHelpIncludesMuxImportLikeUpstream(t *testing.T) {
 	help := moreHelp("mux-import")
 	for _, want := range []string{"--mux-import", "path=PATH", "lang=CODE", "name=NAME"} {
