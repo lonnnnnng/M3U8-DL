@@ -162,6 +162,10 @@ func muxOutputs(files []outputFile, opt Options) (string, error) {
 	}
 	for i := range inputs {
 		inputs[i] = normalizeOutputFileLanguage(inputs[i])
+		if inputs[i].Language == "" {
+			// long: HLS 主列表常省略基础视频语言；上游最终混流会把缺失的 LangCode 写成 und，避免输出轨道没有语言 metadata。
+			inputs[i].Language = "und"
+		}
 		if inputs[i].StreamCount <= 0 {
 			inputs[i].StreamCount = probeMediaStreamCount(inputs[i].Path, opt)
 		}

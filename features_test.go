@@ -2402,6 +2402,7 @@ func TestMuxOutputsByFFmpegUsesUpstreamMetadataAndDispositionArgs(t *testing.T) 
 		"\n-disposition:a:0\ndefault\n",
 		"\n-disposition:a:1\n0\n",
 		"\n-disposition:s\n0\n",
+		"\n-metadata:s:0\nlanguage=und\n",
 		"\n-metadata:s:1\nlanguage=eng\n",
 		"\n-metadata:s:2\nlanguage=jpn\n",
 		"\n-metadata:s:3\nlanguage=chi\n",
