@@ -4583,8 +4583,8 @@ func TestParseArgsUseShakaPackagerBoolMatchesUpstream(t *testing.T) {
 func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	opt := defaultOptions()
 	opt.UILanguage = "en-US"
-	if got := tr(opt, "streamsParsed", 3); got != "Parsed 3 streams" {
-		t.Fatalf("english streamsParsed wrong: %q", got)
+	if got := tr(opt, "streamsInfo", 4, 1, 2, 1); got != "Extracted, there are 4 streams, with 1 basic streams, 2 audio streams, 1 subtitle streams" {
+		t.Fatalf("english streamsInfo wrong: %q", got)
 	}
 	opt.UILanguage = "zh-TW"
 	if got := tr(opt, "skipDownload"); got != "已按 --skip-download 跳過下載" {
@@ -4601,6 +4601,23 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	opt.UILanguage = "zh-TW"
 	if got := tr(opt, "mkvmergeNotFound"); got != "找不到mkvmerge，請自行下載：https://mkvtoolnix.download/downloads.html" {
 		t.Fatalf("traditional mkvmergeNotFound wrong: %q", got)
+	}
+}
+
+func TestCountStreamGroupsMatchesUpstreamStreamsInfoBuckets(t *testing.T) {
+	video := MediaVideo
+	audio := MediaAudio
+	subtitle := MediaSubtitles
+	streams := []StreamSpec{
+		{MediaType: nil},
+		{MediaType: &video},
+		{MediaType: &audio},
+		{MediaType: &audio},
+		{MediaType: &subtitle},
+	}
+	basic, audios, subtitles := countStreamGroups(streams)
+	if basic != 1 || audios != 2 || subtitles != 1 {
+		t.Fatalf("stream bucket counts mismatch: basic=%d audio=%d subtitle=%d", basic, audios, subtitles)
 	}
 }
 

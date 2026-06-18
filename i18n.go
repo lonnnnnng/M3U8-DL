@@ -54,10 +54,10 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "等待任務開始: %s",
 		EnUS: "Waiting until: %s",
 	},
-	"streamsParsed": {
-		ZhCN: "解析到 %d 条轨道",
-		ZhTW: "解析到 %d 條軌道",
-		EnUS: "Parsed %d streams",
+	"streamsInfo": {
+		ZhCN: "已解析, 共计 %d 条媒体流, 基本流 %d 条, 可选音频流 %d 条, 可选字幕流 %d 条",
+		ZhTW: "已解析, 共計 %d 條媒體流, 基本流 %d 條, 可選音頻流 %d 條, 可選字幕流 %d 條",
+		EnUS: "Extracted, there are %d streams, with %d basic streams, %d audio streams, %d subtitle streams",
 	},
 	"skipDownload": {
 		ZhCN: "已按 --skip-download 跳过下载",

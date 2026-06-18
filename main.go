@@ -74,7 +74,8 @@ func runWithContext(ctx context.Context, args []string, command []string) error 
 	if err != nil {
 		return err
 	}
-	fmt.Println(tr(opt, "streamsParsed", len(streams)))
+	basicCount, audioCount, subtitleCount := countStreamGroups(streams)
+	fmt.Println(tr(opt, "streamsInfo", len(streams), basicCount, audioCount, subtitleCount))
 	selected, err := chooseStreams(streams, opt)
 	if err != nil {
 		return err
@@ -148,6 +149,22 @@ func waitForTaskStart(opt Options, now func() time.Time, sleep func(time.Duratio
 	}
 	// long: 默认保存名包含时间戳；等待必须发生在派生 SaveName 之前，否则定时任务跨分钟/跨天时文件名会记录排队时间而不是实际开始时间。
 	sleep(opt.TaskStartAt.Sub(current))
+}
+
+func countStreamGroups(streams []StreamSpec) (basic int, audio int, subtitle int) {
+	for _, stream := range streams {
+		if stream.MediaType == nil {
+			basic++
+			continue
+		}
+		switch *stream.MediaType {
+		case MediaAudio:
+			audio++
+		case MediaSubtitles:
+			subtitle++
+		}
+	}
+	return basic, audio, subtitle
 }
 
 func shouldMuxAfterDownload(opt Options, outs []outputFile) bool {
