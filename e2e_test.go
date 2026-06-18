@@ -125,7 +125,7 @@ func TestDownloadLiveRealTimeMergeUsesAppendPath(t *testing.T) {
 	if string(got) != "live-alive-b" {
 		t.Fatalf("live realtime merge output mismatch: %q", got)
 	}
-	if matches, err := filepath.Glob(filepath.Join(opt.TmpDir, "*_tmp", "*.ts")); err != nil {
+	if matches, err := filepath.Glob(filepath.Join(taskTempDir(opt), "*", "*.ts")); err != nil {
 		t.Fatal(err)
 	} else if len(matches) != 0 {
 		t.Fatalf("live realtime merge should delete downloaded media segments when keep=false: %#v", matches)

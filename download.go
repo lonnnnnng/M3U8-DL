@@ -146,10 +146,7 @@ func newLiveRealtimeDownloadState(client *http.Client, s StreamSpec, opt Options
 	if s.Playlist == nil {
 		return nil, outputFile{}, fmt.Errorf("轨道缺少 playlist: %s", s.URL)
 	}
-	tmpRoot := opt.TmpDir
-	if tmpRoot == "" {
-		tmpRoot = "."
-	}
+	tmpRoot := taskTempDir(opt)
 	saveDir := opt.SaveDir
 	if saveDir == "" {
 		saveDir = "."
@@ -158,7 +155,7 @@ func newLiveRealtimeDownloadState(client *http.Client, s StreamSpec, opt Options
 	if dirName == "" || strings.HasPrefix(dirName, "_") {
 		dirName = fmt.Sprintf("stream_%d", s.ID)
 	}
-	tmpDir := filepath.Join(tmpRoot, safeName(defaultName(opt, s, dirName))+"_tmp")
+	tmpDir := filepath.Join(tmpRoot, dirName)
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return nil, outputFile{}, err
 	}
@@ -298,10 +295,7 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 	if s.Playlist == nil {
 		return outputFile{}, fmt.Errorf("轨道缺少 playlist: %s", s.URL)
 	}
-	tmpRoot := opt.TmpDir
-	if tmpRoot == "" {
-		tmpRoot = "."
-	}
+	tmpRoot := taskTempDir(opt)
 	saveDir := opt.SaveDir
 	if saveDir == "" {
 		saveDir = "."
@@ -310,7 +304,7 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 	if dirName == "" || strings.HasPrefix(dirName, "_") {
 		dirName = fmt.Sprintf("stream_%d", s.ID)
 	}
-	tmpDir := filepath.Join(tmpRoot, safeName(defaultName(opt, s, dirName))+"_tmp")
+	tmpDir := filepath.Join(tmpRoot, dirName)
 	if err := os.MkdirAll(tmpDir, 0755); err != nil {
 		return outputFile{}, err
 	}

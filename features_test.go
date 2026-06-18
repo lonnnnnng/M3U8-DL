@@ -838,6 +838,15 @@ func TestWriteMetaWritesAllAndSelected(t *testing.T) {
 	}
 }
 
+func TestTaskTempDirUsesSaveNameLikeUpstream(t *testing.T) {
+	opt := defaultOptions()
+	opt.TmpDir = "/tmp/root"
+	opt.SaveName = "job"
+	if got := taskTempDir(opt); got != filepath.Join("/tmp/root", "job") {
+		t.Fatalf("task temp dir mismatch: %s", got)
+	}
+}
+
 func TestWriteMetaDisabledSkipsRawAndMetaFiles(t *testing.T) {
 	tmp := t.TempDir()
 	opt := defaultOptions()
@@ -3805,7 +3814,7 @@ func TestLiveRealtimeDownloadStateWritesBatchesToPipe(t *testing.T) {
 	if got := string(<-readDone); got != "ab" {
 		t.Fatalf("live pipe batch writes mismatch: %q", got)
 	}
-	matches, err := filepath.Glob(filepath.Join(opt.TmpDir, "*_tmp", "*.ts"))
+	matches, err := filepath.Glob(filepath.Join(taskTempDir(opt), "*", "*.ts"))
 	if err != nil {
 		t.Fatal(err)
 	}

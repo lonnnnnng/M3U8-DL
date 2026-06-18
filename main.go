@@ -398,6 +398,10 @@ func writeMeta(opt Options, p *parser, all []StreamSpec, selected []StreamSpec) 
 }
 
 func rawMetaDir(opt Options) string {
+	return taskTempDir(opt)
+}
+
+func taskTempDir(opt Options) string {
 	root := opt.TmpDir
 	if root == "" {
 		root = "."
@@ -406,7 +410,7 @@ func rawMetaDir(opt Options) string {
 	if saveName == "" {
 		saveName = deriveSaveNameFromInput(opt.Input, time.Now())
 	}
-	// long: 原版把 raw.m3u8/meta.json 写入本次任务临时根目录，避免多任务共用 --tmp-dir 时互相覆盖解析证据。
+	// long: 原版以 SaveName 建立任务临时根目录，raw/meta 和各轨道分片目录都挂在这里，避免多任务共用 --tmp-dir 时互相覆盖。
 	return filepath.Join(root, saveName)
 }
 
