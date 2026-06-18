@@ -1,6 +1,6 @@
 # N_m3u8DL-RE 功能清单与 Go HLS 复刻进度对比
 
-更新时间：2026-06-19 00:40:06（北京时间）
+更新时间：2026-06-19 00:49:21（北京时间）
 
 ## 代码目录
 
@@ -189,7 +189,7 @@
 | MP4 WebVTT | wvtt/vttc/payl 抽取 | 已支持并保留 `iden` cue id | 基本追平 |
 | 图形字幕 | Base64 PNG 落盘 | 已支持 | 已追平 |
 | 字幕修复后清理 | 删除原始字幕分片 | 已支持，TTML/MP4-TTML 可用环境变量保留 | 已追平 |
-| 直播刷新 | 按窗口刷新追加新增分片 | 已支持基础刷新、去重、追加 | 基本追平 |
+| 直播刷新 | 按窗口刷新追加新增分片 | 已支持基础刷新、去重、追加；未设置 `--live-record-limit` 时会按上游持续刷新到直播结束或外部中断 | 基本追平 |
 | 直播起点同步 | 多轨按日期或序号对齐 | 已支持 PDT/序号对齐和 `--live-take-count` | 基本追平 |
 | 直播录制限制 | `--live-record-limit` | 已支持，初始窗口计入限制 | 基本追平 |
 | 直播实时合并 | 刷新过程中追加输出 | 非字幕输出已按批次实时追加；字幕收尾处理 | 部分追平 |
@@ -205,7 +205,7 @@
 1. CENC/PSSH/KID 已覆盖 `schm`、`tenc`、Widevine PSSH data、PSSH v1 KID 列表和 PlayReady 文本/`VALUE` 场景，但复杂 DRM 封装还缺系统性样本验证。
 2. MP4 实时解密已补齐 init 先读 KID、shaka 缺 key 探测 KID、shaka/ffmpeg 不重复合并 init、合并后不二次整文件解密的路径，但还没有达到上游直播状态机里所有边缘分支的等价程度。
 3. SAMPLE-AES/SAMPLE-AES-CTR 已按上游走外部 MP4 工具链或保留分片，但还缺真实 SAMPLE-AES 样本覆盖。
-4. 直播 producer/consumer 多轨状态机仍是简化实现，PipeMux 在 Windows 真实环境未实际运行验证。
+4. 直播 producer/consumer 多轨状态机仍是简化实现；未设置 `--live-record-limit` 的普通和实时合并路径已补齐持续刷新到 `ENDLIST` 的行为，但用户中断后的完整收尾仍弱于原版，PipeMux 在 Windows 真实环境未实际运行验证。
 5. ANSI/Spectre 风格动态进度 UI 未复刻；当前只对齐了重定向时清除 ANSI 颜色的控制台初始化行为。
 6. 多语言资源系统已覆盖核心运行输出，但完整 `ResString` 资源表、帮助文本和全部错误提示仍未复刻。
 7. ffmpeg/mkvmerge 的全部参数边缘组合和媒体探测还需要继续按样本补证据。

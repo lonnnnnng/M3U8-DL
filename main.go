@@ -156,7 +156,7 @@ func shouldMuxAfterDownload(opt Options, outs []outputFile) bool {
 }
 
 func downloadLiveRealtimeIfNeeded(ctx context.Context, client *http.Client, selected []StreamSpec, p *parser, opt Options) ([]outputFile, bool, error) {
-	if opt.LivePerformAsVOD || opt.LiveRecordLimit == nil || !opt.LiveRealTimeMerge || opt.SkipMerge || !hasLiveStream(selected) {
+	if opt.LivePerformAsVOD || !opt.LiveRealTimeMerge || opt.SkipMerge || !hasLiveStream(selected) {
 		return nil, false, nil
 	}
 	for i := range selected {
@@ -229,9 +229,12 @@ func downloadLiveRealtimeIfNeeded(ctx context.Context, client *http.Client, sele
 
 	refreshedDurations := liveInitialRefreshedDurations(selected)
 	wait := liveRefreshWaitDuration(selected, opt)
-	deadline := time.Now().Add(*opt.LiveRecordLimit)
-	for !liveRecordLimitReached(selected, refreshedDurations, *opt.LiveRecordLimit) && time.Now().Before(deadline) {
-		time.Sleep(wait)
+	limit := liveRecordLimitOrForever(opt.LiveRecordLimit)
+	deadline, hasDeadline := liveRecordDeadline(opt.LiveRecordLimit, time.Now())
+	for !liveRecordLimitReached(selected, refreshedDurations, limit) && (!hasDeadline || time.Now().Before(deadline)) {
+		if err := waitLiveRefresh(ctx, wait); err != nil {
+			break
+		}
 		allDone := true
 		for i := range selected {
 			if selected[i].Playlist == nil || !selected[i].Playlist.IsLive {
@@ -257,7 +260,7 @@ func downloadLiveRealtimeIfNeeded(ctx context.Context, client *http.Client, sele
 				}
 			}
 		}
-		if allDone {
+		if allDone || !hasLiveStream(selected) {
 			break
 		}
 	}
@@ -514,7 +517,7 @@ func recordLiveIfNeeded(ctx context.Context, client *http.Client, selected []Str
 		}
 		return nil
 	}
-	if opt.LiveRecordLimit == nil {
+	if !hasLiveStream(selected) {
 		return nil
 	}
 	for i := range selected {
@@ -522,7 +525,8 @@ func recordLiveIfNeeded(ctx context.Context, client *http.Client, selected []Str
 	}
 	syncLiveStreams(selected, opt.LiveTakeCount)
 	refreshedDurations := liveInitialRefreshedDurations(selected)
-	if liveRecordLimitReached(selected, refreshedDurations, *opt.LiveRecordLimit) {
+	limit := liveRecordLimitOrForever(opt.LiveRecordLimit)
+	if liveRecordLimitReached(selected, refreshedDurations, limit) {
 		for i := range selected {
 			if selected[i].Playlist != nil {
 				selected[i].Playlist.IsLive = false
@@ -531,8 +535,8 @@ func recordLiveIfNeeded(ctx context.Context, client *http.Client, selected []Str
 		return nil
 	}
 	wait := liveRefreshWaitDuration(selected, opt)
-	deadline := time.Now().Add(*opt.LiveRecordLimit)
-	for time.Now().Before(deadline) {
+	deadline, hasDeadline := liveRecordDeadline(opt.LiveRecordLimit, time.Now())
+	for !hasDeadline || time.Now().Before(deadline) {
 		allDone := true
 		for i := range selected {
 			if selected[i].Playlist != nil && selected[i].Playlist.IsLive {
@@ -544,10 +548,12 @@ func recordLiveIfNeeded(ctx context.Context, client *http.Client, selected []Str
 				refreshedDurations[i] += appendNewLiveSegments(&selected[i], next)
 			}
 		}
-		if allDone || liveRecordLimitReached(selected, refreshedDurations, *opt.LiveRecordLimit) {
+		if allDone || !hasLiveStream(selected) || liveRecordLimitReached(selected, refreshedDurations, limit) {
 			break
 		}
-		time.Sleep(wait)
+		if err := waitLiveRefresh(ctx, wait); err != nil {
+			break
+		}
 	}
 	for i := range selected {
 		if selected[i].Playlist != nil {
@@ -555,6 +561,32 @@ func recordLiveIfNeeded(ctx context.Context, client *http.Client, selected []Str
 		}
 	}
 	return nil
+}
+
+func liveRecordLimitOrForever(limit *time.Duration) time.Duration {
+	if limit == nil {
+		// long: 原版直播录制未设置 --live-record-limit 时会把限制改成 TimeSpan.MaxValue，让录制持续到直播结束或用户中断。
+		return time.Duration(1<<63 - 1)
+	}
+	return *limit
+}
+
+func liveRecordDeadline(limit *time.Duration, now time.Time) (time.Time, bool) {
+	if limit == nil {
+		return time.Time{}, false
+	}
+	return now.Add(*limit), true
+}
+
+func waitLiveRefresh(ctx context.Context, wait time.Duration) error {
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func liveInitialRefreshedDurations(selected []StreamSpec) []float64 {
@@ -851,7 +883,7 @@ func appendNewLiveSegmentsDetailed(current *StreamSpec, next StreamSpec) ([]Segm
 		addedSegments = append(addedSegments, seg)
 		addedDuration += seg.Duration
 	}
-	current.Playlist.IsLive = true
+	current.Playlist.IsLive = next.Playlist.IsLive
 	current.Playlist.WasLive = true
 	current.Playlist.RefreshIntervalMS = next.Playlist.RefreshIntervalMS
 	return addedSegments, addedDuration
