@@ -408,7 +408,7 @@ func replaceFirstRegexp(input string, re *regexp.Regexp, replacement string) str
 
 func splitComplex(input string) map[string]string {
 	out := map[string]string{}
-	for _, part := range splitRespectQuotes(input, ':') {
+	for _, part := range splitComplexParts(input, ':') {
 		if part == "" {
 			continue
 		}
@@ -422,21 +422,11 @@ func splitComplex(input string) map[string]string {
 	return out
 }
 
-func splitRespectQuotes(input string, sep rune) []string {
+func splitComplexParts(input string, sep rune) []string {
 	var res []string
 	var b strings.Builder
-	var quote rune
 	for _, r := range input {
-		if r == '"' || r == '\'' {
-			if quote == 0 {
-				quote = r
-			} else if quote == r {
-				quote = 0
-			}
-			b.WriteRune(r)
-			continue
-		}
-		if r == sep && quote == 0 {
+		if r == sep {
 			current := b.String()
 			if strings.HasSuffix(current, `\`) {
 				// long: 上游复杂参数允许用 \: 表示值里的冒号，例如外部轨道标题或工具路径，不能在这里误拆成下一个参数。

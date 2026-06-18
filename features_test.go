@@ -725,6 +725,13 @@ func TestSplitComplexEscapedColonAndSingleQuotesLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestSplitComplexQuotedColonStopsLikeUpstream(t *testing.T) {
+	p := splitComplex(`path=extra.srt:name="Part:One"`)
+	if p["path"] != "extra.srt" || p["name"] != "Part" {
+		t.Fatalf("quoted colon should still split like upstream ComplexParamParser, got %#v", p)
+	}
+}
+
 func TestMoreHelpIncludesMuxImportLikeUpstream(t *testing.T) {
 	help := moreHelp("mux-import")
 	for _, want := range []string{"--mux-import", "path=PATH", "lang=CODE", "name=NAME"} {
