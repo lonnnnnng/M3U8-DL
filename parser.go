@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -521,6 +522,10 @@ func (p *parser) loadHLSKey(ctx context.Context, uri string) ([]byte, error) {
 	case fileExists(uri):
 		return os.ReadFile(uri)
 	default:
+		if parsed, err := url.Parse(uri); err == nil && parsed.Scheme != "" && parsed.Scheme != "http" && parsed.Scheme != "https" && parsed.Scheme != "file" {
+			// long: 上游遇到 skd:// 等 HttpClient 不支持的 key scheme 时不会进入重试循环，而是立即降级 UNKNOWN，避免无意义等待。
+			return nil, fmt.Errorf("scheme is not supported: %s", parsed.Scheme)
+		}
 		// long: HLS key URI 和媒体分片一样可能依赖 playlist URL 上的鉴权参数，上游会对 key URL 也执行 URL 预处理。
 		keyURL := p.preProcessURL(combineURL(p.baseURL, uri))
 		var lastErr error

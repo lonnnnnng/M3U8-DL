@@ -1118,6 +1118,14 @@ func TestParseMediaKeyLoadFailureUsesUpstreamRetryCount(t *testing.T) {
 	}
 }
 
+func TestLoadHLSKeyUnsupportedSchemeFailsWithoutFileFallbackLikeUpstream(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}
+	if _, err := p.loadHLSKey(context.Background(), "skd://asset"); err == nil || !strings.Contains(err.Error(), "scheme is not supported") {
+		t.Fatalf("unsupported key scheme should fail like upstream HttpClient, got %v", err)
+	}
+}
+
 func TestParseMediaKeyURLAppliesAppendURLParamsLikeUpstream(t *testing.T) {
 	var keyHits int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
