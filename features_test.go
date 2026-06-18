@@ -652,6 +652,7 @@ func TestTaskStartAtWaitsBeforeDerivingDefaultSaveName(t *testing.T) {
 	target := time.Date(2026, 6, 19, 0, 0, 1, 0, time.Local)
 	opt := defaultOptions()
 	opt.Input = "https://example.com/main.m3u8"
+	opt.UILanguage = "zh-CN"
 	opt.TaskStartAt = &target
 	var slept time.Duration
 	var messages []string
@@ -665,8 +666,8 @@ func TestTaskStartAtWaitsBeforeDerivingDefaultSaveName(t *testing.T) {
 	if slept != 2*time.Second {
 		t.Fatalf("task-start-at should sleep until target time, got %s", slept)
 	}
-	if len(messages) != 1 || !strings.Contains(messages[0], "2026-06-19 00:00:01") {
-		t.Fatalf("task-start-at message missing target time: %#v", messages)
+	if len(messages) != 1 || messages[0] != "程序将等待，直到：2026-06-19 00:00:01" {
+		t.Fatalf("task-start-at message should match upstream resource prefix, got %#v", messages)
 	}
 	applyDerivedDefaults(&opt, current)
 	if opt.SaveName != "main_2026-06-19_00-00-01" {
@@ -4828,6 +4829,9 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	opt.UILanguage = "zh-TW"
 	if got := tr(opt, "skipDownload"); got != "已按 --skip-download 跳過下載" {
 		t.Fatalf("traditional skipDownload wrong: %q", got)
+	}
+	if got := tr(opt, "taskStartAt"); got != "程序將等待，直到：" {
+		t.Fatalf("traditional taskStartAt wrong: %q", got)
 	}
 	if got := tr(opt, "selectedStream"); got != "已選擇的流:" {
 		t.Fatalf("traditional selectedStream wrong: %q", got)

@@ -85,9 +85,9 @@ var localizedTexts = map[string]localizedText{
 		EnUS: "When enabling real-time decryption, it is recommended to use shaka-packager instead of mp4decrypt/ffmpeg",
 	},
 	"taskStartAt": {
-		ZhCN: "等待任务开始: %s",
-		ZhTW: "等待任務開始: %s",
-		EnUS: "Waiting until: %s",
+		ZhCN: "程序将等待，直到：",
+		ZhTW: "程序將等待，直到：",
+		EnUS: "The program will wait until: ",
 	},
 	"streamsInfo": {
 		ZhCN: "已解析, 共计 %d 条媒体流, 基本流 %d 条, 可选音频流 %d 条, 可选字幕流 %d 条",

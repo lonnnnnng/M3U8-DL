@@ -150,7 +150,7 @@ func waitForTaskStart(opt Options, now func() time.Time, sleep func(time.Duratio
 		return
 	}
 	if announce != nil {
-		announce(tr(opt, "taskStartAt", opt.TaskStartAt.Format("2006-01-02 15:04:05")))
+		announce(tr(opt, "taskStartAt") + opt.TaskStartAt.Format("2006-01-02 15:04:05"))
 	}
 	// long: 默认保存名包含时间戳；等待必须发生在派生 SaveName 之前，否则定时任务跨分钟/跨天时文件名会记录排队时间而不是实际开始时间。
 	sleep(opt.TaskStartAt.Sub(current))
