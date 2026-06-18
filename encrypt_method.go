@@ -28,3 +28,28 @@ func normalizeEncryptMethod(input string) EncryptMethod {
 		return EncryptMethod(normalized)
 	}
 }
+
+func parseHLSPlaylistEncryptMethod(input string) EncryptMethod {
+	normalized := strings.ReplaceAll(input, "-", "_")
+	switch normalized {
+	case "NONE":
+		return EncryptNone
+	case "AES_128":
+		return EncryptAES128
+	case "AES_128_ECB":
+		return EncryptAES128ECB
+	case "CENC":
+		return EncryptCENC
+	case "SAMPLE_AES":
+		return EncryptSampleAES
+	case "SAMPLE_AES_CTR":
+		return EncryptSampleCTR
+	case "CHACHA20":
+		return EncryptChaCha20
+	case "UNKNOWN":
+		return EncryptUnknown
+	default:
+		// long: HLS 清单里的 METHOD 走上游 EncryptInfo.ParseMethod，Enum.TryParse 默认大小写敏感；小写 aes-128 这类值会降级 UNKNOWN，而不是被宽松修正。
+		return EncryptUnknown
+	}
+}

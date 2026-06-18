@@ -475,10 +475,7 @@ func (p *parser) parseKey(ctx context.Context, line string) (EncryptInfo, error)
 	if err := ensureQuotedAttrsClosed(line, "METHOD", "URI", "IV"); err != nil {
 		return EncryptInfo{}, err
 	}
-	method := normalizeEncryptMethod(attr(line, "METHOD"))
-	if method == "" || !isKnownHLSMethod(method) {
-		method = EncryptUnknown
-	}
+	method := parseHLSPlaylistEncryptMethod(attr(line, "METHOD"))
 	ei := EncryptInfo{Method: method}
 	if iv := attr(line, "IV"); iv != "" {
 		b, err := hex.DecodeString(strings.TrimPrefix(strings.ToLower(strings.TrimSpace(iv)), "0x"))
