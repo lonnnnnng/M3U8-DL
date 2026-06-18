@@ -1313,6 +1313,54 @@ func TestDownloadUnknownHLSEncryptionKeepsRawAndForcesBinaryMerge(t *testing.T) 
 	}
 }
 
+func TestDownloadUndefinedNumericHLSEncryptionKeepsRawLikeUpstream(t *testing.T) {
+	var base string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/main.m3u8":
+			_, _ = w.Write([]byte("#EXTM3U\n#EXT-X-TARGETDURATION:1\n#EXT-X-KEY:METHOD=8,URI=\"base64:MDEyMzQ1Njc4OWFiY2RlZg==\"\n#EXTINF:1,\n" + base + "/0.ts\n#EXT-X-ENDLIST\n"))
+		case "/0.ts":
+			_, _ = w.Write([]byte("numeric-enum-raw"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	base = srv.URL
+
+	tmp := t.TempDir()
+	opt := defaultOptions()
+	opt.Input = srv.URL + "/main.m3u8"
+	opt.AutoSelect = true
+	opt.BinaryMerge = true
+	opt.SaveDir = tmp
+	opt.TmpDir = filepath.Join(tmp, "tmp")
+	opt.SaveName = "numeric-enum"
+	client, err := newHTTPClient(opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	streams, _, err := parseSource(context.Background(), client, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segs := sortedSegments(streams[0].Playlist)
+	if len(segs) != 1 || segs[0].Encrypt.Method != EncryptMethod("8") {
+		t.Fatalf("METHOD=8 should remain an undefined numeric enum like upstream, got %#v", segs)
+	}
+	outs, err := downloadAll(context.Background(), client, streams, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(outs[0].Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "numeric-enum-raw" {
+		t.Fatalf("undefined numeric HLS encryption should keep raw segment bytes, got %q", got)
+	}
+}
+
 func TestRealtimeExternalDecrypt(t *testing.T) {
 	if os.Getenv("GOOS") == "windows" {
 		t.Skip("shell helper is unix-only")

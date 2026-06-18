@@ -31,7 +31,8 @@ func decryptSegment(data []byte, enc EncryptInfo) ([]byte, error) {
 		// long: 上游遇到无法识别的 HLS 加密时不会尝试伪解密，而是保留分片并强制二进制合并，让用户后续可用外部工具处理。
 		return data, nil
 	default:
-		return nil, fmt.Errorf("HLS 加密方式 %s 尚未在 Go 版实现", enc.Method)
+		// long: C# 枚举可解析出未定义数字 METHOD，原版下载器 switch 不匹配时会保留原始分片；这里不能把这类边界值升级成下载失败。
+		return data, nil
 	}
 }
 
