@@ -782,6 +782,26 @@ func TestDownloadHexSegmentTrimsPrefixLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestDownloadBase64SegmentIgnoresWhitespaceLikeUpstream(t *testing.T) {
+	tmp := t.TempDir()
+	out := filepath.Join(tmp, "base64-space.ts")
+	seg := Segment{URL: "base64:// MDEy\tMzQ1\nNjc4OQ== "}
+	got, err := downloadSegment(context.Background(), http.DefaultClient, seg, out, defaultOptions(), nil, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != out {
+		t.Fatalf("expected output path %s, got %s", out, got)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "0123456789" {
+		t.Fatalf("base64 inline segment should ignore whitespace like upstream, got %q", data)
+	}
+}
+
 func TestDownloadMissingSegmentFailsWhenCheckEnabled(t *testing.T) {
 	var base string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

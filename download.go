@@ -18,6 +18,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode"
 )
 
 const largeSingleFileSplitSize = 10 * 1024 * 1024
@@ -828,7 +829,7 @@ func readSpecialSegmentBytes(seg Segment) ([]byte, bool, bool, error) {
 	applyRange := false
 	switch {
 	case strings.HasPrefix(seg.URL, "base64://"):
-		data, err = base64.StdEncoding.DecodeString(seg.URL[len("base64://"):])
+		data, err = decodeInlineBase64Segment(seg.URL[len("base64://"):])
 	case strings.HasPrefix(seg.URL, "hex://"):
 		data, err = decodeInlineHexSegment(seg.URL[len("hex://"):])
 	case strings.HasPrefix(seg.URL, "file:"):
@@ -854,6 +855,17 @@ func readSpecialSegmentBytes(seg Segment) ([]byte, bool, bool, error) {
 		}
 	}
 	return data, true, applyRange, nil
+}
+
+func decodeInlineBase64Segment(raw string) ([]byte, error) {
+	clean := strings.Map(func(r rune) rune {
+		if unicode.IsSpace(r) {
+			// long: 上游 Convert.FromBase64String 会忽略 Base64 文本中的空白字符；内联分片常来自清单文本，保留该宽松解析可避免格式化换行导致下载失败。
+			return -1
+		}
+		return r
+	}, raw)
+	return base64.StdEncoding.DecodeString(clean)
 }
 
 func decodeInlineHexSegment(raw string) ([]byte, error) {
