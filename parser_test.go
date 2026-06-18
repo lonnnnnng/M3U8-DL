@@ -1239,6 +1239,43 @@ b.m4s
 	}
 }
 
+func TestParseMediaMalformedQuotedMapAttributesFailLikeUpstream(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+	}{
+		{
+			name: "uri",
+			raw: `#EXTM3U
+#EXT-X-TARGETDURATION:4
+#EXT-X-MAP:URI="init.mp4
+#EXTINF:4.0,
+seg.m4s
+#EXT-X-ENDLIST
+`,
+		},
+		{
+			name: "byterange",
+			raw: `#EXTM3U
+#EXT-X-TARGETDURATION:4
+#EXT-X-MAP:URI="init.mp4",BYTERANGE="100@0
+#EXTINF:4.0,
+seg.m4s
+#EXT-X-ENDLIST
+`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opt := defaultOptions()
+			p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/v/main.m3u8", currentURL: "https://example.com/v/main.m3u8", baseURL: "https://example.com/v/main.m3u8", rawFiles: map[string]string{}}
+			if _, err := p.parseMedia(context.Background(), tt.raw); err == nil {
+				t.Fatal("malformed quoted EXT-X-MAP attribute should fail like upstream GetAttribute")
+			}
+		})
+	}
+}
+
 func TestFetchPlaylistRefreshesURLFromMasterOnFailure(t *testing.T) {
 	var masterHits int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

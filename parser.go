@@ -390,6 +390,9 @@ func (p *parser) parseMedia(ctx context.Context, raw string) (*Playlist, error) 
 			}
 			isEnd = true
 		case strings.HasPrefix(line, "#EXT-X-MAP"):
+			if err := ensureQuotedAttrsClosed(line, "URI", "BYTERANGE"); err != nil {
+				return nil, err
+			}
 			if pl.MediaInit == nil || hasAd {
 				initSeg := Segment{URL: p.preProcessURL(combineURL(p.baseURL, attr(line, "URI"))), Index: -1}
 				if strings.Contains(line, "BYTERANGE") {
