@@ -3560,6 +3560,24 @@ func TestValidateOptionsAcceptsEnumValuesCaseInsensitively(t *testing.T) {
 	}
 }
 
+func TestParseArgsUseShakaPackagerBoolMatchesUpstream(t *testing.T) {
+	opt, err := parseArgs([]string{"--decryption-engine", "ffmpeg", "--use-shaka-packager", "false", "https://example.com/main.m3u8"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.ToUpper(opt.DecryptionEngine) != "FFMPEG" {
+		t.Fatalf("explicit false should not override decryption engine like upstream, got %s", opt.DecryptionEngine)
+	}
+
+	opt, err = parseArgs([]string{"--use-shaka-packager", "https://example.com/main.m3u8"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opt.DecryptionEngine != "SHAKA_PACKAGER" {
+		t.Fatalf("bare --use-shaka-packager should select Shaka, got %s", opt.DecryptionEngine)
+	}
+}
+
 func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	opt := defaultOptions()
 	opt.UILanguage = "en-US"

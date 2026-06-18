@@ -267,7 +267,10 @@ func parseArgs(args []string) (Options, error) {
 		case "--mp4-real-time-decryption":
 			opt.MP4RealTimeDecryption = boolFlag(true)
 		case "--use-shaka-packager":
-			opt.DecryptionEngine = "SHAKA_PACKAGER"
+			if boolFlag(true) {
+				// long: 上游保留了隐藏的 Shaka 快捷开关，但它仍是普通 bool 选项；显式传 false 时不能覆盖用户已经指定的解密引擎。
+				opt.DecryptionEngine = "SHAKA_PACKAGER"
+			}
 		case "--custom-hls-method":
 			v, err := next()
 			if err != nil {
