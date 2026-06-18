@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
+	"compress/flate"
 	"compress/gzip"
+	"compress/zlib"
 	"context"
 	"fmt"
 	"io"
@@ -124,15 +127,11 @@ func fetchHTTPTextOnce(ctx context.Context, client *http.Client, input string, h
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return "", input, fmt.Errorf("HTTP %d: %s", resp.StatusCode, input)
 	}
-	body := resp.Body
-	if strings.EqualFold(resp.Header.Get("Content-Encoding"), "gzip") {
-		gz, err := gzip.NewReader(resp.Body)
-		if err != nil {
-			return "", input, err
-		}
-		defer gz.Close()
-		body = gz
+	body, cleanup, _, err := decodedResponseBody(resp)
+	if err != nil {
+		return "", input, err
 	}
+	defer cleanup()
 	b, err := io.ReadAll(body)
 	if err != nil {
 		return "", input, err
@@ -171,7 +170,12 @@ func fetchBytes(ctx context.Context, client *http.Client, input string, headers 
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, input)
 		}
-		return io.ReadAll(resp.Body)
+		body, cleanup, _, err := decodedResponseBody(resp)
+		if err != nil {
+			return nil, err
+		}
+		defer cleanup()
+		return io.ReadAll(body)
 	}
 	if strings.HasPrefix(input, "file:") {
 		u, err := url.Parse(input)
@@ -181,6 +185,72 @@ func fetchBytes(ctx context.Context, client *http.Client, input string, headers 
 		return os.ReadFile(fileURLPath(u))
 	}
 	return os.ReadFile(input)
+}
+
+func decodedResponseBody(resp *http.Response) (io.Reader, func(), bool, error) {
+	body := io.Reader(resp.Body)
+	var closers []io.Closer
+	encoded := false
+	encodings := parseContentEncodings(resp.Header.Get("Content-Encoding"))
+	for i := len(encodings) - 1; i >= 0; i-- {
+		switch encodings[i] {
+		case "", "identity":
+			continue
+		case "gzip":
+			gz, err := gzip.NewReader(body)
+			if err != nil {
+				closeAll(closers)
+				return nil, func() {}, encoded, err
+			}
+			closers = append(closers, gz)
+			body = gz
+			encoded = true
+		case "deflate":
+			deflated, err := newDeflateReader(body)
+			if err != nil {
+				closeAll(closers)
+				return nil, func() {}, encoded, err
+			}
+			closers = append(closers, deflated)
+			body = deflated
+			encoded = true
+		default:
+			continue
+		}
+	}
+	return body, func() { closeAll(closers) }, encoded, nil
+}
+
+func parseContentEncodings(header string) []string {
+	if header == "" {
+		return nil
+	}
+	parts := strings.Split(header, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		out = append(out, strings.ToLower(strings.TrimSpace(part)))
+	}
+	return out
+}
+
+func newDeflateReader(r io.Reader) (io.ReadCloser, error) {
+	br := bufio.NewReader(r)
+	header, _ := br.Peek(2)
+	if len(header) == 2 && looksLikeZlibHeader(header) {
+		return zlib.NewReader(br)
+	}
+	return flate.NewReader(br), nil
+}
+
+func looksLikeZlibHeader(header []byte) bool {
+	cmf, flg := int(header[0]), int(header[1])
+	return cmf&0x0f == 8 && ((cmf<<8)+flg)%31 == 0
+}
+
+func closeAll(closers []io.Closer) {
+	for i := len(closers) - 1; i >= 0; i-- {
+		_ = closers[i].Close()
+	}
 }
 
 func applyHeaders(req *http.Request, headers map[string]string) {

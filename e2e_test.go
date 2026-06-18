@@ -501,6 +501,52 @@ func TestDownloadRawGzipSegmentDecompresses(t *testing.T) {
 	}
 }
 
+func TestDownloadDeflateEncodedSegmentDecompressesLikeUpstream(t *testing.T) {
+	deflated := zlibBytes(t, []byte("deflate-http-payload"))
+	var base string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/main.m3u8":
+			_, _ = w.Write([]byte("#EXTM3U\n#EXT-X-TARGETDURATION:1\n#EXTINF:1,\n" + base + "/audio.bin\n#EXT-X-ENDLIST\n"))
+		case "/audio.bin":
+			w.Header().Set("Content-Encoding", "deflate")
+			_, _ = w.Write(deflated)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	base = srv.URL
+
+	tmp := t.TempDir()
+	opt := defaultOptions()
+	opt.Input = srv.URL + "/main.m3u8"
+	opt.AutoSelect = true
+	opt.BinaryMerge = true
+	opt.SaveDir = tmp
+	opt.TmpDir = filepath.Join(tmp, "tmp")
+	opt.SaveName = "deflate-segment"
+	client, err := newHTTPClient(opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	streams, _, err := parseSource(context.Background(), client, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	outs, err := downloadAll(context.Background(), client, streams, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(outs[0].Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "deflate-http-payload" {
+		t.Fatalf("deflate response payload should be decompressed: %q", got)
+	}
+}
+
 func TestDownloadImageHeaderSegmentStripsGIFHeader(t *testing.T) {
 	header := append([]byte("GIF8"), bytes.Repeat([]byte{0}, 38)...)
 	wrapped := append(header, []byte("ts-payload")...)

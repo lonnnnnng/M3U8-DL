@@ -714,16 +714,15 @@ func downloadSegment(ctx context.Context, client *http.Client, seg Segment, path
 			time.Sleep(time.Second)
 			continue
 		}
-		data, err := readResponseBytes(resp, opt, limiter)
+		data, encoded, err := readResponseBytes(resp, opt, limiter)
 		contentLength := resp.ContentLength
-		gzipEncoded := strings.EqualFold(resp.Header.Get("Content-Encoding"), "gzip")
 		resp.Body.Close()
 		if err != nil {
 			lastErr = err
 			time.Sleep(time.Second)
 			continue
 		}
-		if err := validateDownloadedLength(seg, len(data), contentLength, gzipEncoded); err != nil {
+		if err := validateDownloadedLength(seg, len(data), contentLength, encoded); err != nil {
 			lastErr = err
 			time.Sleep(time.Second)
 			continue
@@ -758,12 +757,12 @@ func decryptedSegmentPath(path string) string {
 	return strings.TrimSuffix(path, ext) + "_dec" + ext
 }
 
-func validateDownloadedLength(seg Segment, actual int, responseLength int64, gzipEncoded bool) error {
+func validateDownloadedLength(seg Segment, actual int, responseLength int64, encoded bool) error {
 	actualLength := int64(actual)
 	if seg.ExpectLength != nil && actualLength != *seg.ExpectLength {
 		return fmt.Errorf("分片长度校验失败: 期望 %d, 实际 %d, url=%s", *seg.ExpectLength, actualLength, seg.URL)
 	}
-	if !gzipEncoded && responseLength >= 0 && responseLength != actualLength {
+	if !encoded && responseLength >= 0 && responseLength != actualLength {
 		return fmt.Errorf("响应长度校验失败: Content-Length %d, 实际 %d, url=%s", responseLength, actualLength, seg.URL)
 	}
 	return nil
@@ -822,20 +821,17 @@ func isExternalEncryptedSegment(seg Segment) bool {
 	}
 }
 
-func readResponseBytes(resp *http.Response, opt Options, limiter *rateLimiter) ([]byte, error) {
+func readResponseBytes(resp *http.Response, opt Options, limiter *rateLimiter) ([]byte, bool, error) {
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Request.URL)
+		return nil, false, fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Request.URL)
 	}
-	body := resp.Body
-	if strings.EqualFold(resp.Header.Get("Content-Encoding"), "gzip") {
-		gz, err := gzip.NewReader(resp.Body)
-		if err != nil {
-			return nil, err
-		}
-		defer gz.Close()
-		body = gz
+	body, cleanup, encoded, err := decodedResponseBody(resp)
+	if err != nil {
+		return nil, encoded, err
 	}
-	return readAllWithLimiter(body, limiter)
+	defer cleanup()
+	data, err := readAllWithLimiter(body, limiter)
+	return data, encoded, err
 }
 
 func processDownloadedPayload(data []byte) []byte {

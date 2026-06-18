@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"compress/zlib"
 	"context"
 	"net/http"
 	"net/http/httptest"
@@ -111,6 +113,69 @@ func TestParseSourceDecodesHTTPCharsetLikeUpstream(t *testing.T) {
 	if len(streams) == 0 || streams[0].Name != "中文" {
 		t.Fatalf("GBK playlist text should be decoded before parsing, got %#v", streams)
 	}
+}
+
+func TestParseSourceDecodesDeflateHTTPTextLikeUpstream(t *testing.T) {
+	raw := []byte("#EXTM3U\n#EXT-X-TARGETDURATION:1\n#EXTINF:1,\nseg.ts\n#EXT-X-ENDLIST\n")
+	deflated := zlibBytes(t, raw)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Encoding", "deflate")
+		w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
+		_, _ = w.Write(deflated)
+	}))
+	defer srv.Close()
+
+	opt := defaultOptions()
+	opt.Input = srv.URL + "/main.m3u8"
+	streams, _, err := parseSource(context.Background(), srv.Client(), opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(streams) != 1 || streams[0].Playlist == nil {
+		t.Fatalf("deflate playlist should be decompressed before parsing, got %#v", streams)
+	}
+}
+
+func TestParseMediaLoadsDeflateHLSKeyLikeUpstream(t *testing.T) {
+	key := []byte("0123456789abcdef")
+	deflatedKey := zlibBytes(t, key)
+	var base string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/key.bin":
+			w.Header().Set("Content-Encoding", "deflate")
+			_, _ = w.Write(deflatedKey)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	base = srv.URL
+
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: srv.Client(), originalURL: base + "/main.m3u8", currentURL: base + "/main.m3u8", baseURL: base + "/main.m3u8", rawFiles: map[string]string{}}
+	raw := "#EXTM3U\n#EXT-X-TARGETDURATION:1\n#EXT-X-KEY:METHOD=AES-128,URI=\"key.bin\"\n#EXTINF:1,\nseg.ts\n#EXT-X-ENDLIST\n"
+	pl, err := p.parseMedia(context.Background(), raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segs := sortedSegments(pl)
+	if len(segs) != 1 || !bytes.Equal(segs[0].Encrypt.Key, key) {
+		t.Fatalf("deflate HLS key should be decompressed before use, got %#v", segs)
+	}
+}
+
+func zlibBytes(t *testing.T, data []byte) []byte {
+	t.Helper()
+	var out bytes.Buffer
+	zw := zlib.NewWriter(&out)
+	if _, err := zw.Write(data); err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return out.Bytes()
 }
 
 func TestPreProcessHLSContentMatchesUpstreamSiteFixes(t *testing.T) {
