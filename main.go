@@ -90,6 +90,9 @@ func runWithContext(ctx context.Context, args []string, command []string) error 
 	for _, msg := range prepareSelectedStreams(selected, &opt) {
 		fmt.Println(msg)
 	}
+	for _, msg := range selectedStreamMessages(opt, selected) {
+		fmt.Println(msg)
+	}
 	if opt.WriteMetaJSON {
 		if err := writeMeta(opt, p, streams, selected); err != nil {
 			return err
@@ -165,6 +168,14 @@ func countStreamGroups(streams []StreamSpec) (basic int, audio int, subtitle int
 		}
 	}
 	return basic, audio, subtitle
+}
+
+func selectedStreamMessages(opt Options, selected []StreamSpec) []string {
+	messages := []string{tr(opt, "selectedStream")}
+	for _, stream := range selected {
+		messages = append(messages, stream.DisplayString())
+	}
+	return messages
 }
 
 func shouldMuxAfterDownload(opt Options, outs []outputFile) bool {

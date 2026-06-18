@@ -64,6 +64,16 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "已按 --skip-download 跳過下載",
 		EnUS: "Skip download due to --skip-download",
 	},
+	"selectedStream": {
+		ZhCN: "已选择的流:",
+		ZhTW: "已選擇的流:",
+		EnUS: "Selected streams:",
+	},
+	"noStreamsToDownload": {
+		ZhCN: "没有找到需要下载的流",
+		ZhTW: "沒有找到需要下載的流",
+		EnUS: "No stream found to download",
+	},
 	"muxOutput": {
 		ZhCN: "混流输出: %s",
 		ZhTW: "混流輸出: %s",

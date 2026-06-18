@@ -1753,6 +1753,16 @@ func TestDefaultInteractiveSelectionUsesReferencedAudioAndSubtitleLikeUpstream(t
 	}
 }
 
+func TestChooseStreamsNoStreamsUsesLocalizedResString(t *testing.T) {
+	opt := defaultOptions()
+	opt.UILanguage = "en-US"
+	opt.AutoSelect = true
+	_, err := chooseStreams(nil, opt)
+	if err == nil || err.Error() != "No stream found to download" {
+		t.Fatalf("expected localized no-stream error, got %v", err)
+	}
+}
+
 func TestMergeVTTToSRT(t *testing.T) {
 	tmp := t.TempDir()
 	a := filepath.Join(tmp, "a.vtt")
@@ -4590,6 +4600,9 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	if got := tr(opt, "skipDownload"); got != "已按 --skip-download 跳過下載" {
 		t.Fatalf("traditional skipDownload wrong: %q", got)
 	}
+	if got := tr(opt, "selectedStream"); got != "已選擇的流:" {
+		t.Fatalf("traditional selectedStream wrong: %q", got)
+	}
 	opt.UILanguage = "zh-CN"
 	if got := tr(opt, "downloadProgress", "VIDEO", 1, 2); got != "VIDEO 下载进度 1/2" {
 		t.Fatalf("simplified downloadProgress wrong: %q", got)
@@ -4601,6 +4614,33 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	opt.UILanguage = "zh-TW"
 	if got := tr(opt, "mkvmergeNotFound"); got != "找不到mkvmerge，請自行下載：https://mkvtoolnix.download/downloads.html" {
 		t.Fatalf("traditional mkvmergeNotFound wrong: %q", got)
+	}
+}
+
+func TestSelectedStreamMessagesMatchUpstreamHeaderAndDisplay(t *testing.T) {
+	opt := defaultOptions()
+	opt.UILanguage = "en-US"
+	audio := MediaAudio
+	selected := []StreamSpec{{
+		MediaType: &audio,
+		GroupID:   "aud-main",
+		Bandwidth: 128000,
+		Name:      "English",
+		Codecs:    "mp4a.40.2",
+		Language:  "en",
+		Channels:  "2",
+		Playlist: &Playlist{Parts: []MediaPart{{Segments: []Segment{
+			{Duration: 2, Encrypt: EncryptInfo{Method: EncryptAES128}},
+			{Duration: 3},
+		}}}},
+	}}
+	got := selectedStreamMessages(opt, selected)
+	want := []string{
+		"Selected streams:",
+		"Aud *AES-128 aud-main | 128 Kbps | English | mp4a.40.2 | en | 2CH | 2 Segments | ~00m05s",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("selected stream messages mismatch:\nwant %#v\ngot  %#v", want, got)
 	}
 }
 

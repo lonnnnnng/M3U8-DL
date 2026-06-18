@@ -15,7 +15,7 @@ func chooseStreams(streams []StreamSpec, opt Options) ([]StreamSpec, error) {
 	streams = applyDrops(streams, opt)
 	if opt.AutoSelect {
 		if len(streams) == 0 {
-			return nil, fmt.Errorf("没有可用轨道")
+			return nil, fmt.Errorf("%s", tr(opt, "noStreamsToDownload"))
 		}
 		autoOpt := opt
 		autoOpt.SubOnly = false
@@ -29,13 +29,13 @@ func chooseStreams(streams []StreamSpec, opt Options) ([]StreamSpec, error) {
 			}
 		}
 		if len(subs) == 0 {
-			return nil, fmt.Errorf("没有可用轨道")
+			return nil, fmt.Errorf("%s", tr(opt, "noStreamsToDownload"))
 		}
 		return subs, nil
 	} else if hasKeepFilters(opt) {
 		streams = applyFilters(streams, opt)
 		if len(streams) == 0 {
-			return nil, fmt.Errorf("没有可用轨道")
+			return nil, fmt.Errorf("%s", tr(opt, "noStreamsToDownload"))
 		}
 		return streams, nil
 	}
@@ -65,7 +65,7 @@ func chooseStreams(streams []StreamSpec, opt Options) ([]StreamSpec, error) {
 		}
 	}
 	if len(out) == 0 {
-		return nil, fmt.Errorf("没有匹配所选编号的轨道")
+		return nil, fmt.Errorf("%s", tr(opt, "noStreamsToDownload"))
 	}
 	return out, nil
 }

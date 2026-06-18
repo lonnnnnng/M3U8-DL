@@ -1,6 +1,10 @@
 package main
 
-import "time"
+import (
+	"fmt"
+	"strings"
+	"time"
+)
 
 type MediaType string
 
@@ -94,6 +98,146 @@ func (s StreamSpec) Short() string {
 		label = s.URL
 	}
 	return mt + " " + label
+}
+
+func (s StreamSpec) DisplayString() string {
+	prefix, fields := s.displayPrefixAndFields()
+	prefix = strings.TrimSpace(prefix)
+	body := strings.Join(compactDisplayFields(fields), " | ")
+	if body == "" {
+		if s.Playlist != nil {
+			body = "~" + formatUpstreamSeconds(int(playlistDuration(s.Playlist)))
+		}
+		if body == "" {
+			return prefix
+		}
+		return strings.TrimSpace(prefix + " " + body)
+	}
+	if s.Playlist != nil {
+		body += " | ~" + formatUpstreamSeconds(int(playlistDuration(s.Playlist)))
+	}
+	return strings.TrimSpace(prefix + " " + body)
+}
+
+func (s StreamSpec) displayPrefixAndFields() (string, []string) {
+	enc := encryptedDisplayPrefix(s.Playlist)
+	if s.MediaType != nil && *s.MediaType == MediaAudio {
+		channels := ""
+		if s.Channels != "" {
+			channels = s.Channels + "CH"
+		}
+		return "Aud " + enc, []string{
+			s.GroupID,
+			bandwidthKbps(s.Bandwidth, false),
+			s.Name,
+			s.Codecs,
+			s.Language,
+			channels,
+			segmentsCountText(s.Playlist),
+			s.Role,
+		}
+	}
+	if s.MediaType != nil && *s.MediaType == MediaSubtitles {
+		return "Sub " + enc, []string{
+			s.GroupID,
+			s.Language,
+			s.Name,
+			s.Codecs,
+			s.Characteristics,
+			segmentsCountText(s.Playlist),
+			s.Role,
+		}
+	}
+	return "Vid " + enc, []string{
+		s.Resolution,
+		bandwidthKbps(s.Bandwidth, true),
+		s.GroupID,
+		floatDisplay(s.FrameRate),
+		s.Codecs,
+		s.VideoRange,
+		segmentsCountText(s.Playlist),
+		s.Role,
+	}
+}
+
+func encryptedDisplayPrefix(pl *Playlist) string {
+	if pl == nil {
+		return ""
+	}
+	seen := map[EncryptMethod]bool{}
+	var methods []string
+	for _, part := range pl.Parts {
+		for _, seg := range part.Segments {
+			method := seg.Encrypt.Method
+			if method == "" || method == EncryptNone || seen[method] {
+				continue
+			}
+			seen[method] = true
+			methods = append(methods, string(method))
+		}
+	}
+	if len(methods) == 0 {
+		return ""
+	}
+	return "*" + strings.Join(methods, ",") + " "
+}
+
+func compactDisplayFields(fields []string) []string {
+	var out []string
+	for _, field := range fields {
+		field = strings.TrimSpace(field)
+		if field != "" {
+			out = append(out, field)
+		}
+	}
+	return out
+}
+
+func bandwidthKbps(value int, keepZero bool) string {
+	if value == 0 && !keepZero {
+		return ""
+	}
+	return fmt.Sprintf("%d Kbps", value/1000)
+}
+
+func floatDisplay(value float64) string {
+	if value == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%g", value)
+}
+
+func segmentsCountText(pl *Playlist) string {
+	count := playlistMediaSegmentCount(pl)
+	if count == 0 {
+		return ""
+	}
+	if count == 1 {
+		return "1 Segment"
+	}
+	return fmt.Sprintf("%d Segments", count)
+}
+
+func playlistMediaSegmentCount(pl *Playlist) int {
+	if pl == nil {
+		return 0
+	}
+	total := 0
+	for _, part := range pl.Parts {
+		total += len(part.Segments)
+	}
+	return total
+}
+
+func formatUpstreamSeconds(total int) string {
+	d := time.Duration(total) * time.Second
+	hours := int(d / time.Hour)
+	minutes := int((d % time.Hour) / time.Minute)
+	seconds := int((d % time.Minute) / time.Second)
+	if hours == 0 {
+		return fmt.Sprintf("%02dm%02ds", minutes, seconds)
+	}
+	return fmt.Sprintf("%02dh%02dm%02ds", hours, minutes, seconds)
 }
 
 type CustomRange struct {
