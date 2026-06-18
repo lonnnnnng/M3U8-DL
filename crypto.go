@@ -414,7 +414,8 @@ func selectDecryptKeyPair(keys []string, kid string) (string, bool) {
 	}
 	if kid != "" {
 		for _, key := range keys {
-			if strings.HasPrefix(strings.ToLower(strings.TrimSpace(key)), strings.ToLower(kid)) {
+			// long: 上游运行时用 StartsWith(kid) 精确匹配当前 KID；这里保持大小写敏感，避免把 key-file 或外部注入的非归一化 KID 当作同一把密钥。
+			if strings.HasPrefix(strings.TrimSpace(key), kid) {
 				return strings.TrimSpace(key), true
 			}
 		}
@@ -426,9 +427,6 @@ func selectDecryptKeyPair(keys []string, kid string) (string, bool) {
 		if kid != "" {
 			return kid + ":" + strings.TrimSpace(keys[0]), true
 		}
-		return strings.TrimSpace(keys[0]), true
-	}
-	if len(keys) == 1 {
 		return strings.TrimSpace(keys[0]), true
 	}
 	return "", false

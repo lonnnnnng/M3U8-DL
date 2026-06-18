@@ -1948,6 +1948,10 @@ func TestSelectDecryptKeyPairMatchesCurrentKIDLikeUpstream(t *testing.T) {
 	if got, ok := selectDecryptKeyPair(keys, "cccccccccccccccccccccccccccccccc"); ok || got != "" {
 		t.Fatalf("multiple non-matching KID keys should not pick the first key, got %q ok=%v", got, ok)
 	}
+	upperKIDKey := strings.ToUpper("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb") + ":bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	if got, ok := selectDecryptKeyPair([]string{upperKIDKey}, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"); ok || got != "" {
+		t.Fatalf("runtime KID matching should be case-sensitive like upstream StartsWith, got %q ok=%v", got, ok)
+	}
 	got, ok = selectDecryptKeyPair([]string{"00112233445566778899aabbccddeeff"}, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
 	if !ok || got != "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:00112233445566778899aabbccddeeff" {
 		t.Fatalf("single raw key should be paired with detected KID, got %q ok=%v", got, ok)
