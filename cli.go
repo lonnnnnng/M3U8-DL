@@ -95,11 +95,23 @@ func parseArgs(args []string) (Options, error) {
 		case "--base-url":
 			opt.BaseURL, _ = next()
 		case "--thread-count":
-			v, _ := next()
-			opt.ThreadCount, _ = strconv.Atoi(v)
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
+			opt.ThreadCount, err = parseIntOption("ThreadCount", v)
+			if err != nil {
+				return opt, err
+			}
 		case "--download-retry-count":
-			v, _ := next()
-			opt.DownloadRetryCount, _ = strconv.Atoi(v)
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
+			opt.DownloadRetryCount, err = parseIntOption("DownloadRetryCount", v)
+			if err != nil {
+				return opt, err
+			}
 		case "--http-request-timeout":
 			v, _ := next()
 			timeout, err := strconv.ParseFloat(v, 64)
@@ -251,15 +263,24 @@ func parseArgs(args []string) (Options, error) {
 			}
 			opt.LiveRecordLimit = &d
 		case "--live-wait-time":
-			v, _ := next()
-			wait, err := strconv.Atoi(v)
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
+			wait, err := parseIntOption("LiveWaitTime", v)
 			if err != nil {
 				return opt, err
 			}
 			opt.LiveWaitTime = &wait
 		case "--live-take-count":
-			v, _ := next()
-			opt.LiveTakeCount, _ = strconv.Atoi(v)
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
+			opt.LiveTakeCount, err = parseIntOption("LiveTakeCount", v)
+			if err != nil {
+				return opt, err
+			}
 		case "--live-fix-vtt-by-audio":
 			opt.LiveFixVTTByAudio = boolFlag(true)
 		case "-M", "--mux-after-done":
@@ -337,6 +358,14 @@ func parseArgs(args []string) (Options, error) {
 		opt.ThreadCount = 1
 	}
 	return opt, nil
+}
+
+func parseIntOption(name, input string) (int, error) {
+	value, err := strconv.Atoi(input)
+	if err != nil {
+		return 0, fmt.Errorf("error in parse %s: %s", name, input)
+	}
+	return value, nil
 }
 
 func parseKeyBytes(input string) ([]byte, error) {

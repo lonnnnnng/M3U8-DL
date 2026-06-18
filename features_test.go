@@ -101,6 +101,37 @@ func TestParseArgsHTTPRequestTimeoutAcceptsFractionalSecondsLikeUpstream(t *test
 	}
 }
 
+func TestParseArgsNumericOptionsRejectInvalidIntegersLikeUpstream(t *testing.T) {
+	opt, err := parseArgs([]string{
+		"--thread-count", "8",
+		"--download-retry-count", "5",
+		"--live-wait-time", "12",
+		"--live-take-count", "4",
+		"https://example.com/main.m3u8",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opt.ThreadCount != 8 || opt.DownloadRetryCount != 5 || opt.LiveWaitTime == nil || *opt.LiveWaitTime != 12 || opt.LiveTakeCount != 4 {
+		t.Fatalf("integer options not parsed correctly: %#v", opt)
+	}
+
+	cases := []struct {
+		args []string
+		want string
+	}{
+		{[]string{"--thread-count", "many", "https://example.com/main.m3u8"}, "error in parse ThreadCount"},
+		{[]string{"--download-retry-count", "twice", "https://example.com/main.m3u8"}, "error in parse DownloadRetryCount"},
+		{[]string{"--live-wait-time", "soon", "https://example.com/main.m3u8"}, "error in parse LiveWaitTime"},
+		{[]string{"--live-take-count", "last", "https://example.com/main.m3u8"}, "error in parse LiveTakeCount"},
+	}
+	for _, tc := range cases {
+		if _, err := parseArgs(tc.args); err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Fatalf("expected %q for args %#v, got %v", tc.want, tc.args, err)
+		}
+	}
+}
+
 func TestParseArgsSaveNameSanitizesLikeUpstream(t *testing.T) {
 	opt, err := parseArgs([]string{"--save-name", `bad name:ok?.mp4`, "https://example.com/main.m3u8"})
 	if err != nil {
