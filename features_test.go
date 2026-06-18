@@ -2147,6 +2147,26 @@ func TestAppendNewLiveSegmentsUsesIndexForRepeatedHLSURL(t *testing.T) {
 	}
 }
 
+func TestAppendNewLiveSegmentsKeepsDuplicateIndexWhenNewMinEqualsOldMaxLikeUpstream(t *testing.T) {
+	cur := StreamSpec{Playlist: &Playlist{IsLive: true, Parts: []MediaPart{{Segments: []Segment{
+		{Index: 10, URL: "old.ts", Duration: 1},
+	}}}}}
+	next := StreamSpec{Playlist: &Playlist{IsLive: true, Parts: []MediaPart{{Segments: []Segment{
+		{Index: 10, URL: "old.ts", Duration: 1},
+		{Index: 10, URL: "same-index-new.ts", Duration: 1},
+		{Index: 11, URL: "new.ts", Duration: 1},
+	}}}}}
+
+	added, duration := appendNewLiveSegmentsDetailed(&cur, next)
+	if len(added) != 2 || duration != 2 {
+		t.Fatalf("same-index refresh should keep both post-match entries like upstream, added=%#v duration=%f", added, duration)
+	}
+	segs := cur.Playlist.Parts[0].Segments
+	if len(segs) != 3 || segs[1].Index != 10 || segs[1].URL != "same-index-new.ts" || segs[2].Index != 11 {
+		t.Fatalf("newMin == oldMax should not shift duplicate index like upstream, got %#v", segs)
+	}
+}
+
 func TestAppendNewLiveSegmentsKeepsWholeMixedPDTWindowLikeUpstream(t *testing.T) {
 	t0 := time.Unix(1781784000, 0).UTC()
 	t1 := t0.Add(4 * time.Second)
