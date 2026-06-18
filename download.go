@@ -140,6 +140,10 @@ func streamForTask(s StreamSpec, taskID int) StreamSpec {
 	return s
 }
 
+func downloadStartMessage(opt Options, s StreamSpec) string {
+	return tr(opt, "startDownloading") + s.Short()
+}
+
 func hasSelectedAudio(streams []StreamSpec) bool {
 	for _, stream := range streams {
 		if stream.MediaType != nil && *stream.MediaType == MediaAudio {
@@ -341,6 +345,7 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 	if len(allSegs) == 0 {
 		return outputFile{}, fmt.Errorf("没有分片可下载")
 	}
+	fmt.Println(downloadStartMessage(opt, s))
 
 	pad := len(fmt.Sprintf("%d", len(allSegs)))
 	liveSegmentNames := shouldUseLiveSegmentNames(s, opt)

@@ -94,6 +94,7 @@ func runWithContext(ctx context.Context, args []string, command []string) error 
 		fmt.Println(msg)
 	}
 	if opt.WriteMetaJSON {
+		fmt.Println(tr(opt, "writeJson"))
 		if err := writeMeta(opt, p, streams, selected); err != nil {
 			return err
 		}
@@ -102,6 +103,7 @@ func runWithContext(ctx context.Context, args []string, command []string) error 
 		fmt.Println(tr(opt, "skipDownload"))
 		return nil
 	}
+	fmt.Println(saveNameMessage(opt))
 	outs, liveHandled, err := downloadLiveRealtimeIfNeeded(ctx, client, selected, p, opt)
 	if err != nil {
 		return err
@@ -176,6 +178,10 @@ func selectedStreamMessages(opt Options, selected []StreamSpec) []string {
 		messages = append(messages, stream.DisplayString())
 	}
 	return messages
+}
+
+func saveNameMessage(opt Options) string {
+	return tr(opt, "saveName") + opt.SaveName
 }
 
 func shouldMuxAfterDownload(opt Options, outs []outputFile) bool {

@@ -4607,13 +4607,57 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	if got := tr(opt, "downloadProgress", "VIDEO", 1, 2); got != "VIDEO 下载进度 1/2" {
 		t.Fatalf("simplified downloadProgress wrong: %q", got)
 	}
+	if got := tr(opt, "saveName"); got != "保存文件名: " {
+		t.Fatalf("simplified saveName wrong: %q", got)
+	}
+	if got := tr(opt, "writeJson"); got != "写出meta json" {
+		t.Fatalf("simplified writeJson wrong: %q", got)
+	}
 	opt.UILanguage = "en-US"
+	if got := tr(opt, "startDownloading"); got != "Start downloading..." {
+		t.Fatalf("english startDownloading wrong: %q", got)
+	}
 	if got := tr(opt, "ffmpegNotFound"); got != "ffmpeg not found, please download at: https://ffmpeg.org/download.html" {
 		t.Fatalf("english ffmpegNotFound wrong: %q", got)
 	}
 	opt.UILanguage = "zh-TW"
 	if got := tr(opt, "mkvmergeNotFound"); got != "找不到mkvmerge，請自行下載：https://mkvtoolnix.download/downloads.html" {
 		t.Fatalf("traditional mkvmergeNotFound wrong: %q", got)
+	}
+}
+
+func TestRuntimeMessagesMatchUpstreamResourceText(t *testing.T) {
+	opt := defaultOptions()
+	opt.UILanguage = "en-US"
+	opt.SaveName = "movie"
+	video := StreamSpec{
+		Resolution: "1920x1080",
+		Bandwidth:  4500000,
+		GroupID:    "v-main",
+		FrameRate:  23.976,
+		Codecs:     "avc1.640028",
+		VideoRange: "SDR",
+		Role:       "main",
+	}
+	if got := saveNameMessage(opt); got != "Save Name: movie" {
+		t.Fatalf("save name message mismatch: %q", got)
+	}
+	if got := downloadStartMessage(opt, video); got != "Start downloading...Vid 1920x1080 | 4500 Kbps | v-main | 23.976 | avc1.640028 | SDR | main" {
+		t.Fatalf("download start message mismatch: %q", got)
+	}
+
+	audioType := MediaAudio
+	audio := StreamSpec{
+		MediaType: &audioType,
+		GroupID:   "aud-main",
+		Bandwidth: 128000,
+		Name:      "English",
+		Codecs:    "mp4a.40.2",
+		Language:  "en",
+		Channels:  "2",
+	}
+	if got := audio.Short(); got != "Aud aud-main | 128 Kbps | English | mp4a.40.2 | en | 2CH" {
+		t.Fatalf("audio short string should mirror upstream ToShortString without markup, got %q", got)
 	}
 }
 

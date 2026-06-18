@@ -86,18 +86,9 @@ type StreamSpec struct {
 }
 
 func (s StreamSpec) Short() string {
-	mt := "VIDEO"
-	if s.MediaType != nil {
-		mt = string(*s.MediaType)
-	}
-	label := s.Resolution
-	if label == "" {
-		label = s.Name
-	}
-	if label == "" {
-		label = s.URL
-	}
-	return mt + " " + label
+	prefix, fields := s.shortPrefixAndFields()
+	body := strings.Join(compactDisplayFields(fields), " | ")
+	return strings.TrimSpace(prefix + " " + body)
 }
 
 func (s StreamSpec) DisplayString() string {
@@ -156,6 +147,42 @@ func (s StreamSpec) displayPrefixAndFields() (string, []string) {
 		s.Codecs,
 		s.VideoRange,
 		segmentsCountText(s.Playlist),
+		s.Role,
+	}
+}
+
+func (s StreamSpec) shortPrefixAndFields() (string, []string) {
+	if s.MediaType != nil && *s.MediaType == MediaAudio {
+		channels := ""
+		if s.Channels != "" {
+			channels = s.Channels + "CH"
+		}
+		return "Aud", []string{
+			s.GroupID,
+			bandwidthKbps(s.Bandwidth, false),
+			s.Name,
+			s.Codecs,
+			s.Language,
+			channels,
+			s.Role,
+		}
+	}
+	if s.MediaType != nil && *s.MediaType == MediaSubtitles {
+		return "Sub", []string{
+			s.GroupID,
+			s.Language,
+			s.Name,
+			s.Codecs,
+			s.Role,
+		}
+	}
+	return "Vid", []string{
+		s.Resolution,
+		bandwidthKbps(s.Bandwidth, true),
+		s.GroupID,
+		floatDisplay(s.FrameRate),
+		s.Codecs,
+		s.VideoRange,
 		s.Role,
 	}
 }

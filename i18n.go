@@ -74,6 +74,21 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "沒有找到需要下載的流",
 		EnUS: "No stream found to download",
 	},
+	"saveName": {
+		ZhCN: "保存文件名: ",
+		ZhTW: "保存檔案名: ",
+		EnUS: "Save Name: ",
+	},
+	"writeJson": {
+		ZhCN: "写出meta json",
+		ZhTW: "寫出meta json",
+		EnUS: "Writing meta json",
+	},
+	"startDownloading": {
+		ZhCN: "开始下载...",
+		ZhTW: "開始下載...",
+		EnUS: "Start downloading...",
+	},
 	"muxOutput": {
 		ZhCN: "混流输出: %s",
 		ZhTW: "混流輸出: %s",
