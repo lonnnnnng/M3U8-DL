@@ -473,6 +473,15 @@ func TestParseArgsCustomHLSKeyAndIVLikeUpstream(t *testing.T) {
 		t.Fatalf("base64 custom HLS iv not parsed: %x", opt.CustomHLSIV)
 	}
 
+	wrappedBase64 := "MDEyM\n zQ1Njc4\tOWFiY2RlZg=="
+	opt, err = parseArgs([]string{"--custom-hls-iv", wrappedBase64, "https://example.com/main.m3u8"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(opt.CustomHLSIV) != string(fileBytes) {
+		t.Fatalf("base64 custom HLS iv should ignore whitespace like upstream, got %x", opt.CustomHLSIV)
+	}
+
 	opt, err = parseArgs([]string{"--custom-hls-key", keyFile, "https://example.com/main.m3u8"})
 	if err != nil {
 		t.Fatal(err)

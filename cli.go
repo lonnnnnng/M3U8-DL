@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 var filterDurationRegex = regexp.MustCompile(`^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$`)
@@ -538,7 +539,14 @@ func parseKeyBytes(input string) ([]byte, error) {
 	if b, err := hex.DecodeString(clean); err == nil {
 		return b, nil
 	}
-	return base64.StdEncoding.DecodeString(input)
+	// long: 上游 Convert.FromBase64String 会忽略复制 key 时常见的换行和空格，base64 分支需要保留这个宽容度。
+	base64Input := strings.Map(func(r rune) rune {
+		if unicode.IsSpace(r) {
+			return -1
+		}
+		return r
+	}, input)
+	return base64.StdEncoding.DecodeString(base64Input)
 }
 
 func parseHLSCustomKeyOption(input string) ([]byte, error) {
