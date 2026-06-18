@@ -73,6 +73,24 @@ video.m3u8
 	}
 }
 
+func TestExtractMasterDedupesDuplicateURLsLikeUpstream(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/master.m3u8", currentURL: "https://example.com/master.m3u8", baseURL: "https://example.com/master.m3u8", rawFiles: map[string]string{}}
+	raw := `#EXTM3U
+#EXT-X-STREAM-INF:BANDWIDTH=1000,RESOLUTION=640x360
+video.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=2000,RESOLUTION=1280x720
+video.m3u8
+`
+	streams, _, err := p.extract(context.Background(), raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(streams) != 1 || streams[0].ID != 0 || streams[0].Bandwidth != 1000 {
+		t.Fatalf("initial master extraction should DistinctBy URL like upstream, got %#v", streams)
+	}
+}
+
 func TestParseMasterCharacteristicsUsesLastCommaThenLastDotLikeUpstream(t *testing.T) {
 	opt := defaultOptions()
 	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/master.m3u8", currentURL: "https://example.com/master.m3u8", baseURL: "https://example.com/master.m3u8", rawFiles: map[string]string{}}

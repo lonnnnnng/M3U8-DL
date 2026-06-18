@@ -54,7 +54,10 @@ func (p *parser) extract(ctx context.Context, raw string) ([]StreamSpec, *parser
 	if strings.Contains(raw, "#EXT-X-STREAM-INF") {
 		p.master = true
 		streams, err := p.parseMaster(raw)
-		return streams, p, err
+		if err != nil {
+			return nil, p, err
+		}
+		return distinctStreamsByURL(streams), p, nil
 	}
 	pl, err := p.parseMedia(ctx, raw)
 	if err != nil {
@@ -132,6 +135,21 @@ func (p *parser) parseMaster(raw string) ([]StreamSpec, error) {
 		streams[i].ID = i
 	}
 	return streams, sc.Err()
+}
+
+func distinctStreamsByURL(streams []StreamSpec) []StreamSpec {
+	out := make([]StreamSpec, 0, len(streams))
+	seen := map[string]bool{}
+	for _, s := range streams {
+		if seen[s.URL] {
+			continue
+		}
+		// long: 原版对外 ExtractStreamsAsync 会 DistinctBy URL，但刷新 Master 时仍保留内部完整列表；这里把去重限制在初始导出层。
+		s.ID = len(out)
+		out = append(out, s)
+		seen[s.URL] = true
+	}
+	return out
 }
 
 func (p *parser) fetchPlaylist(ctx context.Context, s *StreamSpec) error {
