@@ -77,7 +77,7 @@ func (p *parser) parseMaster(raw string) ([]StreamSpec, error) {
 	expectPlaylist := false
 	cur := StreamSpec{OriginalURL: p.originalURL}
 	for sc.Scan() {
-		line := strings.TrimSpace(sc.Text())
+		line := sc.Text()
 		if line == "" {
 			continue
 		}
@@ -271,7 +271,7 @@ func (p *parser) parseMedia(ctx context.Context, raw string) (*Playlist, error) 
 	lastKeyLine := ""
 	sc := newHLSScanner(raw)
 	for sc.Scan() {
-		line := strings.TrimSpace(sc.Text())
+		line := sc.Text()
 		if line == "" {
 			continue
 		}

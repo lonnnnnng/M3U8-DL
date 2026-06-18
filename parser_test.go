@@ -155,6 +155,19 @@ func TestParseMasterUnknownMediaTypeKeepsNilMediaTypeLikeUpstream(t *testing.T) 
 	}
 }
 
+func TestParseMasterLeadingSpaceTagIgnoredLikeUpstream(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/master.m3u8", currentURL: "https://example.com/master.m3u8", baseURL: "https://example.com/master.m3u8", rawFiles: map[string]string{}}
+	raw := "#EXTM3U\n #EXT-X-STREAM-INF:BANDWIDTH=2000,RESOLUTION=1280x720\nvideo.m3u8\n"
+	streams, err := p.parseMaster(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(streams) != 0 {
+		t.Fatalf("leading-space master tags should be ignored like upstream StartsWith, got %#v", streams)
+	}
+}
+
 func TestParseMediaAcceptsLongSegmentURLLikeUpstream(t *testing.T) {
 	opt := defaultOptions()
 	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}
@@ -167,6 +180,19 @@ func TestParseMediaAcceptsLongSegmentURLLikeUpstream(t *testing.T) {
 	segs := sortedSegments(pl)
 	if len(segs) != 1 || !strings.Contains(segs[0].URL, token) {
 		t.Fatalf("long segment URL should be preserved, got %#v", segs)
+	}
+}
+
+func TestParseMediaLeadingSpaceTagIgnoredLikeUpstream(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}
+	raw := "#EXTM3U\n#EXT-X-TARGETDURATION:4\n #EXTINF:4,\nseg.ts\n#EXT-X-ENDLIST\n"
+	pl, err := p.parseMedia(context.Background(), raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := len(sortedSegments(pl)); got != 0 {
+		t.Fatalf("leading-space media tags should be ignored like upstream StartsWith, got %d segments", got)
 	}
 }
 
