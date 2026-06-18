@@ -113,6 +113,7 @@ func combineURL(baseURL, ref string) string {
 	}
 	// long: 上游 new Uri(base, ref) 会吞掉相对地址两侧空白；清单分片行被 CDN 插入空格时仍应解析到同一个媒体资源。
 	ref = strings.TrimSpace(ref)
+	ref = normalizeRelativeURIPathSeparators(ref)
 	b, err := url.Parse(baseURL)
 	if err != nil {
 		return ref
@@ -122,6 +123,22 @@ func combineURL(baseURL, ref string) string {
 		return ref
 	}
 	return b.ResolveReference(r).String()
+}
+
+func normalizeRelativeURIPathSeparators(ref string) string {
+	if ref == "" {
+		return ref
+	}
+	cut := len(ref)
+	if i := strings.IndexAny(ref, "?#"); i >= 0 {
+		cut = i
+	}
+	// long: .NET Uri 只把相对地址路径里的反斜杠当目录分隔符；query/fragment 中的授权值可能含反斜杠，必须原样保留。
+	path := strings.ReplaceAll(ref[:cut], "\\", "/")
+	if cut == len(ref) {
+		return path
+	}
+	return path + ref[cut:]
 }
 
 func appendURLParams(target, source string) (string, error) {

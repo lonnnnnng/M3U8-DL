@@ -1595,6 +1595,28 @@ func TestParseMediaRelativeURLsTrimWhitespaceLikeUpstreamUri(t *testing.T) {
 	}
 }
 
+func TestParseMediaRelativeBackslashURLsMatchUpstreamUri(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/a/main.m3u8", currentURL: "https://example.com/a/main.m3u8", baseURL: "https://example.com/a/main.m3u8", rawFiles: map[string]string{}}
+	raw := "#EXTM3U\n" +
+		"#EXT-X-TARGETDURATION:4\n" +
+		"#EXT-X-MAP:URI=\".\\init.mp4?token=a\\b\"\n" +
+		"#EXTINF:4.0,\n" +
+		"dir\\seg.m4s\n" +
+		"#EXT-X-ENDLIST\n"
+	pl, err := p.parseMedia(context.Background(), raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pl.MediaInit == nil || pl.MediaInit.URL != `https://example.com/a/init.mp4?token=a\b` {
+		t.Fatalf("EXT-X-MAP path backslashes should normalize but query should stay untouched, got %#v", pl.MediaInit)
+	}
+	segs := sortedSegments(pl)
+	if len(segs) != 1 || segs[0].URL != "https://example.com/a/dir/seg.m4s" {
+		t.Fatalf("segment path backslashes should match upstream Uri, got %#v", segs)
+	}
+}
+
 func TestParseMediaMultipleExtMapMatchesUpstream(t *testing.T) {
 	raw := `#EXTM3U
 #EXT-X-TARGETDURATION:4
