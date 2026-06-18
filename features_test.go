@@ -4898,6 +4898,9 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	if got := tr(opt, "allowHlsMultiExtMap"); got != "已經允許識別多個#EXT-X-MAP標籤, 本軟件可能無法正確處理, 請手動確認內容完整性" {
 		t.Fatalf("traditional allowHlsMultiExtMap wrong: %q", got)
 	}
+	if got := tr(opt, "badM3u8"); got != "錯誤的m3u8" {
+		t.Fatalf("traditional badM3u8 wrong: %q", got)
+	}
 	if got := tr(opt, "fixingVTT"); got != "正在提取VTT(raw)字幕..." {
 		t.Fatalf("traditional fixingVTT wrong: %q", got)
 	}
@@ -5007,6 +5010,16 @@ func TestParseSourceEmptyInputUsesLoadURLFailedResource(t *testing.T) {
 	})
 	if err == nil || err.Error() != "載入URL失敗" {
 		t.Fatalf("empty source should use localized loadUrlFailed, got %v", err)
+	}
+}
+
+func TestExtractBadM3U8UsesUpstreamResource(t *testing.T) {
+	opt := defaultOptions()
+	opt.UILanguage = "en-US"
+	p := &parser{opt: opt, rawFiles: map[string]string{}}
+	_, _, err := p.extract(context.Background(), "not an m3u8")
+	if err == nil || err.Error() != "Bad m3u8" {
+		t.Fatalf("bad m3u8 should use upstream resource, got %v", err)
 	}
 }
 

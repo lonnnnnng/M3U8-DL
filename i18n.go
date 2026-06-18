@@ -209,6 +209,11 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "已經允許識別多個#EXT-X-MAP標籤, 本軟件可能無法正確處理, 請手動確認內容完整性",
 		EnUS: "Multiple #EXT-X-MAP tags are now allowed for detection. However, this software may not handle them correctly. Please manually verify the content's integrity",
 	},
+	"badM3u8": {
+		ZhCN: "错误的m3u8",
+		ZhTW: "錯誤的m3u8",
+		EnUS: "Bad m3u8",
+	},
 	"matchHLS": {
 		ZhCN: "内容匹配: [white on deepskyblue1]HTTP Live Streaming[/]",
 		ZhTW: "內容匹配: [white on deepskyblue1]HTTP Live Streaming[/]",

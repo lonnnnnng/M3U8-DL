@@ -54,7 +54,7 @@ func (p *parser) extract(ctx context.Context, raw string) ([]StreamSpec, *parser
 	raw = strings.TrimSpace(raw)
 	raw = preProcessHLSContent(raw, p.currentURL)
 	if !strings.HasPrefix(raw, "#EXTM3U") {
-		return nil, p, fmt.Errorf("当前 Go 版只支持 HLS m3u8")
+		return nil, p, fmt.Errorf("%s", tr(p.opt, "badM3u8"))
 	}
 	fmt.Println(hlsMatchMessage(p.opt))
 	fmt.Println(parsingStreamMessage(p.opt))
