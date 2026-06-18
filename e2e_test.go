@@ -1128,9 +1128,16 @@ func TestDownloadSubtitleFixRemovesSourceSegmentsLikeUpstream(t *testing.T) {
 	opt.TmpDir = filepath.Join(tmp, "tmp")
 	opt.SaveName = "sub-clean"
 	opt.DelAfterDone = false
-	out, err := downloadStream(context.Background(), http.DefaultClient, stream, opt, newRateLimiter(0), nil)
-	if err != nil {
-		t.Fatal(err)
+	var out outputFile
+	output := captureStdout(t, func() {
+		var err error
+		out, err = downloadStream(context.Background(), http.DefaultClient, stream, opt, newRateLimiter(0), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(output, "Extracting VTT(raw) subtitle...") {
+		t.Fatalf("raw VTT subtitle fix should print upstream message, got %q", output)
 	}
 	if _, err := os.Stat(out.Path); err != nil {
 		t.Fatal(err)
@@ -1164,9 +1171,16 @@ func TestDownloadTTMLFixHonorsKeepImageSegmentsEnv(t *testing.T) {
 	opt.TmpDir = filepath.Join(tmp, "tmp")
 	opt.SaveName = "sub-keep"
 	opt.DelAfterDone = false
-	out, err := downloadStream(context.Background(), http.DefaultClient, stream, opt, newRateLimiter(0), nil)
-	if err != nil {
-		t.Fatal(err)
+	var out outputFile
+	output := captureStdout(t, func() {
+		var err error
+		out, err = downloadStream(context.Background(), http.DefaultClient, stream, opt, newRateLimiter(0), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(output, "Extracting TTML(raw) subtitle...") {
+		t.Fatalf("raw TTML subtitle fix should print upstream message, got %q", output)
 	}
 	if _, err := os.Stat(out.Path); err != nil {
 		t.Fatal(err)

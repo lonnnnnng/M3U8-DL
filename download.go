@@ -443,6 +443,7 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 		return outputFile{Path: tmpDir, MediaType: s.MediaType, Language: s.Language, Name: s.Name}, nil
 	}
 	if opt.AutoSubtitleFix && s.MediaType != nil && *s.MediaType == MediaSubtitles && strings.EqualFold(s.Extension, "vtt") {
+		fmt.Println(tr(opt, "fixingVTT"))
 		fixedOutput := strings.TrimSuffix(output, filepath.Ext(output))
 		if strings.EqualFold(opt.SubFormat, "SRT") {
 			fixedOutput += ".srt"
@@ -456,6 +457,7 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 		cleanupFixedSubtitleSourceFiles(files, false)
 		output = fixedOutput
 	} else if opt.AutoSubtitleFix && s.MediaType != nil && *s.MediaType == MediaSubtitles && strings.Contains(strings.ToLower(s.Extension), "ttml") {
+		fmt.Println(tr(opt, "fixingTTML"))
 		fixedOutput := strings.TrimSuffix(output, filepath.Ext(output))
 		if strings.EqualFold(opt.SubFormat, "SRT") {
 			fixedOutput += ".srt"
@@ -469,6 +471,7 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 		cleanupFixedSubtitleSourceFiles(files, true)
 		output = fixedOutput
 	} else if opt.AutoSubtitleFix && s.MediaType != nil && *s.MediaType == MediaSubtitles && strings.Contains(strings.ToLower(s.Extension), "m4s") && (strings.Contains(strings.ToLower(s.Codecs), "stpp") || mp4FilesContainBox(files, "stpp")) {
+		fmt.Println(tr(opt, "fixingTTMLmp4"))
 		fixedOutput := strings.TrimSuffix(output, filepath.Ext(output))
 		if strings.EqualFold(opt.SubFormat, "SRT") {
 			fixedOutput += ".srt"
@@ -499,6 +502,7 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 			return outputFile{}, err
 		}
 		if ok {
+			fmt.Println(tr(opt, "fixingVTTmp4"))
 			cleanupFixedSubtitleSourceFiles(files, false)
 			output = fixedOutput
 		} else if err := binaryMergeWithMessage(opt, files, output); err != nil {

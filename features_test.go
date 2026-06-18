@@ -4740,6 +4740,18 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	if got := tr(opt, "readingInfo"); got != "讀取媒體訊息..." {
 		t.Fatalf("traditional readingInfo wrong: %q", got)
 	}
+	if got := tr(opt, "fixingVTT"); got != "正在提取VTT(raw)字幕..." {
+		t.Fatalf("traditional fixingVTT wrong: %q", got)
+	}
+	if got := tr(opt, "fixingVTTmp4"); got != "正在提取VTT(mp4)字幕..." {
+		t.Fatalf("traditional fixingVTTmp4 wrong: %q", got)
+	}
+	if got := tr(opt, "fixingTTML"); got != "正在提取TTML(raw)字幕..." {
+		t.Fatalf("traditional fixingTTML wrong: %q", got)
+	}
+	if got := tr(opt, "fixingTTMLmp4"); got != "正在提取TTML(mp4)字幕..." {
+		t.Fatalf("traditional fixingTTMLmp4 wrong: %q", got)
+	}
 	if got := tr(opt, "masterM3u8Found"); got != "檢測到Master列表，開始解析全部流訊息" {
 		t.Fatalf("traditional masterM3u8Found wrong: %q", got)
 	}

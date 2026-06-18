@@ -104,6 +104,26 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "讀取媒體訊息...",
 		EnUS: "Reading media info...",
 	},
+	"fixingTTML": {
+		ZhCN: "正在提取TTML(raw)字幕...",
+		ZhTW: "正在提取TTML(raw)字幕...",
+		EnUS: "Extracting TTML(raw) subtitle...",
+	},
+	"fixingTTMLmp4": {
+		ZhCN: "正在提取TTML(mp4)字幕...",
+		ZhTW: "正在提取TTML(mp4)字幕...",
+		EnUS: "Extracting TTML(mp4) subtitle...",
+	},
+	"fixingVTT": {
+		ZhCN: "正在提取VTT(raw)字幕...",
+		ZhTW: "正在提取VTT(raw)字幕...",
+		EnUS: "Extracting VTT(raw) subtitle...",
+	},
+	"fixingVTTmp4": {
+		ZhCN: "正在提取VTT(mp4)字幕...",
+		ZhTW: "正在提取VTT(mp4)字幕...",
+		EnUS: "Extracting VTT(mp4) subtitle...",
+	},
 	"binaryMerge": {
 		ZhCN: "二进制合并中...",
 		ZhTW: "二進位制合併中...",
