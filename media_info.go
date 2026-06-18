@@ -15,6 +15,7 @@ type mediaInfo struct {
 	SideData    []string
 	StartTime   time.Duration
 	DolbyVision bool
+	HDR         bool
 }
 
 type ffprobeStreams struct {
@@ -22,6 +23,9 @@ type ffprobeStreams struct {
 		CodecType      string `json:"codec_type"`
 		CodecName      string `json:"codec_name"`
 		CodecTagString string `json:"codec_tag_string"`
+		ColorSpace     string `json:"color_space"`
+		ColorPrimaries string `json:"color_primaries"`
+		ColorTransfer  string `json:"color_transfer"`
 		StartTime      string `json:"start_time"`
 		SideDataList   []struct {
 			SideDataType string `json:"side_data_type"`
@@ -60,10 +64,17 @@ func probeMediaInfo(path string, opt Options) []mediaInfo {
 			CodecTag:  strings.ToLower(stream.CodecTagString),
 			StartTime: startTime,
 		}
+		colorInfo := []string{stream.ColorSpace, stream.ColorPrimaries, stream.ColorTransfer}
+		for _, text := range colorInfo {
+			if text != "" {
+				info.SideData = append(info.SideData, strings.ToLower(text))
+			}
+		}
 		for _, sideData := range stream.SideDataList {
 			info.SideData = append(info.SideData, strings.ToLower(sideData.SideDataType))
 		}
 		info.DolbyVision = isDolbyVisionMediaInfo(info)
+		info.HDR = isHDRMediaInfo(info)
 		infos = append(infos, info)
 	}
 	if len(infos) == 0 {
@@ -91,6 +102,21 @@ func isDolbyVisionMediaInfo(info mediaInfo) bool {
 				// long: 原版还会用全局 “DOVI configuration record” stderr 正则把视频轨标记为 Dolby Vision；ffprobe JSON 的 side_data_list 是 Go 版对应的信息来源。
 				return true
 			}
+		}
+	}
+	return false
+}
+
+func isHDRMediaInfo(info mediaInfo) bool {
+	if info.Type != "video" || info.DolbyVision {
+		return false
+	}
+	haystacks := []string{info.CodecName, info.CodecTag}
+	haystacks = append(haystacks, info.SideData...)
+	for _, text := range haystacks {
+		if strings.Contains(text, "bt2020") {
+			// long: 原版 MediainfoUtil 用 ffmpeg stderr 中的 /bt2020/ 标记 HDR；ffprobe JSON 会把同一信号拆到 color_space/primaries/transfer 字段。
+			return true
 		}
 	}
 	return false

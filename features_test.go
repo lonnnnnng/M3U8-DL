@@ -2934,6 +2934,41 @@ func TestProbeMediaInfoDetectsDolbyVisionSideDataLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestProbeMediaInfoDetectsHDRBT2020LikeUpstream(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell helper is unix-only")
+	}
+	tmp := t.TempDir()
+	ffmpeg := filepath.Join(tmp, "ffmpeg")
+	ffprobe := filepath.Join(tmp, "ffprobe")
+	if err := os.WriteFile(ffmpeg, []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	script := "#!/bin/sh\nprintf '%s\\n' '{\"streams\":[{\"codec_type\":\"video\",\"codec_name\":\"hevc\",\"codec_tag_string\":\"hev1\",\"color_space\":\"bt2020nc\",\"color_primaries\":\"bt2020\",\"color_transfer\":\"smpte2084\"},{\"codec_type\":\"video\",\"codec_name\":\"hevc\",\"codec_tag_string\":\"DOVI\",\"color_space\":\"bt2020nc\"},{\"codec_type\":\"audio\",\"codec_name\":\"aac\",\"color_space\":\"bt2020nc\"}]}'\n"
+	if err := os.WriteFile(ffprobe, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	media := filepath.Join(tmp, "hdr.mp4")
+	if err := os.WriteFile(media, []byte("probe"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	opt := defaultOptions()
+	opt.FFmpegBinaryPath = ffmpeg
+	infos := probeMediaInfo(media, opt)
+	if len(infos) != 3 {
+		t.Fatalf("unexpected media info: %#v", infos)
+	}
+	if !infos[0].HDR {
+		t.Fatalf("bt2020 video stream should be marked HDR like upstream /bt2020/ detection: %#v", infos)
+	}
+	if infos[1].HDR {
+		t.Fatalf("Dolby Vision stream should not also get HDR label like upstream markup priority: %#v", infos)
+	}
+	if infos[2].HDR {
+		t.Fatalf("HDR marker should only apply to video streams: %#v", infos)
+	}
+}
+
 func TestApplyMediaInfoConvertsSubtitleTSToVTT(t *testing.T) {
 	stream := StreamSpec{Extension: "ts"}
 	opt := defaultOptions()
