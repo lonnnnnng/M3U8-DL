@@ -422,6 +422,39 @@ func splitComplex(input string) map[string]string {
 	return out
 }
 
+func complexParamValue(input, key string) (string, bool) {
+	if input == "" || key == "" {
+		return "", false
+	}
+	start := strings.Index(input, key+"=")
+	if start < 0 {
+		if strings.Contains(input, key) && strings.HasSuffix(input, key) {
+			return "true", true
+		}
+		return "", false
+	}
+	var b strings.Builder
+	var last rune
+	for _, r := range input[start+len(key)+1:] {
+		if r == ':' {
+			if last == '\\' {
+				s := b.String()
+				b.Reset()
+				// long: 原版 ComplexParamParser 遇到 \: 会移除当前结果里已有的反斜杠，再把冒号作为值的一部分保留。
+				b.WriteString(strings.ReplaceAll(s, `\`, ""))
+				b.WriteRune(r)
+				last = r
+				continue
+			}
+			break
+		}
+		last = r
+		b.WriteRune(r)
+	}
+	value := strings.Trim(strings.TrimSpace(b.String()), "\"'")
+	return value, true
+}
+
 func splitComplexParts(input string, sep rune) []string {
 	var res []string
 	var b strings.Builder

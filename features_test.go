@@ -645,6 +645,16 @@ func TestParseArgsStreamFilterRejectsInvalidValuesLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestParseArgsStreamFilterLooseKeySearchMatchesUpstream(t *testing.T) {
+	opt, err := parseArgs([]string{"-sv", `videoid=aud:filename=Part\:One`, "https://example.com/main.m3u8"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opt.VideoFilter == nil || opt.VideoFilter.GroupID != "aud" || opt.VideoFilter.Name != "Part:One" {
+		t.Fatalf("stream filter should use upstream loose key search, got %#v", opt.VideoFilter)
+	}
+}
+
 func TestParseArgsMuxAfterDoneBareBoolFlagsMatchUpstreamSuffixRule(t *testing.T) {
 	tests := []struct {
 		name    string

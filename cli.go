@@ -748,39 +748,48 @@ func parseFilter(input string) *Filter {
 		f.For = input
 		return f
 	}
-	p := splitComplex(input)
-	if v := p["for"]; v != "" {
+	if v, ok := complexParamValue(input, "for"); ok && v != "" {
 		f.For = v
 	}
-	f.GroupID, f.Language, f.Name = p["id"], p["lang"], p["name"]
-	f.Codecs, f.Resolution, f.FrameRate = p["codecs"], p["res"], p["frame"]
-	f.Channels = p["channel"]
+	f.GroupID = complexParamValueOrEmpty(input, "id")
+	f.Language = complexParamValueOrEmpty(input, "lang")
+	f.Name = complexParamValueOrEmpty(input, "name")
+	f.Codecs = complexParamValueOrEmpty(input, "codecs")
+	f.Resolution = complexParamValueOrEmpty(input, "res")
+	f.FrameRate = complexParamValueOrEmpty(input, "frame")
+	f.Channels = complexParamValueOrEmpty(input, "channel")
 	if f.Channels == "" {
-		f.Channels = p["ch"]
+		f.Channels = complexParamValueOrEmpty(input, "ch")
 	}
-	f.VideoRange, f.URL = p["range"], p["url"]
-	if v := parseOptionalInt64(p["segsMin"]); v != nil {
+	f.VideoRange = complexParamValueOrEmpty(input, "range")
+	f.URL = complexParamValueOrEmpty(input, "url")
+	if v := parseOptionalInt64(complexParamValueOrEmpty(input, "segsMin")); v != nil {
 		f.SegmentsMin = v
 	}
-	if v := parseOptionalInt64(p["segsMax"]); v != nil {
+	if v := parseOptionalInt64(complexParamValueOrEmpty(input, "segsMax")); v != nil {
 		f.SegmentsMax = v
 	}
-	if v := parseOptionalDurationSeconds(p["plistDurMin"]); v != nil {
+	if v := parseOptionalDurationSeconds(complexParamValueOrEmpty(input, "plistDurMin")); v != nil {
 		f.PlaylistMin = v
 	}
-	if v := parseOptionalDurationSeconds(p["plistDurMax"]); v != nil {
+	if v := parseOptionalDurationSeconds(complexParamValueOrEmpty(input, "plistDurMax")); v != nil {
 		f.PlaylistMax = v
 	}
-	if v := parseOptionalBandwidthKbps(p["bwMin"]); v != nil {
+	if v := parseOptionalBandwidthKbps(complexParamValueOrEmpty(input, "bwMin")); v != nil {
 		f.BandwidthMin = v
 	}
-	if v := parseOptionalBandwidthKbps(p["bwMax"]); v != nil {
+	if v := parseOptionalBandwidthKbps(complexParamValueOrEmpty(input, "bwMax")); v != nil {
 		f.BandwidthMax = v
 	}
-	if role := normalizeRoleFilter(p["role"]); role != "" {
+	if role := normalizeRoleFilter(complexParamValueOrEmpty(input, "role")); role != "" {
 		f.Role = role
 	}
 	return f
+}
+
+func complexParamValueOrEmpty(input, key string) string {
+	value, _ := complexParamValue(input, key)
+	return value
 }
 
 func parseFilterArg(input string) (*Filter, error) {
@@ -798,23 +807,22 @@ func parseFilterArg(input string) (*Filter, error) {
 }
 
 func validateFilterValueFields(input string) error {
-	p := splitComplex(input)
 	for _, key := range []string{"segsMin", "segsMax"} {
-		if value := p[key]; value != "" {
+		if value := complexParamValueOrEmpty(input, key); value != "" {
 			if _, err := strconv.ParseInt(value, 10, 64); err != nil {
 				return fmt.Errorf("%s=%s not valid", key, value)
 			}
 		}
 	}
 	for _, key := range []string{"plistDurMin", "plistDurMax"} {
-		if value := p[key]; value != "" {
+		if value := complexParamValueOrEmpty(input, key); value != "" {
 			if _, err := parseDuration(value); err != nil {
 				return fmt.Errorf("%s=%s not valid", key, value)
 			}
 		}
 	}
 	for _, key := range []string{"bwMin", "bwMax"} {
-		if value := p[key]; value != "" {
+		if value := complexParamValueOrEmpty(input, key); value != "" {
 			if _, err := strconv.Atoi(value); err != nil {
 				return fmt.Errorf("%s=%s not valid", key, value)
 			}
