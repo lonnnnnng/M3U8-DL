@@ -1599,6 +1599,7 @@ func TestPrepareSelectedStreamsUnknownEncryptionBeforeCustomRange(t *testing.T) 
 		}}}},
 	}}
 	opt := defaultOptions()
+	opt.UILanguage = "zh-CN"
 	opt.CustomRange = &CustomRange{StartSeg: &start, EndSeg: &end}
 	msgs := prepareSelectedStreams(streams, &opt)
 	if !opt.BinaryMerge {
@@ -4203,6 +4204,42 @@ func TestValidateOptionsRejectsInvalidEnumValuesLikeUpstream(t *testing.T) {
 				t.Fatalf("expected %s validation error, got %v", tc.want, err)
 			}
 		})
+	}
+}
+
+func TestDefaultUILanguageFollowsUpstreamCultureMapping(t *testing.T) {
+	tests := []struct {
+		name string
+		lc   string
+		lang string
+		want string
+	}{
+		{name: "simplified chinese", lang: "zh_CN.UTF-8", want: "zh-CN"},
+		{name: "singapore chinese", lang: "zh_SG.UTF-8", want: "zh-CN"},
+		{name: "traditional chinese", lang: "zh_HK.UTF-8", want: "zh-TW"},
+		{name: "lc all wins", lc: "zh_TW.UTF-8", lang: "zh_CN.UTF-8", want: "zh-TW"},
+		{name: "non chinese falls back to english", lang: "fr_FR.UTF-8", want: "en-US"},
+		{name: "empty environment falls back to english", want: "en-US"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("LC_ALL", tc.lc)
+			t.Setenv("LANG", tc.lang)
+			if got := defaultUILanguage(); got != tc.want {
+				t.Fatalf("default UI language mismatch: want %s got %s", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestParseArgsUILanguageOverridesEnvironmentDefault(t *testing.T) {
+	t.Setenv("LC_ALL", "zh_CN.UTF-8")
+	opt, err := parseArgs([]string{"--ui-language", "en-US", "https://example.com/main.m3u8"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opt.UILanguage != "en-US" {
+		t.Fatalf("--ui-language should override environment default, got %s", opt.UILanguage)
 	}
 }
 

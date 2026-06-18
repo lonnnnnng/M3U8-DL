@@ -195,7 +195,7 @@
 | 直播实时合并 | 刷新过程中追加输出 | 非字幕输出已按批次实时追加；系统信号取消会进入已下载内容收尾；字幕收尾会按上游在无音频时关闭 VTT 音频时间轴修正，并在可探测音频输出时复用 start_time | 部分追平 |
 | PipeMux | Unix FIFO、Windows named pipe、ffmpeg 参数 | 已实现 Unix FIFO/Windows 命名管道、参数构造和上游 date metadata 格式，Windows 仅交叉编译验证 | 部分追平 |
 | ANSI 进度 UI | Spectre Console 动态进度列 | Go 版已按上游在 stdout/stderr 重定向时清除 ANSI 颜色并强制 console 状态，但没有完整动态进度 UI | 部分追平 |
-| 多语言资源 | zh-CN/zh-TW/en-US 完整资源 | Go 版已接入核心运行输出、自动派生选项提示、更新检查提示、实时解密引擎建议和下载进度文本，完整 `ResString` 资源表仍未复刻 | 部分追平 |
+| 多语言资源 | zh-CN/zh-TW/en-US 完整资源 | Go 版已接入默认环境语言映射、核心运行输出、自动派生选项提示、更新检查提示、实时解密引擎建议和下载进度文本，完整 `ResString` 资源表仍未复刻 | 部分追平 |
 | 更新检查 | GitHub latest release | 已支持，可 `--disable-update-check` 禁用 | 已追平 |
 | 日志文件 | 日志路径、文件名校验、等级、禁用 | 已支持 `--log-file-path` 文件名清理和非法名拒绝、`--log-level`、`--no-log` | 已追平 |
 | 跨平台构建 | 原版 .NET 多平台发布 | Go 版可本地构建，Windows 测试二进制可交叉编译；未做完整发布流水线 | 基本追平 |
@@ -207,7 +207,7 @@
 3. SAMPLE-AES/SAMPLE-AES-CTR 已按上游走外部 MP4 工具链或保留分片，但还缺真实 SAMPLE-AES 样本覆盖。
 4. 直播 producer/consumer 多轨状态机仍是简化实现；未设置 `--live-record-limit` 的普通和实时合并路径已补齐持续刷新到 `ENDLIST` 的行为，系统信号中断已能触发基础收尾，但键盘 `q` 停止和更完整的多轨收尾仍弱于原版，PipeMux 在 Windows 真实环境未实际运行验证。
 5. ANSI/Spectre 风格动态进度 UI 未复刻；当前只对齐了重定向时清除 ANSI 颜色的控制台初始化行为。
-6. 多语言资源系统已覆盖核心运行输出，但完整 `ResString` 资源表、帮助文本和全部错误提示仍未复刻。
+6. 多语言资源系统已覆盖默认环境语言映射和核心运行输出，但完整 `ResString` 资源表、帮助文本和全部错误提示仍未复刻。
 7. ffmpeg/mkvmerge 的全部参数边缘组合和媒体探测还需要继续按样本补证据。
 
 ## 最近验证口径

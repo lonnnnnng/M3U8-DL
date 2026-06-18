@@ -32,7 +32,7 @@ func defaultOptions() Options {
 		SubFormat:          "SRT",
 		AutoSubtitleFix:    true,
 		LogLevel:           "INFO",
-		UILanguage:         "zh-CN",
+		UILanguage:         defaultUILanguage(),
 		DecryptionEngine:   "MP4DECRYPT",
 		UseSystemProxy:     true,
 		LiveKeepSegments:   true,
@@ -40,6 +40,24 @@ func defaultOptions() Options {
 		CustomHLSMethod:    "",
 		FFmpegBinaryPath:   "ffmpeg",
 		DisableUpdateCheck: false,
+	}
+}
+
+func defaultUILanguage() string {
+	loc := "en-US"
+	curr := os.Getenv("LC_ALL")
+	if curr == "" {
+		curr = os.Getenv("LANG")
+	}
+	curr = strings.ReplaceAll(strings.Split(curr, ".")[0], "_", "-")
+	// long: 原版默认资源语言是英文，只把系统中文区域自动归到简中或繁中；其他语言环境不应被误映射成中文。
+	switch {
+	case curr == "zh-CN" || curr == "zh-SG":
+		return "zh-CN"
+	case strings.HasPrefix(curr, "zh-"):
+		return "zh-TW"
+	default:
+		return loc
 	}
 }
 
