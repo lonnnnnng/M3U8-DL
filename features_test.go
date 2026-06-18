@@ -542,6 +542,20 @@ func TestParseDurationColonUsesUpstreamDayHourMinuteSecondOrder(t *testing.T) {
 	}
 }
 
+func TestParseDurationIgnoresExtraLeadingPartsLikeUpstream(t *testing.T) {
+	got, err := parseDuration("9:1:02:03:04")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := 24*time.Hour + 2*time.Hour + 3*time.Minute + 4*time.Second
+	if got != want {
+		t.Fatalf("extra leading duration parts should be ignored after validation, got %s want %s", got, want)
+	}
+	if _, err := parseDuration("bad:1:02:03:04"); err == nil {
+		t.Fatal("extra leading duration parts should still be numeric like upstream Convert.ToInt32")
+	}
+}
+
 func TestParseDurationBareNumberMeansSecondsLikeUpstream(t *testing.T) {
 	got, err := parseDuration("30")
 	if err != nil {

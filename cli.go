@@ -633,9 +633,6 @@ func parseDuration(input string) (time.Duration, error) {
 	input = strings.ReplaceAll(input, "：", ":")
 	if strings.Count(input, ":") > 0 {
 		parts := strings.Split(input, ":")
-		if len(parts) > 4 {
-			return 0, fmt.Errorf("duration 格式应为 [days:]hours:minutes:seconds")
-		}
 		values := make([]int, len(parts))
 		for i, p := range parts {
 			v, err := strconv.Atoi(p)
@@ -646,9 +643,13 @@ func parseDuration(input string) (time.Duration, error) {
 		}
 		units := []time.Duration{time.Second, time.Minute, time.Hour, 24 * time.Hour}
 		var total time.Duration
-		for i := 0; i < len(values); i++ {
+		limit := len(values)
+		if limit > len(units) {
+			limit = len(units)
+		}
+		for i := 0; i < limit; i++ {
 			value := values[len(values)-1-i]
-			// long: 上游从右往左把冒号时间解释为秒、分、时、天；不能简单当作无限 60 进制，否则四段时间会比真实值大很多。
+			// long: 上游从右往左把冒号时间解释为秒、分、时、天；超过四段时仍会校验全部数字，但最左侧多余字段不参与计算。
 			total += time.Duration(value) * units[i]
 		}
 		return total, nil
