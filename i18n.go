@@ -129,6 +129,11 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "檢測到Master列表，開始解析全部流訊息",
 		EnUS: "Master List detected, try parse all streams",
 	},
+	"liveFound": {
+		ZhCN: "检测到直播流",
+		ZhTW: "檢測到直播流",
+		EnUS: "Live stream found",
+	},
 	"muxOutput": {
 		ZhCN: "混流输出: %s",
 		ZhTW: "混流輸出: %s",

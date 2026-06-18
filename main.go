@@ -373,6 +373,9 @@ func liveRealtimeAudioStart(opt Options, selected []StreamSpec, outs []outputFil
 func prepareSelectedStreams(selected []StreamSpec, opt *Options) []string {
 	var messages []string
 	living := hasLiveStream(selected) && !opt.LivePerformAsVOD
+	if living {
+		messages = append(messages, tr(*opt, "liveFound"))
+	}
 	if !opt.BinaryMerge && hasUnknownEncryption(selected) {
 		// long: 未识别加密方式在裁剪前就要触发二进制合并；否则用户范围刚好裁掉未知片段时，会和上游的全局流判断不一致。
 		opt.BinaryMerge = true

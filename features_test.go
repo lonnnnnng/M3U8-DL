@@ -1570,6 +1570,26 @@ func TestPrepareSelectedStreamsLiveForcesRecordOptionsLikeUpstream(t *testing.T)
 	}
 }
 
+func TestPrepareSelectedStreamsLiveFoundMessageMatchesUpstream(t *testing.T) {
+	streams := []StreamSpec{{
+		Playlist: &Playlist{IsLive: true, Parts: []MediaPart{{Segments: []Segment{{Index: 0, Duration: 1}}}}},
+	}}
+	opt := defaultOptions()
+	opt.UILanguage = "en-US"
+	messages := prepareSelectedStreams(streams, &opt)
+	if len(messages) == 0 || messages[0] != "Live stream found" {
+		t.Fatalf("live stream should report upstream liveFound first, got %#v", messages)
+	}
+
+	opt = defaultOptions()
+	opt.UILanguage = "en-US"
+	opt.LivePerformAsVOD = true
+	messages = prepareSelectedStreams(streams, &opt)
+	if len(messages) != 0 {
+		t.Fatalf("live-perform-as-vod should suppress liveFound like upstream livingFlag, got %#v", messages)
+	}
+}
+
 func TestPrepareSelectedStreamsDisablesLiveVTTFixWithoutAudioLikeUpstream(t *testing.T) {
 	sub := MediaSubtitles
 	streams := []StreamSpec{{
@@ -4644,6 +4664,9 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	}
 	if got := tr(opt, "masterM3u8Found"); got != "檢測到Master列表，開始解析全部流訊息" {
 		t.Fatalf("traditional masterM3u8Found wrong: %q", got)
+	}
+	if got := tr(opt, "liveFound"); got != "檢測到直播流" {
+		t.Fatalf("traditional liveFound wrong: %q", got)
 	}
 	if got := tr(opt, "mkvmergeNotFound"); got != "找不到mkvmerge，請自行下載：https://mkvtoolnix.download/downloads.html" {
 		t.Fatalf("traditional mkvmergeNotFound wrong: %q", got)
