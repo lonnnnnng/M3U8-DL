@@ -15,6 +15,10 @@ import (
 	"github.com/andybalholm/brotli"
 )
 
+func mediaPtr(mt MediaType) *MediaType {
+	return &mt
+}
+
 func TestParseMaster(t *testing.T) {
 	opt := defaultOptions()
 	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/master.m3u8", currentURL: "https://example.com/master.m3u8", baseURL: "https://example.com/master.m3u8", rawFiles: map[string]string{}}
@@ -216,6 +220,49 @@ func TestParseMasterMediaTypeYESSetsDefaultLikeUpstreamBug(t *testing.T) {
 	}
 	if streams[0].MediaType != nil {
 		t.Fatalf("TYPE=YES should still leave MediaType nil, got %#v", streams[0].MediaType)
+	}
+}
+
+func TestParseMasterMediaTypeTrimsWhitespaceLikeUpstreamEnum(t *testing.T) {
+	tests := []struct {
+		name      string
+		typeAttr  string
+		wantCount int
+		wantMedia *MediaType
+		wantDef   bool
+	}{
+		{name: "audio", typeAttr: `" AUDIO "`, wantCount: 1, wantMedia: mediaPtr(MediaAudio)},
+		{name: "closed captions", typeAttr: `" CLOSED-CAPTIONS "`, wantCount: 0},
+		{name: "yes default bug", typeAttr: `" YES "`, wantCount: 1, wantDef: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opt := defaultOptions()
+			p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/master.m3u8", currentURL: "https://example.com/master.m3u8", baseURL: "https://example.com/master.m3u8", rawFiles: map[string]string{}}
+			raw := `#EXTM3U
+#EXT-X-MEDIA:TYPE=` + tt.typeAttr + `,GROUP-ID="data",NAME="Timed Metadata",DEFAULT=NO,URI="data.m3u8"
+`
+			streams, err := p.parseMaster(raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(streams) != tt.wantCount {
+				t.Fatalf("unexpected stream count for TYPE=%s: got %#v", tt.typeAttr, streams)
+			}
+			if tt.wantCount == 0 {
+				return
+			}
+			if tt.wantMedia == nil {
+				if streams[0].MediaType != nil {
+					t.Fatalf("expected nil MediaType, got %#v", streams[0].MediaType)
+				}
+			} else if streams[0].MediaType == nil || *streams[0].MediaType != *tt.wantMedia {
+				t.Fatalf("wrong MediaType: got %#v want %#v", streams[0].MediaType, tt.wantMedia)
+			}
+			if streams[0].Default != tt.wantDef {
+				t.Fatalf("wrong Default: got %v want %v", streams[0].Default, tt.wantDef)
+			}
+		})
 	}
 }
 

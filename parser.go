@@ -123,7 +123,7 @@ func (p *parser) parseMaster(raw string) ([]StreamSpec, error) {
 				// long: 上游会对缺失 TYPE 的 EXT-X-MEDIA 调用 null.Replace 并中断解析；这里显式返回错误，避免悄悄保留一条原版不会接受的媒体轨道。
 				return nil, fmt.Errorf("EXT-X-MEDIA missing TYPE")
 			}
-			mtText := strings.ReplaceAll(attr(line, "TYPE"), "-", "_")
+			mtText := strings.TrimSpace(strings.ReplaceAll(attr(line, "TYPE"), "-", "_"))
 			if mtText == "CLOSED_CAPTIONS" {
 				continue
 			}
