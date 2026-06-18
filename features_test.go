@@ -2809,6 +2809,37 @@ func TestProbeMediaInfoReadsAudioStartTime(t *testing.T) {
 	}
 }
 
+func TestProbeMediaInfoDetectsDolbyVisionAliasesLikeUpstream(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell helper is unix-only")
+	}
+	tmp := t.TempDir()
+	ffmpeg := filepath.Join(tmp, "ffmpeg")
+	ffprobe := filepath.Join(tmp, "ffprobe")
+	if err := os.WriteFile(ffmpeg, []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	script := "#!/bin/sh\nprintf '%s\\n' '{\"streams\":[{\"codec_type\":\"video\",\"codec_name\":\"hevc\",\"codec_tag_string\":\"DOVI\"},{\"codec_type\":\"video\",\"codec_name\":\"dvvideo\",\"codec_tag_string\":\"[0][0][0][0]\"}]}'\n"
+	if err := os.WriteFile(ffprobe, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	media := filepath.Join(tmp, "dolby.mp4")
+	if err := os.WriteFile(media, []byte("probe"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	opt := defaultOptions()
+	opt.FFmpegBinaryPath = ffmpeg
+	infos := probeMediaInfo(media, opt)
+	if len(infos) != 2 {
+		t.Fatalf("unexpected media info: %#v", infos)
+	}
+	for _, info := range infos {
+		if !info.DolbyVision {
+			t.Fatalf("DOVI/dvvideo should be detected as Dolby Vision like upstream: %#v", infos)
+		}
+	}
+}
+
 func TestApplyMediaInfoConvertsSubtitleTSToVTT(t *testing.T) {
 	stream := StreamSpec{Extension: "ts"}
 	opt := defaultOptions()

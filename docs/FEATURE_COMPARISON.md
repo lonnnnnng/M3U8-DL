@@ -1,6 +1,6 @@
 # N_m3u8DL-RE 功能清单与 Go HLS 复刻进度对比
 
-更新时间：2026-06-19 02:19:15（北京时间）
+更新时间：2026-06-19 02:26:03（北京时间）
 
 ## 代码目录
 
@@ -179,7 +179,7 @@
 | 保存名/模板 | 文件名清理、模板变量、冲突处理 | 已支持上游清理语义、模板变量和冲突命名；`<Id>` 按本次下载任务序号而非原始流编号生成 | 已追平 |
 | 二进制合并 | 普通分片合并、分批预合并 | 已支持，超长列表可分批预合并 | 已追平 |
 | ffmpeg 单轨合并 | concat protocol/demuxer、多输出格式 | 已支持 `mp4/mkv/flv/ts/m4a/aac/eac3/ac3` 等常见路径，MP4 date metadata 按上游 `.NET` round-trip `"o"` 格式写入，`aac_adtstoasc` 按上游 `Where(Audio).All(...)` 空集合为真的语义启用 | 基本追平 |
-| 最终混流 | ffmpeg/mkvmerge、metadata、disposition | 已支持多轨混流、语言/标题元数据、date metadata、默认轨道标记、外部导入；无语言轨道会按上游写入 `und`，并按上游处理 keep=false 清理范围 | 基本追平 |
+| 最终混流 | ffmpeg/mkvmerge、metadata、disposition | 已支持多轨混流、语言/标题元数据、date metadata、默认轨道标记、外部导入；无语言轨道会按上游写入 `und`，并按上游处理 keep=false 清理范围；媒体探测识别 Dolby Vision 的 `dvhe`、`dvh1`、`DOVI`、`dvvideo` 别名后会按上游禁用最终混流 | 基本追平 |
 | `--mux-import` | 多外部轨道导入 | 已支持多条导入和存在性校验 | 已追平 |
 | `--skip-download` | 只解析/写 meta | 已支持 | 已追平 |
 | `--skip-merge` | 保留分片目录 | 已支持，且不触发最终 `-M` | 已追平 |
@@ -209,7 +209,7 @@
    已核对原版源码，未发现键盘 `q` 停止机制；原版全局 `Console.CancelKeyPress` 是 Ctrl+C 强制退出。
 5. ANSI/Spectre 风格动态进度 UI 未复刻；当前只对齐了重定向时清除 ANSI 颜色的控制台初始化行为。
 6. 多语言资源系统已覆盖默认环境语言映射、核心运行输出和 `--morehelp` 详细帮助，但完整 `ResString` 资源表和全部错误提示仍未复刻。
-7. ffmpeg/mkvmerge 已覆盖 metadata、disposition、字幕编码、工具路径、清理范围和 AAC bitstream filter 的多个上游边缘语义；剩余仍需要更多真实媒体样本补充媒体探测和封装器组合证据。
+7. ffmpeg/mkvmerge 已覆盖 metadata、disposition、字幕编码、工具路径、清理范围、AAC bitstream filter 和 Dolby Vision 别名探测的多个上游边缘语义；剩余仍需要更多真实媒体样本补充媒体探测和封装器组合证据。
 
 ## 最近验证口径
 

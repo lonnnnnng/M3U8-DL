@@ -47,13 +47,24 @@ func probeMediaInfo(path string, opt Options) []mediaInfo {
 			CodecTag:  strings.ToLower(stream.CodecTagString),
 			StartTime: parseMediaStartTime(stream.StartTime),
 		}
-		info.DolbyVision = strings.Contains(info.CodecName, "dvhe") ||
-			strings.Contains(info.CodecName, "dvh1") ||
-			strings.Contains(info.CodecTag, "dvhe") ||
-			strings.Contains(info.CodecTag, "dvh1")
+		info.DolbyVision = isDolbyVisionMediaInfo(info)
 		infos = append(infos, info)
 	}
 	return infos
+}
+
+func isDolbyVisionMediaInfo(info mediaInfo) bool {
+	haystacks := []string{info.Type, info.CodecName, info.CodecTag}
+	for _, text := range haystacks {
+		if strings.Contains(text, "dvhe") ||
+			strings.Contains(text, "dvh1") ||
+			strings.Contains(text, "dovi") ||
+			strings.Contains(text, "dvvideo") {
+			// long: 原版从 ffmpeg stderr 的 BaseInfo/Type 中识别 dvhe、dvh1、DOVI 和 dvvideo；Go 版用 ffprobe JSON 时同样要覆盖这些别名。
+			return true
+		}
+	}
+	return false
 }
 
 func parseMediaStartTime(raw string) time.Duration {
