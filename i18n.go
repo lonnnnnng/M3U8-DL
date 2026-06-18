@@ -14,6 +14,11 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "發現新版本: %s",
 		EnUS: "New version found: %s",
 	},
+	"consoleRedirected": {
+		ZhCN: "输出被重定向, 将清除ANSI颜色",
+		ZhTW: "輸出被重定向, 將清除ANSI顏色",
+		EnUS: "Output is redirected, ANSI colors are cleared.",
+	},
 	"livePipeMuxForcesRealtime": {
 		ZhCN: "检测到 LivePipeMux，已强制启用 LiveRealTimeMerge",
 		ZhTW: "檢測到 LivePipeMux，已強制啟用 LiveRealTimeMerge",

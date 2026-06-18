@@ -44,6 +44,29 @@ func TestParseArgsBooleanExplicitFalse(t *testing.T) {
 	}
 }
 
+func TestConsoleRedirectDefaultsFollowUpstream(t *testing.T) {
+	tmp := t.TempDir()
+	redirected, err := os.Create(filepath.Join(tmp, "stdout.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer redirected.Close()
+	opt := defaultOptions()
+	if !applyConsoleRedirectDefaults(&opt, redirected, nil) {
+		t.Fatal("regular file stdout should be treated as redirected")
+	}
+	if !opt.ForceANSIConsole || !opt.NoANSIColor {
+		t.Fatalf("redirected output should force ansi console and clear colors: %#v", opt)
+	}
+	opt = defaultOptions()
+	if applyConsoleRedirectDefaults(&opt, nil, nil) {
+		t.Fatal("nil console files should not be treated as redirected")
+	}
+	if opt.ForceANSIConsole || opt.NoANSIColor {
+		t.Fatalf("non-redirected console defaults should remain unchanged: %#v", opt)
+	}
+}
+
 func TestParseArgsBooleanImplicitTrue(t *testing.T) {
 	opt, err := parseArgs([]string{"--auto-select", "https://example.com/main.m3u8"})
 	if err != nil {

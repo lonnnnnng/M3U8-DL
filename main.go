@@ -39,11 +39,15 @@ func run() error {
 		return err
 	}
 	applyDerivedDefaults(&opt, time.Now())
+	consoleRedirected := applyConsoleRedirectDefaults(&opt, os.Stdout, os.Stderr)
 	cleanupLog, _, err := setupLogging(opt, os.Args)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = cleanupLog() }()
+	if consoleRedirected {
+		fmt.Println(tr(opt, "consoleRedirected"))
+	}
 	fmt.Println(version)
 	maybeCheckUpdate(opt)
 	if err := validateOptions(opt); err != nil {
