@@ -259,7 +259,7 @@ func (s *liveRealtimeDownloadState) downloadAndAppend(ctx context.Context, batch
 			}
 		}
 		if len(downloadErrs) > 0 && s.opt.CheckSegmentsCount {
-			return fmt.Errorf("直播分片数量校验失败: 期望 %d, 实际 %d: %w", len(batch), countDownloadedFiles(batchFiles), downloadErrs[0])
+			return fmt.Errorf("%s %w", tr(s.opt, "segmentCountCheckNotPass", len(batch), countDownloadedFiles(batchFiles)), downloadErrs[0])
 		}
 		files = append(files, compactDownloadedFiles(batchFiles)...)
 		segments = append(segments, compactDownloadedSegments(batchFiles, batch)...)
@@ -408,7 +408,7 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 		}
 	}
 	if len(downloadErrs) > 0 && opt.CheckSegmentsCount {
-		return outputFile{}, fmt.Errorf("分片数量校验失败: 期望 %d, 实际 %d: %w", len(allSegs), countDownloadedFiles(files), downloadErrs[0])
+		return outputFile{}, fmt.Errorf("%s %w", tr(opt, "segmentCountCheckNotPass", len(allSegs), countDownloadedFiles(files)), downloadErrs[0])
 	}
 	fileSegments := compactDownloadedSegments(files, allSegs)
 	files = compactDownloadedFiles(files)

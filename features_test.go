@@ -2278,6 +2278,29 @@ func TestExternalMP4DecryptCommand(t *testing.T) {
 	}
 }
 
+func TestDecryptMP4FailureUsesUpstreamMessage(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell helper is unix-only")
+	}
+	tmp := t.TempDir()
+	src := filepath.Join(tmp, "enc.mp4")
+	if err := os.WriteFile(src, []byte("encrypted"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	tool := filepath.Join(tmp, "mp4decrypt")
+	if err := os.WriteFile(tool, []byte("#!/bin/sh\necho boom >&2\nexit 7\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	opt := defaultOptions()
+	opt.UILanguage = "en-US"
+	opt.DecryptionBinaryPath = tool
+	opt.Keys = []string{"00000000000000000000000000000000:00112233445566778899aabbccddeeff"}
+	_, err := decryptMP4File(src, opt, "00000000000000000000000000000000", "")
+	if err == nil || !strings.Contains(err.Error(), "Decryption failed") || !strings.Contains(err.Error(), "boom") {
+		t.Fatalf("decrypt failure should include upstream message and tool output, got %v", err)
+	}
+}
+
 func TestExternalDecryptSkipsStandaloneInitForShakaAndFFmpegLikeUpstream(t *testing.T) {
 	tmp := t.TempDir()
 	src := filepath.Join(tmp, "_init.mp4")
@@ -4751,6 +4774,12 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	}
 	if got := tr(opt, "fixingTTMLmp4"); got != "正在提取TTML(mp4)字幕..." {
 		t.Fatalf("traditional fixingTTMLmp4 wrong: %q", got)
+	}
+	if got := tr(opt, "decryptionFailed"); got != "解密失敗" {
+		t.Fatalf("traditional decryptionFailed wrong: %q", got)
+	}
+	if got := tr(opt, "segmentCountCheckNotPass", 3, 2); got != "分片數量校驗不通過, 共3個,已下載2." {
+		t.Fatalf("traditional segmentCountCheckNotPass wrong: %q", got)
 	}
 	if got := tr(opt, "masterM3u8Found"); got != "檢測到Master列表，開始解析全部流訊息" {
 		t.Fatalf("traditional masterM3u8Found wrong: %q", got)

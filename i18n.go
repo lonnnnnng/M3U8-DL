@@ -124,6 +124,16 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "正在提取VTT(mp4)字幕...",
 		EnUS: "Extracting VTT(mp4) subtitle...",
 	},
+	"decryptionFailed": {
+		ZhCN: "解密失败",
+		ZhTW: "解密失敗",
+		EnUS: "Decryption failed",
+	},
+	"segmentCountCheckNotPass": {
+		ZhCN: "分片数量校验不通过, 共%d个,已下载%d.",
+		ZhTW: "分片數量校驗不通過, 共%d個,已下載%d.",
+		EnUS: "Segment count check not pass, total: %d, downloaded: %d.",
+	},
 	"binaryMerge": {
 		ZhCN: "二进制合并中...",
 		ZhTW: "二進位制合併中...",

@@ -326,7 +326,7 @@ func decryptMP4File(path string, opt Options, kid string, initPath string) (stri
 		}
 	}
 	if err != nil {
-		return path, fmt.Errorf("外部解密失败: %v\n%s", err, string(out))
+		return path, fmt.Errorf("%s: %v\n%s", tr(opt, "decryptionFailed"), err, string(out))
 	}
 	if err := replaceFile(dest, path); err != nil {
 		return path, err

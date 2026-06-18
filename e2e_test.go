@@ -1318,6 +1318,44 @@ func TestDownloadMissingSegmentContinuesWhenCheckDisabled(t *testing.T) {
 	}
 }
 
+func TestDownloadMissingSegmentCheckErrorMatchesUpstream(t *testing.T) {
+	var base string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/main.m3u8":
+			_, _ = w.Write([]byte("#EXTM3U\n#EXT-X-TARGETDURATION:1\n#EXTINF:1,\n" + base + "/0.ts\n#EXTINF:1,\n" + base + "/missing.ts\n#EXT-X-ENDLIST\n"))
+		case "/0.ts":
+			_, _ = w.Write([]byte("hello"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	base = srv.URL
+
+	tmp := t.TempDir()
+	opt := defaultOptions()
+	opt.UILanguage = "en-US"
+	opt.Input = srv.URL + "/main.m3u8"
+	opt.AutoSelect = true
+	opt.BinaryMerge = true
+	opt.SaveDir = tmp
+	opt.TmpDir = filepath.Join(tmp, "tmp")
+	opt.SaveName = "strict"
+	client, err := newHTTPClient(opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	streams, _, err := parseSource(context.Background(), client, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = downloadAll(context.Background(), client, streams, opt)
+	if err == nil || !strings.Contains(err.Error(), "Segment count check not pass, total: 2, downloaded: 1.") {
+		t.Fatalf("segment count error should match upstream resource text, got %v", err)
+	}
+}
+
 func TestDownloadAES128(t *testing.T) {
 	key := []byte("0123456789abcdef")
 	iv := make([]byte, aes.BlockSize)
