@@ -172,6 +172,17 @@ func TestParseMasterUnknownMediaTypeKeepsNilMediaTypeLikeUpstream(t *testing.T) 
 	}
 }
 
+func TestParseMasterMediaMissingTypeFailsLikeUpstream(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/master.m3u8", currentURL: "https://example.com/master.m3u8", baseURL: "https://example.com/master.m3u8", rawFiles: map[string]string{}}
+	raw := `#EXTM3U
+#EXT-X-MEDIA:GROUP-ID="data",NAME="Timed Metadata",URI="data.m3u8"
+`
+	if _, err := p.parseMaster(raw); err == nil {
+		t.Fatal("EXT-X-MEDIA without TYPE should fail like upstream null Replace")
+	}
+}
+
 func TestParseMasterLeadingSpaceTagIgnoredLikeUpstream(t *testing.T) {
 	opt := defaultOptions()
 	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/master.m3u8", currentURL: "https://example.com/master.m3u8", baseURL: "https://example.com/master.m3u8", rawFiles: map[string]string{}}
