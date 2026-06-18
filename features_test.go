@@ -4385,7 +4385,13 @@ func TestValidateOptionsRejectsMissingMkvmergeBinPath(t *testing.T) {
 }
 
 func TestValidateOptionsRejectsInvalidAdKeywordRegex(t *testing.T) {
+	tmp := t.TempDir()
+	ffmpeg := filepath.Join(tmp, "ffmpeg")
+	if err := os.WriteFile(ffmpeg, []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
 	opt := defaultOptions()
+	opt.FFmpegBinaryPath = ffmpeg
 	opt.AdKeywords = []string{"["}
 	err := validateOptions(opt)
 	if err == nil || !strings.Contains(err.Error(), "ad-keyword 正则无效") {
