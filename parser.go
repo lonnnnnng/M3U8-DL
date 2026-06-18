@@ -301,6 +301,9 @@ func (p *parser) parseMedia(ctx context.Context, raw string) (*Playlist, error) 
 				hasAd = false
 				continue
 			}
+			if hasAd || len(segs) < 1 {
+				continue
+			}
 			if len(segs) > 0 {
 				parts = append(parts, MediaPart{Segments: segs})
 				segs = nil

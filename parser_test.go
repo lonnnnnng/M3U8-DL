@@ -625,6 +625,36 @@ main1.ts
 	}
 }
 
+func TestParseMediaYkAdDiscontinuityDoesNotSplitCurrentPartLikeUpstream(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}
+	raw := `#EXTM3U
+#EXT-X-TARGETDURATION:4
+#EXTINF:4.0,
+main0.ts
+#EXTINF:1.0,
+https://yk.example.com/ad/0.ts?ccode=0902&duration=1
+#EXT-X-DISCONTINUITY
+#EXTINF:4.0,
+main1.ts
+#EXT-X-ENDLIST
+`
+	pl, err := p.parseMedia(context.Background(), raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pl.Parts) != 1 {
+		t.Fatalf("YK ad discontinuity should keep one media part like upstream, got %#v", pl.Parts)
+	}
+	segs := sortedSegments(pl)
+	if len(segs) != 2 {
+		t.Fatalf("YK ad should be removed while preserving main segments, got %#v", segs)
+	}
+	if segs[0].URL != "https://example.com/main0.ts" || segs[1].URL != "https://example.com/main1.ts" {
+		t.Fatalf("unexpected YK filtered segments: %#v", segs)
+	}
+}
+
 func TestParseMediaCachesRepeatedKeyLine(t *testing.T) {
 	var keyHits int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
