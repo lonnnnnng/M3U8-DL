@@ -74,6 +74,7 @@ type StreamSpec struct {
 	VideoRange      string     `json:"videoRange,omitempty"`
 	Channels        string     `json:"channels,omitempty"`
 	Characteristics string     `json:"characteristics,omitempty"`
+	Role            string     `json:"role,omitempty"`
 	Default         bool       `json:"default"`
 	Extension       string     `json:"extension,omitempty"`
 	Playlist        *Playlist  `json:"playlist,omitempty"`
@@ -120,6 +121,7 @@ type Filter struct {
 	PlaylistMax  *float64
 	BandwidthMin *int
 	BandwidthMax *int
+	Role         string
 }
 
 type MuxOptions struct {

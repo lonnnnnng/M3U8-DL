@@ -639,6 +639,22 @@ func TestApplyFiltersBandwidthAndPlaylistDuration(t *testing.T) {
 	}
 }
 
+func TestApplyFiltersRoleLikeUpstream(t *testing.T) {
+	streams := []StreamSpec{
+		{ID: 1, Bandwidth: 3000, Role: "Main"},
+		{ID: 2, Bandwidth: 2000, Role: "Commentary"},
+		{ID: 3, Bandwidth: 1000, Role: "Subtitle"},
+	}
+	got := applyFilters(streams, Options{VideoFilter: parseFilter("role=commentary:for=all")})
+	if len(got) != 1 || got[0].ID != 2 {
+		t.Fatalf("role filter should match upstream enum case-insensitively, got %#v", got)
+	}
+	got = applyFilters(streams, Options{VideoFilter: parseFilter("role=unknown:for=all")})
+	if len(got) != 3 {
+		t.Fatalf("invalid role should be ignored like upstream Enum.TryParse, got %#v", got)
+	}
+}
+
 func TestApplyFiltersSkipsSegmentCountWhenPlaylistsMissing(t *testing.T) {
 	streams := []StreamSpec{
 		{ID: 1, Bandwidth: 1000, Resolution: "720p"},

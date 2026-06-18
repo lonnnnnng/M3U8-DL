@@ -541,7 +541,34 @@ func parseFilter(input string) *Filter {
 	if v := parseOptionalBandwidthKbps(p["bwMax"]); v != nil {
 		f.BandwidthMax = v
 	}
+	if role := normalizeRoleFilter(p["role"]); role != "" {
+		f.Role = role
+	}
 	return f
+}
+
+func normalizeRoleFilter(input string) string {
+	if input == "" {
+		return ""
+	}
+	for _, role := range []string{
+		"Subtitle",
+		"Main",
+		"Alternate",
+		"Supplementary",
+		"Commentary",
+		"Dub",
+		"Description",
+		"Sign",
+		"Metadata",
+		"ForcedSubtitle",
+	} {
+		if strings.EqualFold(input, role) {
+			// long: role 过滤来自上游通用轨道筛选器；非法值在原版 Enum.TryParse 失败后会被忽略，不能把它当作正则或普通字符串误过滤。
+			return role
+		}
+	}
+	return ""
 }
 
 func parseOptionalInt64(input string) *int64 {

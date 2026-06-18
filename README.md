@@ -48,7 +48,7 @@ go run . "<m3u8-url-or-file>" --auto-select --save-dir ./downloads -M format=mp4
 - `--mux-import` 与 `-M` 互斥校验、外部导入文件存在性校验、开启最终混流时自动启用二进制合并
 - 下载后会用 ffprobe 修正真实媒体类型，字幕 TS 可转入 VTT 修复路径，Dolby Vision 会按上游强制二进制合并
 - 输出文件冲突时按上游优先使用分辨率、码率、语言、声道等流元数据生成唯一文件名
-- 自动选择最佳视频、每语言最高码率音频和全部字幕，支持交互选择与选择/丢弃过滤器的 `for=bestN|worstN|all`、带宽、时长、分片数等条件
+- 自动选择最佳视频、每语言最高码率音频和全部字幕，支持交互选择与选择/丢弃过滤器的 `for=bestN|worstN|all`、带宽、时长、分片数、Role 等条件
 - 基础直播录制轮询、新分片追加，刷新间隔未显式指定时按上游用直播窗口时长自动计算，并按上游逻辑用日期或序号对齐多轨起点；`--live-record-limit` 按已刷出的分片时长累计，初始直播窗口也计入限制；直播刷新去重按 HLS 的 `PROGRAM-DATE-TIME` 秒级时间戳或分片序号处理，并容忍紧凑时区偏移/无时区时间，避免相同 URL 的新分片被漏掉
 - 直播录制分片临时文件按上游优先使用 `PROGRAM-DATE-TIME` 秒级时间戳命名，无日期时回退到分片 `Index`，fMP4 init 固定为 `_init.mp4`
 - `--live-real-time-merge` 的非字幕输出会在直播刷新过程中按批次下载新增分片并顺序追加输出，`--live-keep-segments false` 时保留 init、删除普通媒体分片

@@ -215,7 +215,7 @@ func applyFilterKeepByType(streams []StreamSpec, mt MediaType, f *Filter) []Stre
 		})
 	}
 	candidates = filterByPredicate(candidates, func(s StreamSpec) bool {
-		return checkPlaylistDuration(s, *f) && checkBandwidth(s, *f)
+		return checkPlaylistDuration(s, *f) && checkBandwidth(s, *f) && checkRole(s, *f)
 	})
 	return applyFilterFor(candidates, f.For)
 }
@@ -332,7 +332,8 @@ func matchFilter(s StreamSpec, f Filter) bool {
 	return matchFilterRegexFields(s, f) &&
 		checkBandwidth(s, f) &&
 		checkSegmentsCount(s, f) &&
-		checkPlaylistDuration(s, f)
+		checkPlaylistDuration(s, f) &&
+		checkRole(s, f)
 }
 
 func matchFilterRegexFields(s StreamSpec, f Filter) bool {
@@ -417,6 +418,13 @@ func checkPlaylistDuration(s StreamSpec, f Filter) bool {
 		return false
 	}
 	return true
+}
+
+func checkRole(s StreamSpec, f Filter) bool {
+	if f.Role == "" {
+		return true
+	}
+	return strings.EqualFold(s.Role, f.Role)
 }
 
 func playlistDuration(pl *Playlist) float64 {
