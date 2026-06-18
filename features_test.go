@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -807,17 +808,19 @@ func TestWriteMetaWritesAllAndSelected(t *testing.T) {
 	tmp := t.TempDir()
 	opt := defaultOptions()
 	opt.TmpDir = tmp
+	opt.SaveName = "job"
 	p := &parser{rawFiles: map[string]string{"raw.m3u8": "#EXTM3U\n"}}
 	all := []StreamSpec{{ID: 1, URL: "video.m3u8"}, {ID: 2, URL: "audio.m3u8"}}
 	selected := []StreamSpec{{ID: 1, URL: "video.m3u8"}}
 	if err := writeMeta(opt, p, all, selected); err != nil {
 		t.Fatal(err)
 	}
-	meta, err := os.ReadFile(filepath.Join(tmp, "meta.json"))
+	dir := filepath.Join(tmp, "job")
+	meta, err := os.ReadFile(filepath.Join(dir, "meta.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	metaSelected, err := os.ReadFile(filepath.Join(tmp, "meta_selected.json"))
+	metaSelected, err := os.ReadFile(filepath.Join(dir, "meta_selected.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -827,8 +830,11 @@ func TestWriteMetaWritesAllAndSelected(t *testing.T) {
 	if strings.Contains(string(metaSelected), "audio.m3u8") || !strings.Contains(string(metaSelected), "video.m3u8") {
 		t.Fatalf("meta_selected.json should contain only selected streams: %s", metaSelected)
 	}
-	if _, err := os.Stat(filepath.Join(tmp, "raw.m3u8")); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, "raw.m3u8")); err != nil {
 		t.Fatalf("raw m3u8 not written: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(tmp, "raw.m3u8")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("raw m3u8 should be written under task temp dir like upstream, root err=%v", err)
 	}
 }
 
@@ -854,14 +860,19 @@ func TestWriteMetaDoesNotOverwriteExistingFiles(t *testing.T) {
 	tmp := t.TempDir()
 	opt := defaultOptions()
 	opt.TmpDir = tmp
+	opt.SaveName = "job"
 	p := &parser{rawFiles: map[string]string{"raw.m3u8": "#EXTM3U\n#EXTINF:1,\nnew.ts\n"}}
+	dir := filepath.Join(tmp, "job")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
 	existing := map[string]string{
 		"raw.m3u8":           "existing raw",
 		"meta.json":          "existing all",
 		"meta_selected.json": "existing selected",
 	}
 	for name, content := range existing {
-		if err := os.WriteFile(filepath.Join(tmp, name), []byte(content), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0644); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -869,7 +880,7 @@ func TestWriteMetaDoesNotOverwriteExistingFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 	for name, want := range existing {
-		got, err := os.ReadFile(filepath.Join(tmp, name))
+		got, err := os.ReadFile(filepath.Join(dir, name))
 		if err != nil {
 			t.Fatal(err)
 		}

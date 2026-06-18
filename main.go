@@ -371,10 +371,7 @@ func writeMeta(opt Options, p *parser, all []StreamSpec, selected []StreamSpec) 
 	if !opt.WriteMetaJSON {
 		return nil
 	}
-	dir := opt.TmpDir
-	if dir == "" {
-		dir = "."
-	}
+	dir := rawMetaDir(opt)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
@@ -395,6 +392,19 @@ func writeMeta(opt Options, p *parser, all []StreamSpec, selected []StreamSpec) 
 		return err
 	}
 	return writeFileIfAbsent(filepath.Join(dir, "meta_selected.json"), selectedJSON)
+}
+
+func rawMetaDir(opt Options) string {
+	root := opt.TmpDir
+	if root == "" {
+		root = "."
+	}
+	saveName := opt.SaveName
+	if saveName == "" {
+		saveName = deriveSaveNameFromInput(opt.Input, time.Now())
+	}
+	// long: 原版把 raw.m3u8/meta.json 写入本次任务临时根目录，避免多任务共用 --tmp-dir 时互相覆盖解析证据。
+	return filepath.Join(root, saveName)
 }
 
 func writeFileIfAbsent(path string, data []byte) error {
