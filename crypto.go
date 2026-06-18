@@ -391,14 +391,15 @@ func replaceFile(src, dst string) error {
 func collectDecryptKeys(opt Options, kid string) []string {
 	var keys []string
 	keys = append(keys, opt.Keys...)
-	if opt.KeyTextFile != "" {
+	if opt.KeyTextFile != "" && kid != "" {
 		if b, err := os.ReadFile(opt.KeyTextFile); err == nil {
 			for _, line := range strings.Split(string(b), "\n") {
 				line = strings.TrimSpace(line)
 				if line == "" || strings.HasPrefix(line, "#") {
 					continue
 				}
-				if kid == "" || strings.HasPrefix(strings.ToLower(line), strings.ToLower(kid)) {
+				// long: 上游 SearchKeyFromFileAsync 只在已知 KID 时查找 key 文件，并按 StartsWith 精确匹配，避免无 KID 分片误用 key 文件里的任意密钥。
+				if strings.HasPrefix(line, kid) {
 					keys = append(keys, line)
 				}
 			}

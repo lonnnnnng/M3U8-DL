@@ -2717,6 +2717,35 @@ func TestCollectDecryptKeysByKID(t *testing.T) {
 	}
 }
 
+func TestCollectDecryptKeysRequiresKIDLikeUpstream(t *testing.T) {
+	tmp := t.TempDir()
+	keyFile := filepath.Join(tmp, "keys.txt")
+	if err := os.WriteFile(keyFile, []byte("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:22222222222222222222222222222222\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	opt := defaultOptions()
+	opt.KeyTextFile = keyFile
+	opt.Keys = []string{"00112233445566778899aabbccddeeff"}
+	keys := collectDecryptKeys(opt, "")
+	if len(keys) != 1 || keys[0] != opt.Keys[0] {
+		t.Fatalf("key-text-file should be ignored when KID is empty like upstream, got %#v", keys)
+	}
+}
+
+func TestCollectDecryptKeysMatchesKIDPrefixCaseSensitivelyLikeUpstream(t *testing.T) {
+	tmp := t.TempDir()
+	keyFile := filepath.Join(tmp, "keys.txt")
+	if err := os.WriteFile(keyFile, []byte("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB:11111111111111111111111111111111\nbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:22222222222222222222222222222222\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	opt := defaultOptions()
+	opt.KeyTextFile = keyFile
+	keys := collectDecryptKeys(opt, "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb")
+	if len(keys) != 1 || !strings.Contains(keys[0], "222222") {
+		t.Fatalf("key-text-file KID matching should be case-sensitive like upstream, got %#v", keys)
+	}
+}
+
 func TestExtractMP4WebVTTFiles(t *testing.T) {
 	tmp := t.TempDir()
 	seg := filepath.Join(tmp, "seg.m4s")
