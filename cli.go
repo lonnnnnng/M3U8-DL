@@ -279,7 +279,7 @@ func parseArgs(args []string) (Options, error) {
 			if err != nil {
 				return opt, err
 			}
-			b, err := parseKeyBytes(v)
+			b, err := parseHLSCustomKeyOption(v)
 			if err != nil {
 				return opt, err
 			}
@@ -289,7 +289,7 @@ func parseArgs(args []string) (Options, error) {
 			if err != nil {
 				return opt, err
 			}
-			b, err := parseKeyBytes(v)
+			b, err := parseHLSCustomKeyOption(v)
 			if err != nil {
 				return opt, err
 			}
@@ -512,6 +512,18 @@ func parseKeyBytes(input string) ([]byte, error) {
 		return b, nil
 	}
 	return base64.StdEncoding.DecodeString(input)
+}
+
+func parseHLSCustomKeyOption(input string) ([]byte, error) {
+	if input == "" {
+		return nil, nil
+	}
+	b, err := parseKeyBytes(input)
+	if err != nil {
+		// long: 自定义 HLS key/iv 来自同一个上游 parser，失败时只回显用户输入，避免把 Go 的 base64/hex 错误文案暴露成兼容性差异。
+		return nil, fmt.Errorf("error in parse hls custom key: %s", input)
+	}
+	return b, nil
 }
 
 func validSaveName(input string) string {

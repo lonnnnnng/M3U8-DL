@@ -316,6 +316,49 @@ func TestParseArgsCustomHLSMethodUsesUpstreamEnumNames(t *testing.T) {
 	}
 }
 
+func TestParseArgsCustomHLSKeyAndIVLikeUpstream(t *testing.T) {
+	keyFile := filepath.Join(t.TempDir(), "hls.key")
+	fileBytes := []byte("0123456789abcdef")
+	if err := os.WriteFile(keyFile, fileBytes, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	opt, err := parseArgs([]string{
+		"--custom-hls-key", "00112233445566778899aabbccddeeff",
+		"--custom-hls-iv", base64.StdEncoding.EncodeToString(fileBytes),
+		"https://example.com/main.m3u8",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := fmt.Sprintf("%x", opt.CustomHLSKey); got != "00112233445566778899aabbccddeeff" {
+		t.Fatalf("hex custom HLS key not parsed: %s", got)
+	}
+	if string(opt.CustomHLSIV) != string(fileBytes) {
+		t.Fatalf("base64 custom HLS iv not parsed: %x", opt.CustomHLSIV)
+	}
+
+	opt, err = parseArgs([]string{"--custom-hls-key", keyFile, "https://example.com/main.m3u8"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(opt.CustomHLSKey) != string(fileBytes) {
+		t.Fatalf("file custom HLS key not read: %x", opt.CustomHLSKey)
+	}
+
+	opt, err = parseArgs([]string{"--custom-hls-key", "", "https://example.com/main.m3u8"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opt.CustomHLSKey != nil {
+		t.Fatalf("empty custom HLS key should be ignored like upstream, got %x", opt.CustomHLSKey)
+	}
+
+	if _, err := parseArgs([]string{"--custom-hls-iv", "not-valid-key", "https://example.com/main.m3u8"}); err == nil || !strings.Contains(err.Error(), "error in parse hls custom key: not-valid-key") {
+		t.Fatalf("expected upstream custom HLS key parser error, got %v", err)
+	}
+}
+
 func TestParseCustomRangeOpenEndedLikeUpstream(t *testing.T) {
 	cr, err := parseCustomRange("-2")
 	if err != nil {
