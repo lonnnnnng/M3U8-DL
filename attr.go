@@ -53,6 +53,10 @@ func attrExists(line, key string) bool {
 	return false
 }
 
+func attrExistsLoose(line, key string) bool {
+	return strings.Contains(strings.TrimSpace(line), key+"=")
+}
+
 func malformedQuotedAttr(line, key string) bool {
 	prefix := key + "=\""
 	i := strings.Index(line, prefix)

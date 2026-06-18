@@ -1058,6 +1058,41 @@ func TestParseMediaKeyEmptyURIKeepsMethodLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestParseMediaKeyLooseURISuffixMatchesUpstream(t *testing.T) {
+	tests := []struct {
+		name    string
+		attr    string
+		wantKey string
+	}{
+		{name: "empty suffix uri", attr: `KEYFORMATURI=""`},
+		{name: "base64 suffix uri", attr: `KEYFORMATURI="base64:MDEyMzQ1Njc4OWFiY2RlZg=="`, wantKey: "0123456789abcdef"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opt := defaultOptions()
+			p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}
+			raw := `#EXTM3U
+#EXT-X-TARGETDURATION:8
+#EXT-X-KEY:METHOD=AES-128,` + tt.attr + `
+#EXTINF:8.0,
+0.ts
+#EXT-X-ENDLIST
+`
+			pl, err := p.parseMedia(context.Background(), raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			segs := sortedSegments(pl)
+			if len(segs) != 1 || segs[0].Encrypt.Method != EncryptAES128 {
+				t.Fatalf("URI suffix attribute should keep AES-128 like upstream, got %#v", segs)
+			}
+			if string(segs[0].Encrypt.Key) != tt.wantKey {
+				t.Fatalf("URI suffix key mismatch: got %q want %q", string(segs[0].Encrypt.Key), tt.wantKey)
+			}
+		})
+	}
+}
+
 func TestParseMediaKeyMethodIsCaseSensitiveLikeUpstream(t *testing.T) {
 	opt := defaultOptions()
 	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}

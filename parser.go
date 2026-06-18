@@ -488,7 +488,8 @@ func (p *parser) parseKey(ctx context.Context, line string) (EncryptInfo, error)
 		ei.IV = p.opt.CustomHLSIV
 	}
 	uri := attr(line, "URI")
-	hasURI := attrExists(line, "URI")
+	// long: 上游 ParserUtil.GetAttribute 只是查找 "URI=" 子串，KEYFORMATURI 这类后缀属性也会被当作 URI；这里保留这个宽松边界。
+	hasURI := attrExistsLoose(line, "URI")
 	if len(p.opt.CustomHLSKey) > 0 {
 		ei.Key = p.opt.CustomHLSKey
 	} else if hasURI {
