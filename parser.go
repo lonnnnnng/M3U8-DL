@@ -477,6 +477,9 @@ func (p *parser) parseKey(ctx context.Context, line string) (EncryptInfo, error)
 		} else {
 			ei.Key = key
 		}
+	} else {
+		// long: 上游缺少 URI 时会在 uri.ToLower() 处进入异常分支并降级 UNKNOWN；即便 METHOD=NONE 也保持这个兼容行为。
+		ei.Method = EncryptUnknown
 	}
 	if p.opt.CustomHLSMethod != "" {
 		ei.Method = p.opt.CustomHLSMethod

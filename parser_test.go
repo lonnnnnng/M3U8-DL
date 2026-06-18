@@ -940,6 +940,37 @@ func TestParseMediaKeyLoadFailureDowngradesToUnknown(t *testing.T) {
 	}
 }
 
+func TestParseMediaKeyMissingURIDowngradesToUnknownLikeUpstream(t *testing.T) {
+	tests := []struct {
+		name   string
+		method EncryptMethod
+	}{
+		{name: "aes128", method: EncryptAES128},
+		{name: "none", method: EncryptNone},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opt := defaultOptions()
+			p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}
+			raw := `#EXTM3U
+#EXT-X-TARGETDURATION:8
+#EXT-X-KEY:METHOD=` + string(tt.method) + `
+#EXTINF:8.0,
+0.ts
+#EXT-X-ENDLIST
+`
+			pl, err := p.parseMedia(context.Background(), raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			segs := sortedSegments(pl)
+			if len(segs) != 1 || segs[0].Encrypt.Method != EncryptUnknown {
+				t.Fatalf("key without URI should downgrade to UNKNOWN like upstream, got %#v", segs)
+			}
+		})
+	}
+}
+
 func TestParseMediaKeyLoadRetriesBeforeDowngrade(t *testing.T) {
 	var keyHits int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
