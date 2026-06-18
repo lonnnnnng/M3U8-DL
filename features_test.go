@@ -416,6 +416,28 @@ func TestParseArgsMuxAfterDoneAcceptsBinPathAuto(t *testing.T) {
 	}
 }
 
+func TestParseArgsStreamFilterRejectsInvalidValuesLikeUpstream(t *testing.T) {
+	cases := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{name: "for", args: []string{"-sv", "for=middle", "https://example.com/main.m3u8"}, want: "for=middle not valid"},
+		{name: "regex", args: []string{"-sa", "lang=[", "https://example.com/main.m3u8"}, want: "filter lang 正则无效"},
+		{name: "segsMin", args: []string{"-ss", "segsMin=many", "https://example.com/main.m3u8"}, want: "segsMin=many not valid"},
+		{name: "playlist duration", args: []string{"-dv", "plistDurMin=soon", "https://example.com/main.m3u8"}, want: "plistDurMin=soon not valid"},
+		{name: "bandwidth", args: []string{"-da", "bwMin=fast", "https://example.com/main.m3u8"}, want: "bwMin=fast not valid"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := parseArgs(tc.args)
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("expected %q, got %v", tc.want, err)
+			}
+		})
+	}
+}
+
 func TestParseArgsMuxImportAcceptsMultipleValuesAfterOneFlag(t *testing.T) {
 	opt, err := parseArgs([]string{
 		"-M", "format=mp4",

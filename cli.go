@@ -390,37 +390,61 @@ func parseArgs(args []string) (Options, error) {
 			if err != nil {
 				return opt, err
 			}
-			opt.VideoFilter = parseFilter(v)
+			filter, err := parseFilterArg(v)
+			if err != nil {
+				return opt, err
+			}
+			opt.VideoFilter = filter
 		case "-sa", "--select-audio":
 			v, err := next()
 			if err != nil {
 				return opt, err
 			}
-			opt.AudioFilter = parseFilter(v)
+			filter, err := parseFilterArg(v)
+			if err != nil {
+				return opt, err
+			}
+			opt.AudioFilter = filter
 		case "-ss", "--select-subtitle":
 			v, err := next()
 			if err != nil {
 				return opt, err
 			}
-			opt.SubtitleFilter = parseFilter(v)
+			filter, err := parseFilterArg(v)
+			if err != nil {
+				return opt, err
+			}
+			opt.SubtitleFilter = filter
 		case "-dv", "--drop-video":
 			v, err := next()
 			if err != nil {
 				return opt, err
 			}
-			opt.DropVideoFilter = parseFilter(v)
+			filter, err := parseFilterArg(v)
+			if err != nil {
+				return opt, err
+			}
+			opt.DropVideoFilter = filter
 		case "-da", "--drop-audio":
 			v, err := next()
 			if err != nil {
 				return opt, err
 			}
-			opt.DropAudioFilter = parseFilter(v)
+			filter, err := parseFilterArg(v)
+			if err != nil {
+				return opt, err
+			}
+			opt.DropAudioFilter = filter
 		case "-ds", "--drop-subtitle":
 			v, err := next()
 			if err != nil {
 				return opt, err
 			}
-			opt.DropSubtitleFilter = parseFilter(v)
+			filter, err := parseFilterArg(v)
+			if err != nil {
+				return opt, err
+			}
+			opt.DropSubtitleFilter = filter
 		case "--ad-keyword":
 			v, err := next()
 			if err != nil {
@@ -695,6 +719,46 @@ func parseFilter(input string) *Filter {
 		f.Role = role
 	}
 	return f
+}
+
+func parseFilterArg(input string) (*Filter, error) {
+	filter := parseFilter(input)
+	if !validFilterFor(filter.For) {
+		return nil, fmt.Errorf("for=%s not valid", filter.For)
+	}
+	if err := validateFilterValueFields(input); err != nil {
+		return nil, err
+	}
+	if err := validateFilters(Options{VideoFilter: filter}); err != nil {
+		return nil, err
+	}
+	return filter, nil
+}
+
+func validateFilterValueFields(input string) error {
+	p := splitComplex(input)
+	for _, key := range []string{"segsMin", "segsMax"} {
+		if value := p[key]; value != "" {
+			if _, err := strconv.ParseInt(value, 10, 64); err != nil {
+				return fmt.Errorf("%s=%s not valid", key, value)
+			}
+		}
+	}
+	for _, key := range []string{"plistDurMin", "plistDurMax"} {
+		if value := p[key]; value != "" {
+			if _, err := parseDuration(value); err != nil {
+				return fmt.Errorf("%s=%s not valid", key, value)
+			}
+		}
+	}
+	for _, key := range []string{"bwMin", "bwMax"} {
+		if value := p[key]; value != "" {
+			if _, err := strconv.Atoi(value); err != nil {
+				return fmt.Errorf("%s=%s not valid", key, value)
+			}
+		}
+	}
+	return nil
 }
 
 func normalizeRoleFilter(input string) string {
