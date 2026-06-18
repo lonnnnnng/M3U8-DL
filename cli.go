@@ -558,7 +558,7 @@ func parseLogFilePathOption(input string) (string, error) {
 func parseCustomRange(input string) (*CustomRange, error) {
 	cr := &CustomRange{Raw: input}
 	left, right, ok := strings.Cut(input, "-")
-	if !ok {
+	if !ok || strings.Count(input, "-") != 1 {
 		return nil, errors.New("Bad format!")
 	}
 	if strings.Contains(input, ":") {
@@ -586,6 +586,11 @@ func parseCustomRange(input string) (*CustomRange, error) {
 		}
 		return cr, nil
 	}
+	match := segmentRangeRE.FindStringSubmatch(input)
+	if match == nil {
+		return nil, errors.New("Bad format!")
+	}
+	left, right = match[1], match[2]
 	if left != "" {
 		v, err := strconv.ParseInt(left, 10, 64)
 		if err != nil {
@@ -869,6 +874,7 @@ func parseOptionalBandwidthKbps(input string) *int {
 }
 
 var speedLimitRE = regexp.MustCompile(`([\d.]+)(M|K)`)
+var segmentRangeRE = regexp.MustCompile(`(\d*)-(\d*)`)
 var pairKeyRE = regexp.MustCompile(`^[0-9a-fA-F]{32}:[0-9a-fA-F]{32}$`)
 var idHexKeyRE = regexp.MustCompile(`^[0-9]+:[0-9a-fA-F]{32}$`)
 var singleHexKeyRE = regexp.MustCompile(`^[0-9a-fA-F]{32}$`)

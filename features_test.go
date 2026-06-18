@@ -409,8 +409,26 @@ func TestParseArgsCustomRangeErrorsLikeUpstream(t *testing.T) {
 	if _, err := parseArgs([]string{"--custom-range", "bad", "https://example.com/main.m3u8"}); err == nil || !strings.Contains(err.Error(), "error in parse CustomRange: Bad format!") {
 		t.Fatalf("expected upstream custom-range format error, got %v", err)
 	}
-	if _, err := parseArgs([]string{"--custom-range", "1-x", "https://example.com/main.m3u8"}); err == nil || !strings.Contains(err.Error(), "error in parse CustomRange:") {
-		t.Fatalf("expected upstream custom-range parser prefix, got %v", err)
+	if _, err := parseArgs([]string{"--custom-range", "1-2-3", "https://example.com/main.m3u8"}); err == nil || !strings.Contains(err.Error(), "error in parse CustomRange: Bad format!") {
+		t.Fatalf("expected upstream custom-range multiple dash error, got %v", err)
+	}
+}
+
+func TestParseArgsCustomRangeUsesFirstSegmentRangeMatchLikeUpstream(t *testing.T) {
+	opt, err := parseArgs([]string{"--custom-range", "prefix1-2suffix", "https://example.com/main.m3u8"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opt.CustomRange == nil || opt.CustomRange.StartSeg == nil || opt.CustomRange.EndSeg == nil || *opt.CustomRange.StartSeg != 1 || *opt.CustomRange.EndSeg != 2 {
+		t.Fatalf("custom-range should use first numeric range match like upstream, got %#v", opt.CustomRange)
+	}
+
+	opt, err = parseArgs([]string{"--custom-range", "x-y", "https://example.com/main.m3u8"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opt.CustomRange == nil || opt.CustomRange.StartSeg == nil || opt.CustomRange.EndSeg == nil || *opt.CustomRange.StartSeg != 0 || *opt.CustomRange.EndSeg != math.MaxInt64 {
+		t.Fatalf("empty numeric match should become open range like upstream, got %#v", opt.CustomRange)
 	}
 }
 
