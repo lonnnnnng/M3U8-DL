@@ -702,16 +702,17 @@ func parseTaskStartAt(input string) (time.Time, error) {
 
 func parseMux(input string) (*MuxOptions, error) {
 	p := splitComplex(input)
-	format := strings.ToLower(p["format"])
-	if format == "" {
-		format = strings.ToLower(strings.Split(input, ":")[0])
+	rawFormat := p["format"]
+	if rawFormat == "" {
+		rawFormat = strings.Split(input, ":")[0]
 	}
+	format := strings.ToLower(rawFormat)
 	switch format {
 	case "mp4", "mkv", "ts":
 	default:
-		return nil, fmt.Errorf("format=%s not valid", format)
+		return nil, fmt.Errorf("format=%s not valid", rawFormat)
 	}
-	muxer := strings.ToLower(p["muxer"])
+	muxer := p["muxer"]
 	if muxer == "" {
 		muxer = "ffmpeg"
 	}
@@ -725,7 +726,8 @@ func parseMux(input string) (*MuxOptions, error) {
 	if binPath == "auto" {
 		binPath = ""
 	}
-	if muxer == "mkvmerge" && format == "mp4" {
+	if muxer == "mkvmerge" && rawFormat == "mp4" {
+		// long: 原版冲突判断使用用户输入的原始 format 字符串；这里保持同样的大小写敏感语义，避免 CLI 解析层行为漂移。
 		return nil, errors.New("mkvmerge can not do mp4")
 	}
 	keep, err := parseStrictMuxBool(input, p, "keep", "keep")

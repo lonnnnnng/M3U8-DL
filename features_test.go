@@ -656,7 +656,9 @@ func TestParseArgsMuxAfterDoneStrictValidation(t *testing.T) {
 		want string
 	}{
 		{name: "format", mux: "format=avi", want: "format=avi not valid"},
+		{name: "format preserves input case", mux: "format=AVI", want: "format=AVI not valid"},
 		{name: "muxer", mux: "format=mkv:muxer=bad", want: "muxer=bad not valid"},
+		{name: "muxer is case sensitive", mux: "format=mkv:muxer=FFMPEG", want: "muxer=FFMPEG not valid"},
 		{name: "mkvmerge mp4", mux: "format=mp4:muxer=mkvmerge", want: "mkvmerge can not do mp4"},
 		{name: "empty bin_path", mux: "format=mp4:bin_path=", want: "bin_path= not valid"},
 		{name: "keep", mux: "format=mp4:keep=yes", want: "keep=yes not valid"},
@@ -670,6 +672,16 @@ func TestParseArgsMuxAfterDoneStrictValidation(t *testing.T) {
 				t.Fatalf("expected %q, got %v", tc.want, err)
 			}
 		})
+	}
+}
+
+func TestParseArgsMuxAfterDoneConflictKeepsUpstreamFormatCaseSensitivity(t *testing.T) {
+	opt, err := parseArgs([]string{"-M", "format=MP4:muxer=mkvmerge", "https://example.com/main.m3u8"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opt.MuxAfterDone == nil || opt.MuxAfterDone.Format != "mp4" || opt.MuxAfterDone.Muxer != "mkvmerge" {
+		t.Fatalf("uppercase MP4 should parse like upstream before later mux handling, got %#v", opt.MuxAfterDone)
 	}
 }
 
