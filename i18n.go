@@ -204,6 +204,11 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "載入URL失敗",
 		EnUS: "Failed to load URL",
 	},
+	"allowHlsMultiExtMap": {
+		ZhCN: "已经允许识别多个#EXT-X-MAP标签, 本软件可能无法正确处理, 请手动确认内容完整性",
+		ZhTW: "已經允許識別多個#EXT-X-MAP標籤, 本軟件可能無法正確處理, 請手動確認內容完整性",
+		EnUS: "Multiple #EXT-X-MAP tags are now allowed for detection. However, this software may not handle them correctly. Please manually verify the content's integrity",
+	},
 	"matchHLS": {
 		ZhCN: "内容匹配: [white on deepskyblue1]HTTP Live Streaming[/]",
 		ZhTW: "內容匹配: [white on deepskyblue1]HTTP Live Streaming[/]",

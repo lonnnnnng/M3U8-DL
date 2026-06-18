@@ -293,6 +293,10 @@ func streamRefreshKey(s StreamSpec) string {
 
 func (p *parser) parseMedia(ctx context.Context, raw string) (*Playlist, error) {
 	p.rawFiles["raw.m3u8"] = raw
+	if p.opt.AllowHLSMultiExtMap {
+		// long: 多 EXT-X-MAP 会把一个播放列表拆成多个 init 上下文；上游开启实验开关时会明确提示用户人工确认完整性。
+		fmt.Println(tr(p.opt, "allowHlsMultiExtMap"))
+	}
 	pl := &Playlist{}
 	current := EncryptInfo{Method: EncryptNone}
 	if p.opt.CustomHLSMethod != "" {

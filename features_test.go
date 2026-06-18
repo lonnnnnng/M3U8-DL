@@ -4895,6 +4895,9 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	if got := tr(opt, "loadUrlFailed"); got != "載入URL失敗" {
 		t.Fatalf("traditional loadUrlFailed wrong: %q", got)
 	}
+	if got := tr(opt, "allowHlsMultiExtMap"); got != "已經允許識別多個#EXT-X-MAP標籤, 本軟件可能無法正確處理, 請手動確認內容完整性" {
+		t.Fatalf("traditional allowHlsMultiExtMap wrong: %q", got)
+	}
 	if got := tr(opt, "fixingVTT"); got != "正在提取VTT(raw)字幕..." {
 		t.Fatalf("traditional fixingVTT wrong: %q", got)
 	}

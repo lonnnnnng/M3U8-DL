@@ -1696,10 +1696,16 @@ b.m4s
 	}
 
 	opt.AllowHLSMultiExtMap = true
+	opt.UILanguage = "en-US"
 	p = &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/v/main.m3u8", currentURL: "https://example.com/v/main.m3u8", baseURL: "https://example.com/v/main.m3u8", rawFiles: map[string]string{}}
-	pl, err = p.parseMedia(context.Background(), raw)
+	output := captureStdout(t, func() {
+		pl, err = p.parseMedia(context.Background(), raw)
+	})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !strings.Contains(output, "Multiple #EXT-X-MAP tags are now allowed for detection.") {
+		t.Fatalf("allow-hls-multi-ext-map should warn like upstream, got %q", output)
 	}
 	if got := len(sortedSegments(pl)); got != 2 {
 		t.Fatalf("allow-hls-multi-ext-map should keep later segments, got %d", got)
