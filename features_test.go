@@ -890,6 +890,102 @@ func TestWriteMetaDoesNotOverwriteExistingFiles(t *testing.T) {
 	}
 }
 
+func TestCleanupRawMetaAfterDownloadMatchesUpstream(t *testing.T) {
+	tmp := t.TempDir()
+	opt := defaultOptions()
+	opt.TmpDir = tmp
+	opt.SaveName = "job"
+	p := &parser{rawFiles: map[string]string{"raw.m3u8": "#EXTM3U\n"}}
+	if err := writeMeta(opt, p, []StreamSpec{{ID: 1, URL: "video.m3u8"}}, []StreamSpec{{ID: 1, URL: "video.m3u8"}}); err != nil {
+		t.Fatal(err)
+	}
+	dir := rawMetaDir(opt)
+	if _, err := os.Stat(filepath.Join(dir, "raw.m3u8")); err != nil {
+		t.Fatal(err)
+	}
+	if err := cleanupRawMetaAfterDownload(opt, p); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(dir); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("empty raw/meta task dir should be removed like upstream, err=%v", err)
+	}
+}
+
+func TestCleanupRawMetaKeepsFilesWhenSkipMerge(t *testing.T) {
+	tmp := t.TempDir()
+	opt := defaultOptions()
+	opt.TmpDir = tmp
+	opt.SaveName = "job"
+	opt.SkipMerge = true
+	p := &parser{rawFiles: map[string]string{"raw.m3u8": "#EXTM3U\n"}}
+	if err := writeMeta(opt, p, []StreamSpec{{ID: 1, URL: "video.m3u8"}}, []StreamSpec{{ID: 1, URL: "video.m3u8"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := cleanupRawMetaAfterDownload(opt, p); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(rawMetaDir(opt), "raw.m3u8")); err != nil {
+		t.Fatalf("skip-merge should keep raw/meta files like upstream, err=%v", err)
+	}
+}
+
+func TestCleanupRawMetaPreservesNonEmptyTaskDir(t *testing.T) {
+	tmp := t.TempDir()
+	opt := defaultOptions()
+	opt.TmpDir = tmp
+	opt.SaveName = "job"
+	p := &parser{rawFiles: map[string]string{"raw.m3u8": "#EXTM3U\n"}}
+	if err := writeMeta(opt, p, []StreamSpec{{ID: 1, URL: "video.m3u8"}}, []StreamSpec{{ID: 1, URL: "video.m3u8"}}); err != nil {
+		t.Fatal(err)
+	}
+	dir := rawMetaDir(opt)
+	if err := os.WriteFile(filepath.Join(dir, "keep.txt"), []byte("note"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := cleanupRawMetaAfterDownload(opt, p); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "keep.txt")); err != nil {
+		t.Fatalf("non raw/meta task file should be kept, err=%v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "raw.m3u8")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("raw/meta files should still be removed from non-empty task dir, err=%v", err)
+	}
+}
+
+func TestCleanupRawMetaHonorsWriteMetaJSONFlag(t *testing.T) {
+	tmp := t.TempDir()
+	opt := defaultOptions()
+	opt.TmpDir = tmp
+	opt.SaveName = "job"
+	opt.WriteMetaJSON = false
+	p := &parser{rawFiles: map[string]string{"raw.m3u8": "#EXTM3U\n"}}
+	dir := rawMetaDir(opt)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	for name, content := range map[string]string{
+		"raw.m3u8":           "old raw",
+		"meta.json":          "old all",
+		"meta_selected.json": "old selected",
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := cleanupRawMetaAfterDownload(opt, p); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "raw.m3u8")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("raw file should be removed because rawFiles tracks it, err=%v", err)
+	}
+	for _, name := range []string{"meta.json", "meta_selected.json"} {
+		if _, err := os.Stat(filepath.Join(dir, name)); err != nil {
+			t.Fatalf("%s should be preserved when write-meta-json=false, err=%v", name, err)
+		}
+	}
+}
+
 func TestDeriveSaveNameFromInputURL(t *testing.T) {
 	now := time.Date(2026, 6, 18, 12, 34, 56, 0, time.Local)
 	got := deriveSaveNameFromInput("https://example.com/path/master.m3u8?token=abc", now)

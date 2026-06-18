@@ -113,6 +113,9 @@ func run() error {
 			return err
 		}
 	}
+	if err := cleanupRawMetaAfterDownload(opt, p); err != nil {
+		return err
+	}
 	if shouldMuxAfterDownload(opt, outs) {
 		muxed, err := muxOutputs(outs, opt)
 		if err != nil {
@@ -405,6 +408,45 @@ func rawMetaDir(opt Options) string {
 	}
 	// long: 原版把 raw.m3u8/meta.json 写入本次任务临时根目录，避免多任务共用 --tmp-dir 时互相覆盖解析证据。
 	return filepath.Join(root, saveName)
+}
+
+func cleanupRawMetaAfterDownload(opt Options, p *parser) error {
+	if opt.SkipMerge || !opt.DelAfterDone {
+		return nil
+	}
+	return cleanupRawMetaFiles(opt, p)
+}
+
+func cleanupRawMetaFiles(opt Options, p *parser) error {
+	dir := rawMetaDir(opt)
+	names := map[string]struct{}{}
+	if opt.WriteMetaJSON {
+		names["meta.json"] = struct{}{}
+		names["meta_selected.json"] = struct{}{}
+	}
+	if p != nil {
+		for name := range p.rawFiles {
+			names[name] = struct{}{}
+		}
+	}
+	for name := range names {
+		err := os.Remove(filepath.Join(dir, name))
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+	}
+	entries, err := os.ReadDir(dir)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if len(entries) == 0 {
+		// long: 原版 SafeDeleteDir 只会向上清理空目录；这里不删除非空任务目录，避免误碰用户放入同目录的额外排障文件。
+		return os.Remove(dir)
+	}
+	return nil
 }
 
 func writeFileIfAbsent(path string, data []byte) error {
