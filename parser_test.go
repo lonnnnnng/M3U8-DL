@@ -1055,7 +1055,7 @@ func TestParseMediaKeyMethodIsCaseSensitiveLikeUpstream(t *testing.T) {
 	}
 }
 
-func TestParseMediaKeyMethodWhitespaceBecomesUnknownLikeUpstream(t *testing.T) {
+func TestParseMediaKeyMethodTrimsWhitespaceLikeUpstream(t *testing.T) {
 	opt := defaultOptions()
 	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}
 	raw := `#EXTM3U
@@ -1070,11 +1070,35 @@ func TestParseMediaKeyMethodWhitespaceBecomesUnknownLikeUpstream(t *testing.T) {
 		t.Fatal(err)
 	}
 	segs := sortedSegments(pl)
-	if len(segs) != 1 || segs[0].Encrypt.Method != EncryptUnknown {
-		t.Fatalf("HLS METHOD with whitespace should become UNKNOWN like upstream Enum.TryParse, got %#v", segs)
+	if len(segs) != 1 || segs[0].Encrypt.Method != EncryptAES128 {
+		t.Fatalf("HLS METHOD should trim whitespace like upstream Enum.TryParse, got %#v", segs)
 	}
-	if string(segs[0].Encrypt.Key) != "0123456789abcdef" {
-		t.Fatalf("key bytes should still load before whitespace method downgrade is observed, got %#v", segs)
+}
+
+func TestParseMediaKeyMethodNumericEnumValuesLikeUpstream(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want EncryptMethod
+	}{
+		{name: "zero none", raw: "0", want: EncryptNone},
+		{name: "leading zero aes128", raw: "01", want: EncryptAES128},
+		{name: "seven unknown", raw: "7", want: EncryptUnknown},
+		{name: "undefined positive", raw: "8", want: EncryptMethod("8")},
+		{name: "negative rejected after dash replacement", raw: "-1", want: EncryptUnknown},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opt := defaultOptions()
+			p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}
+			ei, err := p.parseKey(context.Background(), `#EXT-X-KEY:METHOD="`+tt.raw+`",URI="base64:MDEyMzQ1Njc4OWFiY2RlZg=="`)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if ei.Method != tt.want {
+				t.Fatalf("numeric HLS METHOD %q should parse as %s like upstream Enum.TryParse, got %s", tt.raw, tt.want, ei.Method)
+			}
+		})
 	}
 }
 
