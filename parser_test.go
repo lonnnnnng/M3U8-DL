@@ -52,6 +52,27 @@ func TestParseMasterAcceptsLongVariantURLLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestParseMasterKeepsDuplicateVariantURLsLikeUpstream(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/master.m3u8", currentURL: "https://example.com/master.m3u8", baseURL: "https://example.com/master.m3u8", rawFiles: map[string]string{}}
+	raw := `#EXTM3U
+#EXT-X-STREAM-INF:BANDWIDTH=1000,RESOLUTION=640x360
+video.m3u8
+#EXT-X-STREAM-INF:BANDWIDTH=2000,RESOLUTION=1280x720
+video.m3u8
+`
+	streams, err := p.parseMaster(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(streams) != 2 {
+		t.Fatalf("duplicate variant URLs should be kept like upstream, got %#v", streams)
+	}
+	if streams[0].ID != 0 || streams[1].ID != 1 || streams[0].Bandwidth != 1000 || streams[1].Bandwidth != 2000 {
+		t.Fatalf("duplicate variant metadata should remain ordered, got %#v", streams)
+	}
+}
+
 func TestParseMediaAcceptsLongSegmentURLLikeUpstream(t *testing.T) {
 	opt := defaultOptions()
 	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}

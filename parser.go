@@ -127,17 +127,11 @@ func (p *parser) parseMaster(raw string) ([]StreamSpec, error) {
 			expectPlaylist = false
 		}
 	}
-	uniq := make([]StreamSpec, 0, len(streams))
-	seen := map[string]bool{}
-	for _, s := range streams {
-		if seen[s.URL] {
-			continue
-		}
-		s.ID = len(uniq)
-		uniq = append(uniq, s)
-		seen[s.URL] = true
+	for i := range streams {
+		// long: 上游 Master 解析不会按 URL 去重，同一播放列表 URL 可以承载不同码率/元数据轨道，必须保留给后续选择器判断。
+		streams[i].ID = i
 	}
-	return uniq, sc.Err()
+	return streams, sc.Err()
 }
 
 func (p *parser) fetchPlaylist(ctx context.Context, s *StreamSpec) error {
