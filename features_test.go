@@ -20,6 +20,31 @@ import (
 	"time"
 )
 
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+	old := os.Stdout
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = w
+	defer func() {
+		os.Stdout = old
+		_ = r.Close()
+		_ = w.Close()
+	}()
+	fn()
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = old
+	out, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(out)
+}
+
 func TestAppendURLParams(t *testing.T) {
 	got, err := appendURLParams("https://cdn.example.com/seg.ts?token=old&x=1&x=2", "https://cdn.example.com/main.m3u8?token=new&hmac=abc&token=second")
 	if err != nil {
@@ -1590,6 +1615,29 @@ func TestPrepareSelectedStreamsLiveFoundMessageMatchesUpstream(t *testing.T) {
 	}
 }
 
+func TestPrepareSelectedStreamsLiveLimitMessageMatchesUpstream(t *testing.T) {
+	streams := []StreamSpec{{
+		Playlist: &Playlist{IsLive: true, Parts: []MediaPart{{Segments: []Segment{{Index: 0, Duration: 1}}}}},
+	}}
+	limit := 90 * time.Second
+	opt := defaultOptions()
+	opt.UILanguage = "en-US"
+	opt.LiveRecordLimit = &limit
+	messages := prepareSelectedStreams(streams, &opt)
+	if len(messages) < 2 || messages[1] != "Live recording duration limit: 01m30s" {
+		t.Fatalf("live limit message should match upstream text and time format, got %#v", messages)
+	}
+
+	opt = defaultOptions()
+	opt.UILanguage = "en-US"
+	opt.LiveRecordLimit = &limit
+	opt.LivePerformAsVOD = true
+	messages = prepareSelectedStreams(streams, &opt)
+	if len(messages) != 0 {
+		t.Fatalf("live-perform-as-vod should suppress live limit message with livingFlag, got %#v", messages)
+	}
+}
+
 func TestPrepareSelectedStreamsDisablesLiveVTTFixWithoutAudioLikeUpstream(t *testing.T) {
 	sub := MediaSubtitles
 	streams := []StreamSpec{{
@@ -2008,6 +2056,27 @@ func TestLiveRecordLimitUsesInitialRefreshedDuration(t *testing.T) {
 	refreshed[1] = 4.9
 	if liveRecordLimitReached(streams, refreshed, 5*time.Second) {
 		t.Fatal("all live tracks must reach record limit before stopping")
+	}
+}
+
+func TestRecordLiveInitialLimitPrintsUpstreamStopMessage(t *testing.T) {
+	video := MediaVideo
+	selected := []StreamSpec{{
+		MediaType: &video,
+		Playlist:  &Playlist{IsLive: true, Parts: []MediaPart{{Segments: []Segment{{Duration: 5}}}}},
+	}}
+	limit := 5 * time.Second
+	opt := defaultOptions()
+	opt.UILanguage = "en-US"
+	opt.LiveRecordLimit = &limit
+
+	output := captureStdout(t, func() {
+		if err := recordLiveIfNeeded(context.Background(), nil, selected, nil, opt); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if !strings.Contains(output, "Live recording limit reached, will stop recording soon") {
+		t.Fatalf("live record limit should print upstream stop message, got %q", output)
 	}
 }
 
@@ -4667,6 +4736,12 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	}
 	if got := tr(opt, "liveFound"); got != "檢測到直播流" {
 		t.Fatalf("traditional liveFound wrong: %q", got)
+	}
+	if got := tr(opt, "liveLimit"); got != "本次直播錄製時長上限: " {
+		t.Fatalf("traditional liveLimit wrong: %q", got)
+	}
+	if got := tr(opt, "liveLimitReached"); got != "到達直播錄製上限，即將停止錄製" {
+		t.Fatalf("traditional liveLimitReached wrong: %q", got)
 	}
 	if got := tr(opt, "mkvmergeNotFound"); got != "找不到mkvmerge，請自行下載：https://mkvtoolnix.download/downloads.html" {
 		t.Fatalf("traditional mkvmergeNotFound wrong: %q", got)

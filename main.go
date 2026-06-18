@@ -184,6 +184,14 @@ func saveNameMessage(opt Options) string {
 	return tr(opt, "saveName") + opt.SaveName
 }
 
+func liveRecordLimitMessage(opt Options) string {
+	if opt.LiveRecordLimit == nil {
+		return ""
+	}
+	// long: 上游把 TimeSpan.TotalSeconds 转成 int 再格式化，保留这个截断语义可避免小数秒录制上限显示漂移。
+	return tr(opt, "liveLimit") + formatUpstreamSeconds(int(opt.LiveRecordLimit.Seconds()))
+}
+
 func shouldMuxAfterDownload(opt Options, outs []outputFile) bool {
 	if opt.MuxAfterDone == nil || len(outs) == 0 {
 		return false
@@ -312,6 +320,9 @@ liveLoop:
 			break
 		}
 	}
+	if liveRecordLimitReached(selected, refreshedDurations, limit) {
+		fmt.Println(tr(opt, "liveLimitReached"))
+	}
 	for i := range selected {
 		if selected[i].Playlist != nil {
 			selected[i].Playlist.IsLive = false
@@ -375,6 +386,9 @@ func prepareSelectedStreams(selected []StreamSpec, opt *Options) []string {
 	living := hasLiveStream(selected) && !opt.LivePerformAsVOD
 	if living {
 		messages = append(messages, tr(*opt, "liveFound"))
+		if msg := liveRecordLimitMessage(*opt); msg != "" {
+			messages = append(messages, msg)
+		}
 	}
 	if !opt.BinaryMerge && hasUnknownEncryption(selected) {
 		// long: 未识别加密方式在裁剪前就要触发二进制合并；否则用户范围刚好裁掉未知片段时，会和上游的全局流判断不一致。
@@ -613,6 +627,7 @@ func recordLiveIfNeeded(ctx context.Context, client *http.Client, selected []Str
 	refreshedDurations := liveInitialRefreshedDurations(selected)
 	limit := liveRecordLimitOrForever(opt.LiveRecordLimit)
 	if liveRecordLimitReached(selected, refreshedDurations, limit) {
+		fmt.Println(tr(opt, "liveLimitReached"))
 		for i := range selected {
 			if selected[i].Playlist != nil {
 				selected[i].Playlist.IsLive = false
@@ -638,7 +653,11 @@ recordLoop:
 				refreshedDurations[i] += appendNewLiveSegments(&selected[i], next)
 			}
 		}
-		if allDone || !hasLiveStream(selected) || liveRecordLimitReached(selected, refreshedDurations, limit) {
+		limitReached := liveRecordLimitReached(selected, refreshedDurations, limit)
+		if limitReached {
+			fmt.Println(tr(opt, "liveLimitReached"))
+		}
+		if allDone || !hasLiveStream(selected) || limitReached {
 			break
 		}
 		if err := waitLiveRefresh(ctx, wait); err != nil {

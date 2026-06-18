@@ -134,6 +134,16 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "檢測到直播流",
 		EnUS: "Live stream found",
 	},
+	"liveLimit": {
+		ZhCN: "本次直播录制时长上限: ",
+		ZhTW: "本次直播錄製時長上限: ",
+		EnUS: "Live recording duration limit: ",
+	},
+	"liveLimitReached": {
+		ZhCN: "到达直播录制上限，即将停止录制",
+		ZhTW: "到達直播錄製上限，即將停止錄製",
+		EnUS: "Live recording limit reached, will stop recording soon",
+	},
 	"muxOutput": {
 		ZhCN: "混流输出: %s",
 		ZhTW: "混流輸出: %s",
