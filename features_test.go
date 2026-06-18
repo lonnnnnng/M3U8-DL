@@ -2006,6 +2006,28 @@ func TestLiveRefreshWaitDurationHonorsExplicitOption(t *testing.T) {
 	}
 }
 
+func TestWaitLiveRefreshStopsOnContextCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := waitLiveRefresh(ctx, time.Hour); !errors.Is(err, context.Canceled) {
+		t.Fatalf("wait should stop when live context is canceled, got %v", err)
+	}
+}
+
+func TestIsContextCanceledRecognizesSignalContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if !isContextCanceled(ctx, errors.New("wrapped network error after signal")) {
+		t.Fatal("canceled context should be treated as live stop signal")
+	}
+	if !isContextCanceled(context.Background(), context.DeadlineExceeded) {
+		t.Fatal("deadline exceeded should be treated as context cancellation")
+	}
+	if isContextCanceled(context.Background(), errors.New("ordinary refresh error")) {
+		t.Fatal("ordinary refresh errors must still fail the live loop")
+	}
+}
+
 func TestLiveSegmentKeyUsesDateTime(t *testing.T) {
 	now := time.Date(2026, 1, 2, 3, 4, 5, 6, time.UTC)
 	if liveSegmentKey(Segment{DateTime: &now, URL: "x"}) != fmt.Sprintf("%d", now.Unix()) {

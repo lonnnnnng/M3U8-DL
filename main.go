@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -35,12 +37,18 @@ func main() {
 }
 
 func run() error {
-	opt, err := parseArgs(os.Args[1:])
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	return runWithContext(ctx, os.Args[1:], os.Args)
+}
+
+func runWithContext(ctx context.Context, args []string, command []string) error {
+	opt, err := parseArgs(args)
 	if err != nil {
 		return err
 	}
 	consoleRedirected := applyConsoleRedirectDefaults(&opt, os.Stdout, os.Stderr)
-	cleanupLog, _, err := setupLogging(opt, os.Args)
+	cleanupLog, _, err := setupLogging(opt, command)
 	if err != nil {
 		return err
 	}
@@ -62,7 +70,6 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	ctx := context.Background()
 	streams, p, err := parseSource(ctx, client, opt)
 	if err != nil {
 		return err
@@ -231,6 +238,7 @@ func downloadLiveRealtimeIfNeeded(ctx context.Context, client *http.Client, sele
 	wait := liveRefreshWaitDuration(selected, opt)
 	limit := liveRecordLimitOrForever(opt.LiveRecordLimit)
 	deadline, hasDeadline := liveRecordDeadline(opt.LiveRecordLimit, time.Now())
+liveLoop:
 	for !liveRecordLimitReached(selected, refreshedDurations, limit) && (!hasDeadline || time.Now().Before(deadline)) {
 		if err := waitLiveRefresh(ctx, wait); err != nil {
 			break
@@ -243,6 +251,9 @@ func downloadLiveRealtimeIfNeeded(ctx context.Context, client *http.Client, sele
 			allDone = false
 			next := selected[i]
 			if err := p.fetchPlaylist(ctx, &next); err != nil {
+				if isContextCanceled(ctx, err) {
+					break liveLoop
+				}
 				if pipeSession != nil {
 					_ = pipeSession.Close()
 				}
@@ -253,6 +264,9 @@ func downloadLiveRealtimeIfNeeded(ctx context.Context, client *http.Client, sele
 			if states[i] != nil {
 				states[i].stream = selected[i]
 				if err := states[i].downloadAndAppend(ctx, added); err != nil {
+					if isContextCanceled(ctx, err) {
+						break liveLoop
+					}
 					if pipeSession != nil {
 						_ = pipeSession.Close()
 					}
@@ -571,6 +585,7 @@ func recordLiveIfNeeded(ctx context.Context, client *http.Client, selected []Str
 	}
 	wait := liveRefreshWaitDuration(selected, opt)
 	deadline, hasDeadline := liveRecordDeadline(opt.LiveRecordLimit, time.Now())
+recordLoop:
 	for !hasDeadline || time.Now().Before(deadline) {
 		allDone := true
 		for i := range selected {
@@ -578,6 +593,9 @@ func recordLiveIfNeeded(ctx context.Context, client *http.Client, selected []Str
 				allDone = false
 				next := selected[i]
 				if err := p.fetchPlaylist(ctx, &next); err != nil {
+					if isContextCanceled(ctx, err) {
+						break recordLoop
+					}
 					return err
 				}
 				refreshedDurations[i] += appendNewLiveSegments(&selected[i], next)
@@ -596,6 +614,13 @@ func recordLiveIfNeeded(ctx context.Context, client *http.Client, selected []Str
 		}
 	}
 	return nil
+}
+
+func isContextCanceled(ctx context.Context, err error) bool {
+	if ctx != nil && ctx.Err() != nil {
+		return true
+	}
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
 func liveRecordLimitOrForever(limit *time.Duration) time.Duration {
