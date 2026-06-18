@@ -8,6 +8,7 @@ import (
 	"math"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strconv"
@@ -110,7 +111,11 @@ func parseArgs(args []string) (Options, error) {
 			if err != nil {
 				return opt, err
 			}
-			opt.LogFilePath = v
+			logPath, err := parseLogFilePathOption(v)
+			if err != nil {
+				return opt, err
+			}
+			opt.LogFilePath = logPath
 		case "--base-url":
 			v, err := next()
 			if err != nil {
@@ -493,6 +498,19 @@ func validSaveName(input string) string {
 	}
 	// long: 上游 GetValidFileName 只裁掉首尾句点，空格和下划线都属于用户显式文件名的一部分，不能复用更激进的输出路径 safeName。
 	return strings.Trim(b.String(), ".")
+}
+
+func parseLogFilePathOption(input string) (string, error) {
+	path, err := filepath.Abs(input)
+	if err != nil {
+		return "", errors.New("Invalid log path!")
+	}
+	filename := filepath.Base(path)
+	filename = validSaveName(filename)
+	if filename == "" {
+		return "", errors.New("Invalid log file name!")
+	}
+	return filepath.Join(filepath.Dir(path), filename), nil
 }
 
 func parseCustomRange(input string) (*CustomRange, error) {

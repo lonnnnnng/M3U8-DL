@@ -174,6 +174,27 @@ func TestParseArgsSaveNameRejectsEmptyAfterSanitize(t *testing.T) {
 	}
 }
 
+func TestParseArgsLogFilePathSanitizesLikeUpstream(t *testing.T) {
+	tmp := t.TempDir()
+	opt, err := parseArgs([]string{"--log-file-path", filepath.Join(tmp, `bad:name?.log`), "https://example.com/main.m3u8"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want, err := filepath.Abs(filepath.Join(tmp, "bad_name_.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opt.LogFilePath != want {
+		t.Fatalf("log file path should be absolute and sanitized, got %q want %q", opt.LogFilePath, want)
+	}
+}
+
+func TestParseArgsLogFilePathRejectsEmptyFileNameLikeUpstream(t *testing.T) {
+	if _, err := parseArgs([]string{"--log-file-path", "...", "https://example.com/main.m3u8"}); err == nil || !strings.Contains(err.Error(), "Invalid log file name!") {
+		t.Fatalf("expected invalid log file name to be rejected like upstream, got %v", err)
+	}
+}
+
 func TestParseArgsHeaderAcceptsMultipleValuesAfterOneFlag(t *testing.T) {
 	opt, err := parseArgs([]string{
 		"--header",
