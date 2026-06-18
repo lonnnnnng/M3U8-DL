@@ -2179,6 +2179,35 @@ func TestExternalMP4DecryptCommand(t *testing.T) {
 	}
 }
 
+func TestExternalDecryptSkipsStandaloneInitForShakaAndFFmpegLikeUpstream(t *testing.T) {
+	tmp := t.TempDir()
+	src := filepath.Join(tmp, "_init.mp4")
+	if err := os.WriteFile(src, []byte("init"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	for _, engine := range []string{"SHAKA_PACKAGER", "FFMPEG"} {
+		t.Run(engine, func(t *testing.T) {
+			opt := defaultOptions()
+			opt.DecryptionEngine = engine
+			opt.DecryptionBinaryPath = filepath.Join(tmp, "missing-"+engine)
+			opt.Keys = []string{"11111111111111111111111111111111:00112233445566778899aabbccddeeff"}
+			out, err := decryptMP4File(src, opt, "11111111111111111111111111111111", "")
+			if err != nil {
+				t.Fatalf("standalone init should be skipped before tool lookup, got %v", err)
+			}
+			if out != src {
+				t.Fatalf("standalone init should stay at original path, got %s", out)
+			}
+			if b, err := os.ReadFile(src); err != nil || string(b) != "init" {
+				t.Fatalf("standalone init should not be modified, data=%q err=%v", b, err)
+			}
+			if _, err := os.Stat(strings.TrimSuffix(src, filepath.Ext(src)) + "_dec" + filepath.Ext(src)); !os.IsNotExist(err) {
+				t.Fatalf("standalone init should not create decrypted side file, stat err=%v", err)
+			}
+		})
+	}
+}
+
 func TestMP4DecryptUsesTempNamesWorkingDirectoryAndRelativeInit(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell helper is unix-only")

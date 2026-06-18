@@ -21,7 +21,7 @@ go run . "<m3u8-url-or-file>" --auto-select --save-dir ./downloads -M format=mp4
 - CHACHA20 分片解密
 - 无法识别的 HLS 加密方式按 `UNKNOWN` 保留原始分片，并自动启用二进制合并
 - 检测到 fMP4 或 CENC 加密方式时自动启用二进制合并
-- CENC/SAMPLE-AES/SAMPLE-AES-CTR 下载后外部工具解密入口，含基础实时分片解密路径；实时 MP4 解密会先保留原始 init 读取 KID，本地读不到且使用 shaka 时会先从缺 key 错误探测 `key_id`；shaka/ffmpeg 实时解密会按上游把 init 与媒体分片交给外部工具并避免最终重复合并 init，实时解密开启后也不会在合并产物上重复整文件解密
+- CENC/SAMPLE-AES/SAMPLE-AES-CTR 下载后外部工具解密入口，含基础实时分片解密路径；实时 MP4 解密会先保留原始 init 读取 KID，本地读不到且使用 shaka 时会先从缺 key 错误探测 `key_id`；shaka/ffmpeg 实时解密会按上游跳过单独 `_init.mp4`，再把 init 与媒体分片交给外部工具并避免最终重复合并 init，实时解密开启后也不会在合并产物上重复整文件解密
 - `mp4decrypt` 按上游在媒体目录临时改名并切换工作目录执行，同目录 init 信息使用相对文件名，兼容中文/特殊路径
 - 传入 `--key`/`--key-text-file` 时提前校验外部解密工具路径
 - HTTP 请求头、代理、超时、重试、playlist/key 默认 `Accept-Encoding: gzip, deflate` 与 `Cache-Control: no-cache`、gzip/deflate/br 响应解压、并发下载

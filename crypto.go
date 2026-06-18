@@ -209,6 +209,10 @@ func decryptMP4File(path string, opt Options, kid string, initPath string) (stri
 		multiDRM = detectedMultiDRM
 	}
 	engine := strings.ToUpper(opt.DecryptionEngine)
+	if strings.HasSuffix(path, "_init.mp4") && engine != "MP4DECRYPT" && engine != "" {
+		// long: shaka-packager/ffmpeg 需要 init+media 才能解密，原版遇到单独 _init.mp4 会直接跳过，避免把 init 文件误交给外部工具。
+		return path, nil
+	}
 	bin := opt.DecryptionBinaryPath
 	if bin == "" {
 		switch engine {
