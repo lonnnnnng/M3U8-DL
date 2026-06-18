@@ -1947,6 +1947,48 @@ func TestMuxOutputsByFFmpegUsesMuxBinPath(t *testing.T) {
 	}
 }
 
+func TestMuxOutputsByFFmpegCleansOnlyActualInputsLikeUpstream(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell helper is unix-only")
+	}
+	tmp := t.TempDir()
+	videoPath := filepath.Join(tmp, "video.mp4")
+	skippedSubPath := filepath.Join(tmp, "downloaded-sub.srt")
+	importSubPath := filepath.Join(tmp, "import-sub.srt")
+	for _, p := range []string{videoPath, skippedSubPath, importSubPath} {
+		if err := os.WriteFile(p, []byte("track"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tool := filepath.Join(tmp, "ffmpeg")
+	script := "#!/bin/sh\nlast=\"\"\nfor arg in \"$@\"; do last=\"$arg\"; done\nprintf muxed > \"$last\"\n"
+	if err := os.WriteFile(tool, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	sub := MediaSubtitles
+	opt := defaultOptions()
+	opt.SaveDir = tmp
+	opt.SaveName = "mux-cleanup"
+	opt.FFmpegBinaryPath = tool
+	opt.MuxAfterDone = &MuxOptions{Format: "mp4", Muxer: "ffmpeg", Keep: false, SkipSubtitle: true}
+	opt.MuxImports = []string{"path=" + importSubPath + ":lang=en:name=External"}
+	if _, err := muxOutputs([]outputFile{
+		{Path: videoPath},
+		{Path: skippedSubPath, MediaType: &sub},
+	}, opt); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(videoPath); !os.IsNotExist(err) {
+		t.Fatalf("actual video input should be cleaned, stat err=%v", err)
+	}
+	if _, err := os.Stat(importSubPath); !os.IsNotExist(err) {
+		t.Fatalf("mux-import input should be cleaned like upstream, stat err=%v", err)
+	}
+	if _, err := os.Stat(skippedSubPath); err != nil {
+		t.Fatalf("skip_sub subtitle should be kept, stat err=%v", err)
+	}
+}
+
 func TestFFmpegMergeSupportsAdditionalUpstreamFormats(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell helper is unix-only")

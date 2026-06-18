@@ -178,7 +178,7 @@
 | 保存名/模板 | 文件名清理、模板变量、冲突处理 | 已支持上游清理语义、模板变量和冲突命名 | 已追平 |
 | 二进制合并 | 普通分片合并、分批预合并 | 已支持，超长列表可分批预合并 | 已追平 |
 | ffmpeg 单轨合并 | concat protocol/demuxer、多输出格式 | 已支持 `mp4/mkv/flv/ts/m4a/aac/eac3/ac3` 等常见路径 | 基本追平 |
-| 最终混流 | ffmpeg/mkvmerge、metadata、disposition | 已支持多轨混流、语言/标题元数据、默认轨道标记、外部导入 | 基本追平 |
+| 最终混流 | ffmpeg/mkvmerge、metadata、disposition | 已支持多轨混流、语言/标题元数据、默认轨道标记、外部导入，并按上游处理 keep=false 清理范围 | 基本追平 |
 | `--mux-import` | 多外部轨道导入 | 已支持多条导入和存在性校验 | 已追平 |
 | `--skip-download` | 只解析/写 meta | 已支持 | 已追平 |
 | `--skip-merge` | 保留分片目录 | 已支持，且不触发最终 `-M` | 已追平 |

@@ -225,7 +225,8 @@ func muxOutputs(files []outputFile, opt Options) (string, error) {
 		return "", fmt.Errorf("最终混流失败: %v\n%s", err, string(out))
 	}
 	if !mux.Keep {
-		for _, f := range files {
+		for _, f := range inputs {
+			// long: 上游在最终混流时会先应用 skip_sub、再追加 mux-import，清理阶段只删除实际参与混流的轨道；这样被 skip_sub 跳过的字幕会保留，而外部导入轨会按 keep=false 一并清理。
 			_ = os.Remove(f.Path)
 		}
 	}
