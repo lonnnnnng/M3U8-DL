@@ -439,11 +439,19 @@ func TestParseArgsStreamFilterRejectsInvalidValuesLikeUpstream(t *testing.T) {
 }
 
 func TestParseArgsMuxImportAcceptsMultipleValuesAfterOneFlag(t *testing.T) {
+	tmp := t.TempDir()
+	en := filepath.Join(tmp, "extra-en.srt")
+	ja := filepath.Join(tmp, "extra-ja.srt")
+	for _, path := range []string{en, ja} {
+		if err := os.WriteFile(path, []byte("1\n00:00:00,000 --> 00:00:01,000\nhi\n"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
 	opt, err := parseArgs([]string{
 		"-M", "format=mp4",
 		"--mux-import",
-		"path=extra-en.srt:lang=en:name=English",
-		"path=extra-ja.srt:lang=ja:name=Japanese",
+		"path=" + en + ":lang=en:name=English",
+		"path=" + ja + ":lang=ja:name=Japanese",
 		"https://example.com/main.m3u8",
 	})
 	if err != nil {
@@ -454,6 +462,27 @@ func TestParseArgsMuxImportAcceptsMultipleValuesAfterOneFlag(t *testing.T) {
 	}
 	if len(opt.MuxImports) != 2 {
 		t.Fatalf("expected two mux imports from one flag, got %#v", opt.MuxImports)
+	}
+}
+
+func TestParseArgsMuxImportRejectsMissingPathLikeUpstream(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		arg  string
+	}{
+		{name: "empty", arg: "path="},
+		{name: "missing file", arg: "path=/no/such/file.srt:lang=zh"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := parseArgs([]string{
+				"-M", "format=mp4",
+				"--mux-import", tc.arg,
+				"https://example.com/main.m3u8",
+			})
+			if err == nil || !strings.Contains(err.Error(), "path empty or file not exists!") {
+				t.Fatalf("expected upstream mux-import path error, got %v", err)
+			}
+		})
 	}
 }
 

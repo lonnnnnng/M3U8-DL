@@ -379,10 +379,16 @@ func parseArgs(args []string) (Options, error) {
 			if err != nil {
 				return opt, err
 			}
+			if err := validateMuxImportArg(v); err != nil {
+				return opt, err
+			}
 			opt.MuxImports = append(opt.MuxImports, v)
 			for i+1 < len(args) && !isOptionToken(args[i+1]) && !isLikelyInput(args[i+1]) {
 				// long: 上游 --mux-import 是 OneOrMore，单个 flag 后可接多个外部轨道；遇到 m3u8 输入时停止，避免吞掉位置参数。
 				i++
+				if err := validateMuxImportArg(args[i]); err != nil {
+					return opt, err
+				}
 				opt.MuxImports = append(opt.MuxImports, args[i])
 			}
 		case "-sv", "--select-video":
@@ -902,6 +908,18 @@ func isLikelyInput(input string) bool {
 		strings.HasPrefix(lower, "https://") ||
 		strings.HasPrefix(lower, "file:") ||
 		strings.HasSuffix(lower, ".m3u8")
+}
+
+func validateMuxImportArg(raw string) error {
+	path := muxImportPath(raw)
+	// long: 上游 ParseImports 会在命令行解析阶段拒绝空路径或不存在的外部轨道，提前失败可避免后续把无效字幕/音轨混入任务状态。
+	if path == "" {
+		return errors.New("path empty or file not exists!")
+	}
+	if _, err := os.Stat(path); err != nil {
+		return errors.New("path empty or file not exists!")
+	}
+	return nil
 }
 
 func usage() string {
