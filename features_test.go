@@ -2556,6 +2556,65 @@ func TestFFmpegMergeAACFilterIsConditional(t *testing.T) {
 	}
 }
 
+func TestFFmpegMergeMetadataMatchesUpstreamMP4Only(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell helper is unix-only")
+	}
+	tmp := t.TempDir()
+	in := filepath.Join(tmp, "clip.ts")
+	if err := os.WriteFile(in, []byte("track"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	logPath := filepath.Join(tmp, "merge-args.txt")
+	tool := filepath.Join(tmp, "ffmpeg")
+	script := fmt.Sprintf("#!/bin/sh\nprintf '%%s\\n' \"$@\" > %q\nlast=\"\"\nfor arg in \"$@\"; do last=\"$arg\"; done\nprintf merged > \"$last\"\n", logPath)
+	if err := os.WriteFile(tool, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	opt := defaultOptions()
+	opt.FFmpegBinaryPath = tool
+
+	if _, err := ffmpegMerge([]string{in}, filepath.Join(tmp, "single-mp4"), "mp4", opt, false); err != nil {
+		t.Fatal(err)
+	}
+	argsBytes, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mp4Args := "\n" + string(argsBytes)
+	for _, want := range []string{
+		"\n-metadata\ndate=",
+		"\n-metadata\nencoding_tool=\n",
+		"\n-metadata\ntitle=\n",
+		"\n-metadata\ncopyright=\n",
+		"\n-metadata\ncomment=\n",
+		"\n-metadata:s:a:0\ntitle=\n",
+		"\n-metadata:s:a:0\nhandler=\n",
+	} {
+		if !strings.Contains(mp4Args, want) {
+			t.Fatalf("MP4 ffmpeg merge args should include upstream metadata %q:\n%s", want, mp4Args)
+		}
+	}
+
+	if _, err := ffmpegMerge([]string{in}, filepath.Join(tmp, "single-mkv"), "mkv", opt, false); err != nil {
+		t.Fatal(err)
+	}
+	argsBytes, err = os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mkvArgs := "\n" + string(argsBytes)
+	for _, unexpected := range []string{
+		"\n-metadata\ndate=",
+		"\n-metadata\nencoding_tool=\n",
+		"\n-metadata:s:a:0\nhandler=\n",
+	} {
+		if strings.Contains(mkvArgs, unexpected) {
+			t.Fatalf("non-MP4 ffmpeg merge should not receive MP4-only metadata %q:\n%s", unexpected, mkvArgs)
+		}
+	}
+}
+
 func TestPartialCombineMultipleFilesMatchesUpstreamChunking(t *testing.T) {
 	tmp := t.TempDir()
 	var files []string

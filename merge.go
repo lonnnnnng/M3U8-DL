@@ -58,12 +58,21 @@ func ffmpegMerge(files []string, outputBase, format string, opt Options, useAACF
 		}
 		args = append(args, "-i", "concat:"+strings.Join(rel, "|"))
 	}
-	if !opt.NoDateInfo {
-		args = append(args, "-metadata", "date="+time.Now().Format(time.RFC3339))
-	}
 	switch format {
 	case "mp4":
 		args = append(args, "-map", "0:v?", "-map", "0:a?", "-map", "0:s?", "-c", "copy")
+		if !opt.NoDateInfo {
+			// long: 原版单轨 ffmpeg 合并只在 MP4 分支写 date；其他容器不应被提前塞入 metadata，避免参数面和输出标签偏离上游。
+			args = append(args, "-metadata", "date="+time.Now().Format(time.RFC3339Nano))
+		}
+		args = append(args,
+			"-metadata", "encoding_tool=",
+			"-metadata", "title=",
+			"-metadata", "copyright=",
+			"-metadata", "comment=",
+			"-metadata:s:a:0", "title=",
+			"-metadata:s:a:0", "handler=",
+		)
 		if useAACFilter {
 			args = append(args, "-bsf:a", "aac_adtstoasc")
 		}
