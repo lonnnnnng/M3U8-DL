@@ -830,7 +830,7 @@ func readSpecialSegmentBytes(seg Segment) ([]byte, bool, bool, error) {
 	case strings.HasPrefix(seg.URL, "base64://"):
 		data, err = base64.StdEncoding.DecodeString(seg.URL[len("base64://"):])
 	case strings.HasPrefix(seg.URL, "hex://"):
-		data, err = hex.DecodeString(seg.URL[len("hex://"):])
+		data, err = decodeInlineHexSegment(seg.URL[len("hex://"):])
 	case strings.HasPrefix(seg.URL, "file:"):
 		u, parseErr := url.Parse(seg.URL)
 		if parseErr != nil {
@@ -854,6 +854,15 @@ func readSpecialSegmentBytes(seg Segment) ([]byte, bool, bool, error) {
 		}
 	}
 	return data, true, applyRange, nil
+}
+
+func decodeInlineHexSegment(raw string) ([]byte, error) {
+	clean := strings.TrimSpace(raw)
+	if strings.HasPrefix(clean, "0x") || strings.HasPrefix(clean, "0X") {
+		// long: 上游 HexUtil.HexToBytes 会先裁掉 0x/0X 前缀；HLS 内联 hex 分片也走这条工具函数，带前缀的片段不能被误判为坏 URL。
+		clean = clean[2:]
+	}
+	return hex.DecodeString(clean)
 }
 
 func applySegmentRange(data []byte, seg Segment) ([]byte, error) {

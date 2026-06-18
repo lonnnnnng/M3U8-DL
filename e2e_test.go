@@ -751,6 +751,37 @@ func TestDownloadInlineSegmentsIgnoreByteRangeLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestDownloadHexSegmentTrimsPrefixLikeUpstream(t *testing.T) {
+	tmp := t.TempDir()
+	tests := []struct {
+		name string
+		url  string
+		want string
+	}{
+		{name: "lower prefix", url: "hex://0x303132", want: "012"},
+		{name: "upper prefix and spaces", url: "hex:// 0X333435 ", want: "345"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := filepath.Join(tmp, tt.name+".ts")
+			got, err := downloadSegment(context.Background(), http.DefaultClient, Segment{URL: tt.url}, out, defaultOptions(), nil, "", "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != out {
+				t.Fatalf("expected output path %s, got %s", out, got)
+			}
+			data, err := os.ReadFile(out)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(data) != tt.want {
+				t.Fatalf("hex inline segment should trim and drop 0x prefix like upstream, got %q want %q", data, tt.want)
+			}
+		})
+	}
+}
+
 func TestDownloadMissingSegmentFailsWhenCheckEnabled(t *testing.T) {
 	var base string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
