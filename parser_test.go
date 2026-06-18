@@ -1123,6 +1123,40 @@ func TestParseMediaKeyQuotedURIWinsAfterLooseSuffixLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestParseMediaKeyInlineBase64IgnoresWhitespaceLikeUpstream(t *testing.T) {
+	tests := []struct {
+		name string
+		uri  string
+	}{
+		{name: "base64", uri: "base64: MDEy\tMzQ1 Njc4OWFiY2RlZg== "},
+		{name: "data text plain", uri: "data:text/plain;base64, MDEy\tMzQ1 Njc4OWFiY2RlZg== "},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opt := defaultOptions()
+			p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}
+			raw := `#EXTM3U
+#EXT-X-TARGETDURATION:8
+#EXT-X-KEY:METHOD=AES-128,URI="` + tt.uri + `"
+#EXTINF:8.0,
+0.ts
+#EXT-X-ENDLIST
+`
+			pl, err := p.parseMedia(context.Background(), raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			segs := sortedSegments(pl)
+			if len(segs) != 1 || segs[0].Encrypt.Method != EncryptAES128 {
+				t.Fatalf("inline base64 key should keep AES-128 like upstream, got %#v", segs)
+			}
+			if string(segs[0].Encrypt.Key) != "0123456789abcdef" {
+				t.Fatalf("inline base64 key should ignore whitespace like upstream, got %q", string(segs[0].Encrypt.Key))
+			}
+		})
+	}
+}
+
 func TestParseMediaKeyMethodIsCaseSensitiveLikeUpstream(t *testing.T) {
 	opt := defaultOptions()
 	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}

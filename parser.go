@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"net/http"
@@ -516,11 +515,11 @@ func (p *parser) loadHLSKey(ctx context.Context, uri string) ([]byte, error) {
 	lower := strings.ToLower(uri)
 	switch {
 	case strings.HasPrefix(lower, "base64:"):
-		return base64.StdEncoding.DecodeString(uri[7:])
+		return decodeInlineBase64Segment(uri[7:])
 	case strings.HasPrefix(lower, "data:;base64,"):
-		return base64.StdEncoding.DecodeString(uri[13:])
+		return decodeInlineBase64Segment(uri[13:])
 	case strings.HasPrefix(lower, "data:text/plain;base64,"):
-		return base64.StdEncoding.DecodeString(uri[23:])
+		return decodeInlineBase64Segment(uri[23:])
 	case fileExists(uri):
 		return os.ReadFile(uri)
 	default:
