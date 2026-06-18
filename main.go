@@ -278,6 +278,7 @@ func downloadLiveRealtimeIfNeeded(ctx context.Context, client *http.Client, sele
 		}
 		pipeOutput = &outputFile{Path: pipeSession.OutputPath}
 	}
+	audioStart := liveRealtimeAudioStart(opt, selected, outs)
 	for i := range selected {
 		if pipeSession != nil && states[i] != nil {
 			continue
@@ -285,7 +286,7 @@ func downloadLiveRealtimeIfNeeded(ctx context.Context, client *http.Client, sele
 		if ok[i] || selected[i].Playlist == nil {
 			continue
 		}
-		out, err := downloadStream(ctx, client, streamForTask(selected[i], i), opt, limiter, nil)
+		out, err := downloadStream(ctx, client, streamForTask(selected[i], i), opt, limiter, audioStart)
 		if err != nil {
 			return nil, true, err
 		}
@@ -302,6 +303,23 @@ func downloadLiveRealtimeIfNeeded(ctx context.Context, client *http.Client, sele
 		}
 	}
 	return ordered, true, nil
+}
+
+func liveRealtimeAudioStart(opt Options, selected []StreamSpec, outs []outputFile) *liveAudioStartTracker {
+	if !opt.LiveFixVTTByAudio || !hasSelectedAudio(selected) {
+		return nil
+	}
+	tracker := &liveAudioStartTracker{}
+	for i, stream := range selected {
+		if stream.MediaType == nil || *stream.MediaType != MediaAudio || i >= len(outs) || outs[i].Path == "" {
+			continue
+		}
+		if start, ok := mediaInfosAudioStart(probeMediaInfo(outs[i].Path, opt)); ok {
+			tracker.set(start)
+			break
+		}
+	}
+	return tracker
 }
 
 func prepareSelectedStreams(selected []StreamSpec, opt *Options) []string {
@@ -326,6 +344,10 @@ func prepareSelectedStreams(selected []StreamSpec, opt *Options) []string {
 		// long: 原版直播录制会在任务启动时强制多轨并发和 MP4 实时解密，避免直播 fMP4/CENC 等到整轨结束后才补救解密。
 		opt.ConcurrentDownload = true
 		opt.MP4RealTimeDecryption = true
+		if opt.LiveFixVTTByAudio && !hasSelectedAudio(selected) {
+			// long: 没有音频轨时不存在可用于修正 WebVTT 的音频 start_time；原版会直接关闭该直播字幕修正开关。
+			opt.LiveFixVTTByAudio = false
+		}
 	}
 	if shouldWarnRealtimeDecryption(opt) {
 		// long: 上游在 MP4 实时解密配合 mp4decrypt/ffmpeg 和明文 key 时会提示更推荐 Shaka，避免用户误以为所有实时分片解密引擎稳定性相同。

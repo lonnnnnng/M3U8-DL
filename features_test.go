@@ -1524,6 +1524,43 @@ func TestPrepareSelectedStreamsLiveForcesRecordOptionsLikeUpstream(t *testing.T)
 	}
 }
 
+func TestPrepareSelectedStreamsDisablesLiveVTTFixWithoutAudioLikeUpstream(t *testing.T) {
+	sub := MediaSubtitles
+	streams := []StreamSpec{{
+		MediaType: &sub,
+		Playlist:  &Playlist{IsLive: true, Parts: []MediaPart{{Segments: []Segment{{Index: 0, Duration: 1}}}}},
+	}}
+	opt := defaultOptions()
+	opt.LiveFixVTTByAudio = true
+	prepareSelectedStreams(streams, &opt)
+	if opt.LiveFixVTTByAudio {
+		t.Fatal("live-fix-vtt-by-audio should be disabled when no audio stream is selected")
+	}
+}
+
+func TestDownloadSubtitleWithLiveVTTFixNoAudioTrackerDoesNotPanic(t *testing.T) {
+	tmp := t.TempDir()
+	sub := MediaSubtitles
+	opt := defaultOptions()
+	opt.SaveDir = tmp
+	opt.TmpDir = filepath.Join(tmp, "tmp")
+	opt.SaveName = "sub"
+	opt.LiveFixVTTByAudio = true
+	stream := StreamSpec{
+		ID:        0,
+		MediaType: &sub,
+		Extension: "vtt",
+		Playlist: &Playlist{Parts: []MediaPart{{Segments: []Segment{{
+			Index:    0,
+			URL:      "base64://V0VCVlRUCgowMDowMDowMC4wMDAgLS0+IDAwOjAwOjAxLjAwMApIaQo=",
+			Duration: 1,
+		}}}}},
+	}
+	if _, err := downloadStream(context.Background(), http.DefaultClient, stream, opt, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestPrepareSelectedStreamsWarnsRealtimeDecryptEngineLikeUpstream(t *testing.T) {
 	streams := []StreamSpec{{
 		Playlist: &Playlist{Parts: []MediaPart{{Segments: []Segment{{Index: 0, Duration: 1}}}}},

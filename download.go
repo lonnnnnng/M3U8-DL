@@ -416,11 +416,14 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 	mediaInfos := probeMediaInfo(firstMediaProbeFile(files), opt)
 	applyMediaInfoToStream(&s, &opt, mediaInfos)
 	useAACFilter := mediaInfosUseAACFilter(mediaInfos)
-	if start, ok := mediaInfosAudioStart(mediaInfos); ok && s.MediaType != nil && *s.MediaType == MediaAudio {
-		audioStart.set(start)
+	if audioStart != nil && s.MediaType != nil && *s.MediaType == MediaAudio {
+		start, ok := mediaInfosAudioStart(mediaInfos)
+		if ok {
+			audioStart.set(start)
+		}
 	}
 	liveSubtitleOffset := time.Duration(s.SkippedDuration * float64(time.Second))
-	if opt.LiveFixVTTByAudio && s.MediaType != nil && *s.MediaType == MediaSubtitles {
+	if opt.LiveFixVTTByAudio && audioStart != nil && s.MediaType != nil && *s.MediaType == MediaSubtitles {
 		if start, ok := audioStart.wait(5 * time.Second); ok {
 			// long: 直播 WebVTT 有时以音频轨的非零 start_time 为时间基准，上游会等待音频探测结果并扣掉这段偏移，避免字幕整体晚出。
 			liveSubtitleOffset += start
