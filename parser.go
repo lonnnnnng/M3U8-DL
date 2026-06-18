@@ -83,6 +83,9 @@ func (p *parser) parseMaster(raw string) ([]StreamSpec, error) {
 		}
 		switch {
 		case strings.HasPrefix(line, "#EXT-X-STREAM-INF"):
+			if err := ensureQuotedAttrsClosed(line, "AVERAGE-BANDWIDTH", "BANDWIDTH", "CODECS", "RESOLUTION", "FRAME-RATE", "AUDIO", "VIDEO", "SUBTITLES", "VIDEO-RANGE"); err != nil {
+				return nil, err
+			}
 			cur = StreamSpec{OriginalURL: p.originalURL}
 			bw := attr(line, "AVERAGE-BANDWIDTH")
 			if bw == "" {
@@ -113,6 +116,9 @@ func (p *parser) parseMaster(raw string) ([]StreamSpec, error) {
 			}
 			expectPlaylist = true
 		case strings.HasPrefix(line, "#EXT-X-MEDIA"):
+			if err := ensureQuotedAttrsClosed(line, "TYPE", "URI", "GROUP-ID", "LANGUAGE", "NAME", "DEFAULT", "CHANNELS", "CHARACTERISTICS"); err != nil {
+				return nil, err
+			}
 			if !strings.Contains(line, "TYPE=") {
 				// long: 上游会对缺失 TYPE 的 EXT-X-MEDIA 调用 null.Replace 并中断解析；这里显式返回错误，避免悄悄保留一条原版不会接受的媒体轨道。
 				return nil, fmt.Errorf("EXT-X-MEDIA missing TYPE")

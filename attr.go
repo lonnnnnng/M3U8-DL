@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -50,6 +51,26 @@ func attrExists(line, key string) bool {
 		start = idx + len(prefix)
 	}
 	return false
+}
+
+func malformedQuotedAttr(line, key string) bool {
+	prefix := key + "=\""
+	i := strings.Index(line, prefix)
+	if i < 0 {
+		return false
+	}
+	rest := line[i+len(prefix):]
+	return !strings.Contains(rest, "\"")
+}
+
+func ensureQuotedAttrsClosed(line string, keys ...string) error {
+	for _, key := range keys {
+		if malformedQuotedAttr(line, key) {
+			// long: 原版 ParserUtil.GetAttribute 在被读取属性缺少闭合引号时会切片越界并中断；这里显式报错，避免坏 Master 被继续解析。
+			return fmt.Errorf("%s quoted attribute is not closed", key)
+		}
+	}
+	return nil
 }
 
 func parseByteRange(input string) (length int64, start *int64, err error) {

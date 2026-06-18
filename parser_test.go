@@ -138,6 +138,31 @@ func TestParseMasterInvalidNumericFieldsFailLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestParseMasterMalformedQuotedAttributesFailLikeUpstream(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+	}{
+		{
+			name: "stream codecs",
+			raw:  "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=2000,CODECS=\"avc1\nvideo.m3u8\n",
+		},
+		{
+			name: "media uri",
+			raw:  "#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"aud\",URI=\"audio.m3u8\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opt := defaultOptions()
+			p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/master.m3u8", currentURL: "https://example.com/master.m3u8", baseURL: "https://example.com/master.m3u8", rawFiles: map[string]string{}}
+			if _, err := p.parseMaster(tt.raw); err == nil {
+				t.Fatal("malformed quoted master attribute should fail like upstream GetAttribute")
+			}
+		})
+	}
+}
+
 func TestParseMasterMissingBandwidthDefaultsToZeroLikeUpstream(t *testing.T) {
 	opt := defaultOptions()
 	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/master.m3u8", currentURL: "https://example.com/master.m3u8", baseURL: "https://example.com/master.m3u8", rawFiles: map[string]string{}}
