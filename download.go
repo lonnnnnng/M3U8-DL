@@ -829,7 +829,7 @@ func readSpecialSegmentBytes(seg Segment) ([]byte, bool, error) {
 		if parseErr != nil {
 			return nil, true, parseErr
 		}
-		data, err = os.ReadFile(u.Path)
+		data, err = os.ReadFile(fileURLPath(u))
 	case !strings.HasPrefix(seg.URL, "http://") && !strings.HasPrefix(seg.URL, "https://"):
 		data, err = os.ReadFile(seg.URL)
 	default:

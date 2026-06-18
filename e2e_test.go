@@ -808,6 +808,37 @@ func TestDownloadSegmentReusesExistingDecryptedFile(t *testing.T) {
 	}
 }
 
+func TestDownloadFileURLByteRangeUsesLocalPathLikeUpstream(t *testing.T) {
+	tmp := t.TempDir()
+	source := filepath.Join(tmp, "range source.ts")
+	if err := os.WriteFile(source, []byte("0123456789"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	abs, err := filepath.Abs(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceURL := (&url.URL{Scheme: "file", Host: "localhost", Path: filepath.ToSlash(abs)}).String()
+	out := filepath.Join(tmp, "seg.ts")
+	start := int64(2)
+	length := int64(4)
+	seg := Segment{URL: sourceURL, Index: 0, StartRange: &start, ExpectLength: &length}
+	got, err := downloadSegment(context.Background(), http.DefaultClient, seg, out, defaultOptions(), nil, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != out {
+		t.Fatalf("expected output path %s, got %s", out, got)
+	}
+	data, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "2345" {
+		t.Fatalf("file URL BYTERANGE should copy local byte window like upstream, got %q", data)
+	}
+}
+
 func TestDownloadSubtitleFixRemovesSourceSegmentsLikeUpstream(t *testing.T) {
 	tmp := t.TempDir()
 	source := filepath.Join(tmp, "source.vtt")
