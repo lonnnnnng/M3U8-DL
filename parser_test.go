@@ -595,6 +595,36 @@ func TestParseMediaEmptyLivePlaylistKeepsEmptyPartLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestParseMediaUplynkAdStateOnlyEndsOnSegmentMarkerLikeUpstream(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}
+	raw := `#EXTM3U
+#EXT-X-TARGETDURATION:4
+#UPLYNK-SEGMENT:0,segment
+#EXTINF:4.0,
+main0.ts
+#UPLYNK-SEGMENT:1,ad
+#UPLYNK-SEGMENT:1,cue
+#EXTINF:4.0,
+ad0.ts
+#UPLYNK-SEGMENT:2,segment
+#EXTINF:4.0,
+main1.ts
+#EXT-X-ENDLIST
+`
+	pl, err := p.parseMedia(context.Background(), raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segs := sortedSegments(pl)
+	if len(segs) != 2 {
+		t.Fatalf("Uplynk ad state should skip cue-only ad segment like upstream, got %#v", segs)
+	}
+	if segs[0].URL != "https://example.com/main0.ts" || segs[1].URL != "https://example.com/main1.ts" {
+		t.Fatalf("unexpected Uplynk filtered segments: %#v", segs)
+	}
+}
+
 func TestParseMediaCachesRepeatedKeyLine(t *testing.T) {
 	var keyHits int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

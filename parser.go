@@ -278,7 +278,12 @@ func (p *parser) parseMedia(ctx context.Context, raw string) (*Playlist, error) 
 		case strings.HasPrefix(line, "#EXT-X-PLAYLIST-TYPE"):
 			isEnd = strings.HasSuffix(line, "VOD")
 		case strings.HasPrefix(line, "#UPLYNK-SEGMENT"):
-			isAd = strings.Contains(line, ",ad")
+			if strings.Contains(line, ",ad") {
+				isAd = true
+			} else if strings.Contains(line, ",segment") {
+				// long: Uplynk 广告区中间可能穿插普通元数据行，只有明确回到 segment 状态时才结束广告过滤。
+				isAd = false
+			}
 		case isAd:
 			continue
 		case strings.HasPrefix(line, "#EXT-X-TARGETDURATION"):
