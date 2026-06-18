@@ -1032,6 +1032,32 @@ func TestParseMediaKeyMissingURIDowngradesToUnknownLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestParseMediaKeyEmptyURIKeepsMethodLikeUpstream(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}
+	raw := `#EXTM3U
+#EXT-X-TARGETDURATION:8
+#EXT-X-KEY:METHOD=AES-128,URI=""
+#EXTINF:8.0,
+0.ts
+#EXT-X-ENDLIST
+`
+	pl, err := p.parseMedia(context.Background(), raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segs := sortedSegments(pl)
+	if len(segs) != 1 {
+		t.Fatalf("want 1 segment, got %#v", segs)
+	}
+	if segs[0].Encrypt.Method != EncryptAES128 {
+		t.Fatalf("empty URI should keep parsed METHOD like upstream, got %#v", segs[0].Encrypt)
+	}
+	if len(segs[0].Encrypt.Key) != 0 {
+		t.Fatalf("empty URI should not load a key, got %x", segs[0].Encrypt.Key)
+	}
+}
+
 func TestParseMediaKeyMethodIsCaseSensitiveLikeUpstream(t *testing.T) {
 	opt := defaultOptions()
 	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}

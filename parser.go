@@ -487,15 +487,19 @@ func (p *parser) parseKey(ctx context.Context, line string) (EncryptInfo, error)
 	if len(p.opt.CustomHLSIV) > 0 {
 		ei.IV = p.opt.CustomHLSIV
 	}
+	uri := attr(line, "URI")
+	hasURI := attrExists(line, "URI")
 	if len(p.opt.CustomHLSKey) > 0 {
 		ei.Key = p.opt.CustomHLSKey
-	} else if uri := attr(line, "URI"); uri != "" {
-		key, err := p.loadHLSKey(ctx, uri)
-		if err != nil {
-			// long: 上游 key 加载失败时不会中断解析，而是把该加密标成 UNKNOWN，让下载阶段保留原始分片供后续外部处理。
-			ei.Method = EncryptUnknown
-		} else {
-			ei.Key = key
+	} else if hasURI {
+		if uri != "" {
+			key, err := p.loadHLSKey(ctx, uri)
+			if err != nil {
+				// long: 上游 key 加载失败时不会中断解析，而是把该加密标成 UNKNOWN，让下载阶段保留原始分片供后续外部处理。
+				ei.Method = EncryptUnknown
+			} else {
+				ei.Key = key
+			}
 		}
 	} else {
 		// long: 上游缺少 URI 时会在 uri.ToLower() 处进入异常分支并降级 UNKNOWN；即便 METHOD=NONE 也保持这个兼容行为。
