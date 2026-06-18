@@ -2809,6 +2809,36 @@ func TestProbeMediaInfoReadsAudioStartTime(t *testing.T) {
 	}
 }
 
+func TestProbeMediaInfoUnknownFallbackLikeUpstream(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell helper is unix-only")
+	}
+	tmp := t.TempDir()
+	ffmpeg := filepath.Join(tmp, "ffmpeg")
+	ffprobe := filepath.Join(tmp, "ffprobe")
+	if err := os.WriteFile(ffmpeg, []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(ffprobe, []byte("#!/bin/sh\nprintf '%s\\n' '{\"streams\":[]}'\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	media := filepath.Join(tmp, "unknown.bin")
+	if err := os.WriteFile(media, []byte("probe"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	opt := defaultOptions()
+	opt.FFmpegBinaryPath = ffmpeg
+	infos := probeMediaInfo(media, opt)
+	if len(infos) != 1 || infos[0].Type != "unknown" {
+		t.Fatalf("empty ffprobe streams should produce upstream Unknown fallback, got %#v", infos)
+	}
+	stream := StreamSpec{Extension: "ts"}
+	applyMediaInfoToStream(&stream, &opt, infos)
+	if stream.MediaType != nil {
+		t.Fatalf("unknown media info should not rewrite stream type, got %#v", stream.MediaType)
+	}
+}
+
 func TestProbeMediaInfoDetectsDolbyVisionAliasesLikeUpstream(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell helper is unix-only")

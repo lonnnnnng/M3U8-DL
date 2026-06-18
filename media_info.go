@@ -57,6 +57,10 @@ func probeMediaInfo(path string, opt Options) []mediaInfo {
 		info.DolbyVision = isDolbyVisionMediaInfo(info)
 		infos = append(infos, info)
 	}
+	if len(infos) == 0 {
+		// long: 原版 ffmpeg stderr 没匹配到 Stream 行时会补一条 Type=Unknown，占位结果能区分“已探测但未知”和“探测工具不可用”。
+		infos = append(infos, mediaInfo{Type: "unknown"})
+	}
 	return infos
 }
 
