@@ -1719,11 +1719,51 @@ func TestPrepareSelectedStreamsUnknownEncryptionBeforeCustomRange(t *testing.T) 
 	if !opt.BinaryMerge {
 		t.Fatal("unknown encryption should force binary merge before custom range removes the segment")
 	}
-	if len(msgs) != 1 || !strings.Contains(msgs[0], "无法识别") {
+	if len(msgs) != 3 || !strings.Contains(msgs[0], "无法识别") || !strings.Contains(msgs[1], "用户自定义下载范围") || !strings.Contains(msgs[2], "音画不同步") {
 		t.Fatalf("unexpected messages: %#v", msgs)
 	}
 	if got := streams[0].Playlist.Parts[0].Segments; len(got) != 1 || got[0].Index != 1 {
 		t.Fatalf("custom range should still be applied after binary decision, got %#v", got)
+	}
+}
+
+func TestPrepareSelectedStreamsCustomRangeMessagesMatchUpstream(t *testing.T) {
+	start, end := int64(1), int64(1)
+	streams := []StreamSpec{{
+		Playlist: &Playlist{Parts: []MediaPart{{Segments: []Segment{
+			{Index: 0, Duration: 1},
+			{Index: 1, Duration: 1},
+		}}}},
+	}}
+	opt := defaultOptions()
+	opt.UILanguage = "en-US"
+	opt.CustomRange = &CustomRange{Raw: "1-1", StartSeg: &start, EndSeg: &end}
+	messages := prepareSelectedStreams(streams, &opt)
+	if len(messages) != 2 || messages[0] != "User customed range: 1-1" || messages[1] != "Please note that custom range may sometimes result in audio and video being out of sync" {
+		t.Fatalf("custom range messages should match upstream resources, got %#v", messages)
+	}
+}
+
+func TestPrepareSelectedStreamsLiveCustomRangeMessageButNoTrim(t *testing.T) {
+	start, end := int64(1), int64(1)
+	streams := []StreamSpec{{
+		Playlist: &Playlist{IsLive: true, Parts: []MediaPart{{Segments: []Segment{
+			{Index: 0, Duration: 1},
+			{Index: 1, Duration: 1},
+		}}}},
+	}}
+	opt := defaultOptions()
+	opt.UILanguage = "en-US"
+	opt.CustomRange = &CustomRange{Raw: "1-1", StartSeg: &start, EndSeg: &end}
+	messages := prepareSelectedStreams(streams, &opt)
+	if len(messages) < 2 || messages[0] != "Live stream found" || messages[1] != "User customed range: 1-1" {
+		t.Fatalf("live custom range should report live and range messages, got %#v", messages)
+	}
+	if strings.Contains(strings.Join(messages, "\n"), "out of sync") {
+		t.Fatalf("live custom range should not emit VOD range warning, got %#v", messages)
+	}
+	if got := streams[0].Playlist.Parts[0].Segments; len(got) != 2 {
+		t.Fatalf("live custom range should not trim segments, got %#v", got)
 	}
 }
 
@@ -1735,7 +1775,10 @@ func TestCleanAdSegmentsUsesRegexAndDropsEmptyParts(t *testing.T) {
 			{Segments: []Segment{{Index: 3, URL: "https://cdn.example.com/cadence.ts"}}},
 		}},
 	}}
-	cleanAdSegments(streams, []string{`/ad\d+\.ts$`})
+	messages := cleanAdSegments(streams, []string{`/ad\d+\.ts$`})
+	if len(messages) != 1 || messages[0] != "4 segments => 2 segments" {
+		t.Fatalf("ad cleanup should report segment count change like upstream, got %#v", messages)
+	}
 	parts := streams[0].Playlist.Parts
 	if len(parts) != 2 {
 		t.Fatalf("empty ad-only part should be removed, got %#v", parts)
@@ -1743,6 +1786,22 @@ func TestCleanAdSegmentsUsesRegexAndDropsEmptyParts(t *testing.T) {
 	got := []string{parts[0].Segments[0].URL, parts[1].Segments[0].URL}
 	if got[0] != "https://cdn.example.com/main0.ts" || got[1] != "https://cdn.example.com/cadence.ts" {
 		t.Fatalf("regex ad cleanup removed wrong segments: %#v", got)
+	}
+}
+
+func TestPrepareSelectedStreamsAdKeywordMessageMatchesUpstream(t *testing.T) {
+	streams := []StreamSpec{{
+		Playlist: &Playlist{Parts: []MediaPart{{Segments: []Segment{
+			{Index: 0, URL: "main.ts"},
+			{Index: 1, URL: "ad.ts"},
+		}}}},
+	}}
+	opt := defaultOptions()
+	opt.UILanguage = "zh-TW"
+	opt.AdKeywords = []string{"ad\\.ts"}
+	messages := prepareSelectedStreams(streams, &opt)
+	if len(messages) != 2 || messages[0] != "用戶自定義廣告分片URL關鍵字：ad\\.ts" || messages[1] != "2 segments => 1 segments" {
+		t.Fatalf("ad keyword messages should follow upstream resources, got %#v", messages)
 	}
 }
 
@@ -4802,6 +4861,12 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	if got := tr(opt, "partMerge"); got != "Segments more than 1800, start partial merge..." {
 		t.Fatalf("english partMerge wrong: %q", got)
 	}
+	if got := tr(opt, "customRangeFound"); got != "User customed range: " {
+		t.Fatalf("english customRangeFound wrong: %q", got)
+	}
+	if got := tr(opt, "customRangeWarn"); got != "Please note that custom range may sometimes result in audio and video being out of sync" {
+		t.Fatalf("english customRangeWarn wrong: %q", got)
+	}
 	if got := tr(opt, "promptChoiceText"); got != "[grey](Move up and down to reveal more streams)[/]" {
 		t.Fatalf("english promptChoiceText wrong: %q", got)
 	}
@@ -4838,6 +4903,9 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	}
 	if got := tr(opt, "liveFound"); got != "檢測到直播流" {
 		t.Fatalf("traditional liveFound wrong: %q", got)
+	}
+	if got := tr(opt, "customAdKeywordsFound"); got != "用戶自定義廣告分片URL關鍵字：" {
+		t.Fatalf("traditional customAdKeywordsFound wrong: %q", got)
 	}
 	if got := tr(opt, "liveLimit"); got != "本次直播錄製時長上限: " {
 		t.Fatalf("traditional liveLimit wrong: %q", got)

@@ -29,6 +29,26 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "輸出被重定向, 將清除ANSI顏色",
 		EnUS: "Output is redirected, ANSI colors are cleared.",
 	},
+	"customRangeWarn": {
+		ZhCN: "请注意，自定义下载范围有时会导致音画不同步",
+		ZhTW: "請注意，自定義下載範圍有時會導致音畫不同步",
+		EnUS: "Please note that custom range may sometimes result in audio and video being out of sync",
+	},
+	"customRangeInvalid": {
+		ZhCN: "自定义下载范围无效",
+		ZhTW: "自定義下載範圍無效",
+		EnUS: "User customed range invalid",
+	},
+	"customAdKeywordsFound": {
+		ZhCN: "用户自定义广告分片URL关键字：",
+		ZhTW: "用戶自定義廣告分片URL關鍵字：",
+		EnUS: "User customed Ad keyword: ",
+	},
+	"customRangeFound": {
+		ZhCN: "用户自定义下载范围：",
+		ZhTW: "用戶自定義下載範圍：",
+		EnUS: "User customed range: ",
+	},
 	"livePipeMuxForcesRealtime": {
 		ZhCN: "检测到 LivePipeMux，已强制启用 LiveRealTimeMerge",
 		ZhTW: "檢測到 LivePipeMux，已強制啟用 LiveRealTimeMerge",

@@ -418,12 +418,21 @@ func prepareSelectedStreams(selected []StreamSpec, opt *Options) []string {
 		// long: 上游在 MP4 实时解密配合 mp4decrypt/ffmpeg 和明文 key 时会提示更推荐 Shaka，避免用户误以为所有实时分片解密引擎稳定性相同。
 		messages = append(messages, tr(*opt, "realTimeDecMessage"))
 	}
+	if opt.CustomRange != nil {
+		messages = append(messages, tr(*opt, "customRangeFound")+opt.CustomRange.Raw)
+		if !living {
+			messages = append(messages, tr(*opt, "customRangeWarn"))
+		}
+	}
 	if !living {
 		for i := range selected {
 			applyCustomRange(&selected[i], opt.CustomRange)
 		}
 	}
-	cleanAdSegments(selected, opt.AdKeywords)
+	for _, keyword := range opt.AdKeywords {
+		messages = append(messages, tr(*opt, "customAdKeywordsFound")+keyword)
+	}
+	messages = append(messages, cleanAdSegments(selected, opt.AdKeywords)...)
 	return messages
 }
 
@@ -440,9 +449,9 @@ func hasLiveStream(selected []StreamSpec) bool {
 	return false
 }
 
-func cleanAdSegments(selected []StreamSpec, keywords []string) {
+func cleanAdSegments(selected []StreamSpec, keywords []string) []string {
 	if len(keywords) == 0 {
-		return
+		return nil
 	}
 	var regs []*regexp.Regexp
 	for _, keyword := range keywords {
@@ -452,13 +461,15 @@ func cleanAdSegments(selected []StreamSpec, keywords []string) {
 		regs = append(regs, regexp.MustCompile(keyword))
 	}
 	if len(regs) == 0 {
-		return
+		return nil
 	}
+	var messages []string
 	for streamIndex := range selected {
 		pl := selected[streamIndex].Playlist
 		if pl == nil {
 			continue
 		}
+		before := countPlaylistSegments(pl)
 		var parts []MediaPart
 		for _, part := range pl.Parts {
 			var kept []Segment
@@ -473,7 +484,23 @@ func cleanAdSegments(selected []StreamSpec, keywords []string) {
 			}
 		}
 		pl.Parts = parts
+		after := countPlaylistSegments(pl)
+		if before != after {
+			messages = append(messages, fmt.Sprintf("%d segments => %d segments", before, after))
+		}
 	}
+	return messages
+}
+
+func countPlaylistSegments(pl *Playlist) int {
+	if pl == nil {
+		return 0
+	}
+	count := 0
+	for _, part := range pl.Parts {
+		count += len(part.Segments)
+	}
+	return count
 }
 
 func matchesAnyAdKeyword(url string, regs []*regexp.Regexp) bool {
