@@ -2230,12 +2230,77 @@ func TestExtractWidevinePSSHKID(t *testing.T) {
 	}
 }
 
+func TestReadMP4InfoReportsSchemeAndWidevinePSSH(t *testing.T) {
+	kid := []byte{0xaa, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 0xbb}
+	psshData := append([]byte{0x08, 0x01, 0x12, 0x10}, kid...)
+	psshPayload := append([]byte{0, 0, 0, 0}, widevineSystemID...)
+	psshPayload = append(psshPayload, []byte{0, 0, 0, byte(len(psshData))}...)
+	psshPayload = append(psshPayload, psshData...)
+	tencPayload := append([]byte{0, 0, 0, 0, 0, 0, 0, 0}, []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}...)
+	schmPayload := append([]byte{0, 0, 0, 0}, []byte("cenc")...)
+	schmPayload = append(schmPayload, 0, 0, 0, 0)
+	mp4 := mustMP4Box("moov", concatBytes(
+		mustMP4Box("pssh", psshPayload),
+		mustMP4Box("trak", mustMP4Box("mdia", mustMP4Box("minf", mustMP4Box("stbl", mustMP4Box("encv", mustMP4Box("sinf", concatBytes(
+			mustMP4Box("schm", schmPayload),
+			mustMP4Box("schi", mustMP4Box("tenc", tencPayload)),
+		))))))),
+	))
+	info, err := readMP4Info(mp4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Scheme != "cenc" {
+		t.Fatalf("scheme wrong: %q", info.Scheme)
+	}
+	if info.PSSH != base64.StdEncoding.EncodeToString(psshData) {
+		t.Fatalf("widevine pssh data wrong: %q", info.PSSH)
+	}
+	if info.KID != "000102030405060708090a0b0c0d0e0f" {
+		t.Fatalf("tenc kid should keep priority over pssh, got %s", info.KID)
+	}
+	if info.MultiDRM {
+		t.Fatal("non-zero tenc KID should not be treated as MultiDRM")
+	}
+}
+
+func TestReadMP4InfoRejectsUnsupportedPSSHVersion(t *testing.T) {
+	payload := append([]byte{2, 0, 0, 0}, widevineSystemID...)
+	payload = append(payload, 0, 0, 0, 0)
+	_, err := readMP4Info(mustMP4Box("moov", mustMP4Box("pssh", payload)))
+	if err == nil || !strings.Contains(err.Error(), "PSSH version can only be 0 or 1") {
+		t.Fatalf("expected unsupported PSSH version error, got %v", err)
+	}
+}
+
+func TestExtractWidevinePSSHVersionOneUsesListedKID(t *testing.T) {
+	kid := []byte{0xcc, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 0xdd}
+	payload := append([]byte{1, 0, 0, 0}, widevineSystemID...)
+	payload = append(payload, []byte{0, 0, 0, 1}...)
+	payload = append(payload, kid...)
+	payload = append(payload, 0, 0, 0, 0)
+	got := extractDefaultKID(mustMP4Box("moov", mustMP4Box("pssh", payload)))
+	if got != "cc0102030405060708090a0b0c0d0edd" {
+		t.Fatalf("version 1 pssh listed kid wrong: %s", got)
+	}
+}
+
 func TestExtractDefaultKIDUsesWidevinePSSHWhenTencKIDIsZero(t *testing.T) {
 	kid := []byte{0xbb, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 0xcc}
 	mp4 := mustMultiDRMInitWithWidevineKID(kid)
 	got := extractDefaultKID(mp4)
 	if got != "bb0102030405060708090a0b0c0d0ecc" {
 		t.Fatalf("zero tenc should fall back to Widevine PSSH KID, got %s", got)
+	}
+	info, err := readMP4Info(mp4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !info.MultiDRM {
+		t.Fatal("zero tenc with Widevine PSSH should be marked as MultiDRM")
+	}
+	if info.PSSH == "" {
+		t.Fatal("widevine pssh data should be exposed")
 	}
 }
 

@@ -57,7 +57,7 @@ go run . "<m3u8-url-or-file>" --auto-select --save-dir ./downloads -M format=mp4
 - PipeMux 的 ffmpeg 参数构造支持 `RE_LIVE_PIPE_OPTIONS`、`RE_LIVE_PIPE_TMP_DIR` 和 Windows/Unix 管道路径差异；macOS/Linux 可创建 FIFO 管道，Windows 可创建 `\\.\pipe\...` 命名管道，启动 mux 进程后直播刷新过程中会把非字幕轨道按批次持续写入 pipe mux，字幕继续作为独立输出保留
 - VTT 字幕合并、SRT 输出，自动字幕修复开启时按 `--sub-format` 决定扩展名，支持 `X-TIMESTAMP-MAP`/`MPEGTS` 时间轴修正；`Base64::` 图形字幕会按上游写出 PNG 并替换为文件名；`--live-fix-vtt-by-audio` 会读取音频 `start_time` 并按上游逻辑修正 VTT 字幕偏移
 - 裸 TTML、MP4 stpp 字幕基础抽取；MP4 WebVTT 按 `mdhd/tfdt/tfhd/trun` 解析真实字幕时间
-- CENC `tenc` / Widevine PSSH / PlayReady PSSH XML KID 基础识别，PlayReady 支持文本节点和 `VALUE` 属性两种 KID 写法；`tenc default_KID` 为全 0 时会按上游继续从 Widevine PSSH 回退真实 KID，并在外部解密时使用 track/label `1` 的 MultiDRM 参数形态；使用 `SHAKA_PACKAGER` 且本地解析不到 KID 时，会按上游从 shaka 的缺 key 错误里探测 `key_id`，用于匹配 `--key-text-file`
+- CENC `tenc` / `schm` / Widevine PSSH / PlayReady PSSH XML 解析，Widevine 会暴露原始 PSSH data、支持 v1 KID 列表和 protobuf `key_id`，PlayReady 支持文本节点和 `VALUE` 属性两种 KID 写法；`tenc default_KID` 为全 0 时会按上游继续从 Widevine PSSH 回退真实 KID，并在外部解密时使用 track/label `1` 的 MultiDRM 参数形态；使用 `SHAKA_PACKAGER` 且本地解析不到 KID 时，会按上游从 shaka 的缺 key 错误里探测 `key_id`，用于匹配 `--key-text-file`
 - 并发分片共享 `--max-speed` 速度预算
 - `raw.m3u8`、全部轨道 `meta.json` 与选中轨道 `meta_selected.json` 输出
 

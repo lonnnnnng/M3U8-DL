@@ -20,6 +20,13 @@ type mp4Box struct {
 	Payload []byte
 }
 
+type parsedMP4Info struct {
+	PSSH     string
+	KID      string
+	Scheme   string
+	MultiDRM bool
+}
+
 func readMP4Boxes(data []byte) []mp4Box {
 	var boxes []mp4Box
 	for off := 0; off+8 <= len(data); {
@@ -82,73 +89,135 @@ func extractDefaultKID(data []byte) string {
 }
 
 func extractDefaultKIDInfo(data []byte) (string, bool) {
-	zeroTencKID := false
+	info, err := readMP4Info(data)
+	if err != nil {
+		return "", false
+	}
+	return info.KID, info.MultiDRM
+}
+
+func readMP4Info(data []byte) (parsedMP4Info, error) {
+	var info parsedMP4Info
+	info.Scheme = extractMP4Scheme(data)
+	tencKID, zeroTencKID := extractTencDefaultKID(data)
+	if tencKID != "" {
+		info.KID = tencKID
+	}
+
+	for _, box := range findMP4Boxes(data, "pssh") {
+		psshData, systemID, err := readPSSHBoxData(box.Payload)
+		if err != nil {
+			return info, err
+		}
+		if bytes.Equal(systemID, widevineSystemID) {
+			info.PSSH = base64.StdEncoding.EncodeToString(psshData)
+			kid := extractPSSHVersionOneFirstKID(box.Payload)
+			if kid == "" {
+				kid = extractWidevineKIDFromData(psshData)
+			}
+			if kid != "" {
+				switch {
+				case info.KID == "":
+					info.KID = kid
+				case strings.EqualFold(info.KID, zeroKID):
+					// long: MultiDRM 初始化段常把 tenc 写成全 0，再把真实 KID 放进 Widevine PSSH；解密命令必须保留这个标记，才能复现上游 track/label=1 的调用方式。
+					info.KID = kid
+					info.MultiDRM = zeroTencKID
+				}
+			}
+			continue
+		}
+		if bytes.Equal(systemID, playReadySystemID) {
+			if kid := extractPlayReadyKIDFromData(psshData); kid != "" && (info.KID == "" || strings.EqualFold(info.KID, zeroKID)) {
+				info.KID = kid
+			}
+		}
+	}
+	if info.KID == "" && zeroTencKID {
+		info.KID = zeroKID
+	}
+	if info.KID == "" {
+		info.KID = extractLooseTencKID(data)
+	}
+	return info, nil
+}
+
+func extractMP4Scheme(data []byte) string {
+	for _, box := range findMP4Boxes(data, "schm") {
+		if len(box.Payload) >= 8 {
+			return string(box.Payload[4:8])
+		}
+	}
+	return ""
+}
+
+func extractTencDefaultKID(data []byte) (string, bool) {
 	for _, box := range findMP4Boxes(data, "tenc") {
-		if len(box.Payload) >= 20 {
+		if len(box.Payload) >= 24 {
 			// long: 上游从 tenc 的 full-box 负载中读取 default_KID；保留这个定位规则能兼容同一批 CENC 初始化段。
 			kid := hex.EncodeToString(box.Payload[8:24])
 			if !strings.EqualFold(kid, zeroKID) {
 				return kid, false
 			}
-			zeroTencKID = true
-			break
+			return zeroKID, true
 		}
-	}
-	if kid := extractWidevineKIDFromPSSH(data); kid != "" {
-		return kid, zeroTencKID
-	}
-	if kid := extractPlayReadyKIDFromPSSH(data); kid != "" {
-		return kid, false
-	}
-	if zeroTencKID {
-		return zeroKID, false
-	}
-	idx := strings.Index(string(data), "tenc")
-	if idx >= 0 && idx+28 <= len(data) {
-		kid := hex.EncodeToString(data[idx+12 : idx+28])
-		if !strings.EqualFold(kid, zeroKID) {
-			return kid, false
-		}
-		if psshKid := extractWidevineKIDFromPSSH(data); psshKid != "" {
-			return psshKid, true
-		}
-		if psshKid := extractPlayReadyKIDFromPSSH(data); psshKid != "" {
-			return psshKid, false
-		}
-		return zeroKID, false
 	}
 	return "", false
 }
 
+func extractLooseTencKID(data []byte) string {
+	idx := strings.Index(string(data), "tenc")
+	if idx >= 0 && idx+28 <= len(data) {
+		kid := hex.EncodeToString(data[idx+12 : idx+28])
+		if !strings.EqualFold(kid, zeroKID) {
+			return kid
+		}
+		return zeroKID
+	}
+	return ""
+}
+
+func readPSSHBoxData(payload []byte) ([]byte, []byte, error) {
+	if len(payload) < 24 {
+		return nil, nil, nil
+	}
+	version := payload[0]
+	if version != 0 && version != 1 {
+		return nil, nil, fmt.Errorf("PSSH version can only be 0 or 1")
+	}
+	systemID := payload[4:20]
+	pos := 20
+	if version == 1 {
+		if len(payload) < pos+4 {
+			return nil, systemID, nil
+		}
+		count := int(binary.BigEndian.Uint32(payload[pos : pos+4]))
+		pos += 4 + count*16
+		if len(payload) < pos {
+			return nil, systemID, nil
+		}
+	}
+	if len(payload) < pos+4 {
+		return nil, systemID, nil
+	}
+	size := int(binary.BigEndian.Uint32(payload[pos : pos+4]))
+	pos += 4
+	if size <= 0 || len(payload) < pos+size {
+		return nil, systemID, nil
+	}
+	return payload[pos : pos+size], systemID, nil
+}
+
 func extractPlayReadyKIDFromPSSH(data []byte) string {
 	for _, box := range findMP4Boxes(data, "pssh") {
-		if len(box.Payload) < 24 {
+		psshData, systemID, err := readPSSHBoxData(box.Payload)
+		if err != nil || len(psshData) == 0 {
 			continue
 		}
-		systemID := box.Payload[4:20]
 		if !bytes.Equal(systemID, playReadySystemID) {
 			continue
 		}
-		pos := 20
-		if box.Payload[0] == 1 {
-			if len(box.Payload) < pos+4 {
-				continue
-			}
-			count := int(binary.BigEndian.Uint32(box.Payload[pos : pos+4]))
-			pos += 4 + count*16
-			if len(box.Payload) < pos {
-				continue
-			}
-		}
-		if len(box.Payload) < pos+4 {
-			continue
-		}
-		size := int(binary.BigEndian.Uint32(box.Payload[pos : pos+4]))
-		pos += 4
-		if size <= 0 || len(box.Payload) < pos+size {
-			continue
-		}
-		if kid := extractPlayReadyKIDFromData(box.Payload[pos : pos+size]); kid != "" {
+		if kid := extractPlayReadyKIDFromData(psshData); kid != "" {
 			return kid
 		}
 	}
@@ -232,47 +301,46 @@ func stripZeroBytes(data []byte) string {
 
 func extractWidevineKIDFromPSSH(data []byte) string {
 	for _, box := range findMP4Boxes(data, "pssh") {
-		if len(box.Payload) < 24 {
+		psshData, systemID, err := readPSSHBoxData(box.Payload)
+		if err != nil {
 			continue
 		}
-		version := box.Payload[0]
-		systemID := box.Payload[4:20]
 		if !bytes.Equal(systemID, widevineSystemID) {
 			continue
 		}
-		pos := 20
-		if version == 1 {
-			if len(box.Payload) < pos+4 {
-				continue
-			}
-			count := int(binary.BigEndian.Uint32(box.Payload[pos : pos+4]))
-			pos += 4
-			if len(box.Payload) < pos+count*16 {
-				continue
-			}
-			if count > 0 {
-				return hex.EncodeToString(box.Payload[pos : pos+16])
-			}
-			pos += count * 16
+		if kid := extractPSSHVersionOneFirstKID(box.Payload); kid != "" {
+			return kid
 		}
-		if len(box.Payload) < pos+4 {
+		if len(psshData) == 0 {
 			continue
 		}
-		size := int(binary.BigEndian.Uint32(box.Payload[pos : pos+4]))
-		pos += 4
-		if size <= 0 || len(box.Payload) < pos+size {
-			continue
+		if kid := extractWidevineKIDFromData(psshData); kid != "" {
+			return kid
 		}
-		psshData := box.Payload[pos : pos+size]
-		for i := 0; i+18 <= len(psshData); i++ {
-			if psshData[i] == 0x12 && psshData[i+1] == 0x10 {
-				return hex.EncodeToString(psshData[i+2 : i+18])
-			}
+	}
+	return ""
+}
+
+func extractPSSHVersionOneFirstKID(payload []byte) string {
+	if len(payload) < 40 || payload[0] != 1 {
+		return ""
+	}
+	count := int(binary.BigEndian.Uint32(payload[20:24]))
+	if count <= 0 || len(payload) < 24+count*16 {
+		return ""
+	}
+	return hex.EncodeToString(payload[24:40])
+}
+
+func extractWidevineKIDFromData(psshData []byte) string {
+	for i := 0; i+18 <= len(psshData); i++ {
+		if psshData[i] == 0x12 && psshData[i+1] == 0x10 {
+			return hex.EncodeToString(psshData[i+2 : i+18])
 		}
-		if len(psshData) >= 18 {
-			// long: 部分老数据缺少标准 protobuf key_id 标记，保留上游 psshData[2:18] 的兜底兼容策略。
-			return hex.EncodeToString(psshData[2:18])
-		}
+	}
+	if len(psshData) >= 18 {
+		// long: 部分老数据缺少标准 protobuf key_id 标记，保留上游 psshData[2:18] 的兜底兼容策略。
+		return hex.EncodeToString(psshData[2:18])
 	}
 	return ""
 }
@@ -291,6 +359,17 @@ func extractDefaultKIDInfoFromFile(path string) (string, bool) {
 		b = b[:1024*1024]
 	}
 	return extractDefaultKIDInfo(b)
+}
+
+func readMP4InfoFromFile(path string) (parsedMP4Info, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return parsedMP4Info{}, err
+	}
+	if len(b) > 1024*1024 {
+		b = b[:1024*1024]
+	}
+	return readMP4Info(b)
 }
 
 func extractMP4WebVTTFiles(files []string, output string, format string) (bool, error) {

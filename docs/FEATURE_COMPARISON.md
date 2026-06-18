@@ -163,10 +163,10 @@
 | AES-128-ECB | ECB 解密 | 已内置实现 | 已追平 |
 | CHACHA20 | 每 1024 字节解密 | 已实现 | 已追平 |
 | UNKNOWN method | 保留原始分片并二进制合并 | 已实现 | 已追平 |
-| CENC 外部解密 | mp4decrypt/shaka/ffmpeg | 已实现外部解密入口、KID 基础识别、key-file 匹配、shaka 缺 key 探测 | 基本追平 |
+| CENC 外部解密 | mp4decrypt/shaka/ffmpeg | 已实现外部解密入口、结构化 MP4 info 解析、KID/key-file 匹配、shaka 缺 key 探测 | 基本追平 |
 | SAMPLE-AES | 原版支持外部解密入口，部分场景依赖 MP4 工具 | Go 版支持下载后外部解密入口，但缺媒体级原生 SAMPLE-AES 解密 | 部分追平 |
 | SAMPLE-AES-CTR | 外部工具路径 | Go 版支持外部解密入口 | 基本追平 |
-| 复杂 PSSH/KID | 多 DRM、复杂 box 场景 | 已支持 tenc、Widevine PSSH、PlayReady 文本/`VALUE`，复杂 PSSH 场景仍未完全证明 | 部分追平 |
+| 复杂 PSSH/KID | 多 DRM、复杂 box 场景 | 已支持 `schm`、`tenc`、Widevine PSSH data、PSSH v1 KID 列表、PlayReady 文本/`VALUE`，复杂 DRM 样本仍未系统验证 | 部分追平 |
 | MP4 实时解密 | `--mp4-real-time-decryption` | 已覆盖 init+fragment 基础实时外部解密；init 会先保留原始盒读取 KID，再解密 init/媒体分片，并在实时解密开启时跳过最终整文件二次解密 | 部分追平 |
 | 自定义 HLS method/key/iv | 文件、HEX、Base64、枚举 method | 已支持，并按上游枚举校验 | 已追平 |
 | 轨道自动选择 | 最佳视频、音频、字幕 | 已支持最佳视频、每语言最高码率音频、全部字幕等路径 | 基本追平 |
@@ -202,7 +202,7 @@
 ## 当前最需要继续补齐的 HLS 差距
 
 1. SAMPLE-AES 媒体级原生解密仍未完整实现，当前主要依赖外部解密入口。
-2. CENC/PSSH/KID 已覆盖常见 box 和 PlayReady/Widevine 基础场景，但复杂 DRM 封装还缺系统性样本验证。
+2. CENC/PSSH/KID 已覆盖 `schm`、`tenc`、Widevine PSSH data、PSSH v1 KID 列表和 PlayReady 文本/`VALUE` 场景，但复杂 DRM 封装还缺系统性样本验证。
 3. MP4 实时解密已补齐 init 先读 KID 再解密、合并后不二次整文件解密的路径，但还没有达到上游直播状态机里所有边缘分支的等价程度。
 4. 直播 producer/consumer 多轨状态机仍是简化实现，PipeMux 在 Windows 真实环境未实际运行验证。
 5. ANSI/Spectre 风格动态进度 UI 未复刻。
