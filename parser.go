@@ -92,7 +92,7 @@ func (p *parser) parseMaster(raw string) ([]StreamSpec, error) {
 			if bw == "" {
 				bw = attr(line, "BANDWIDTH")
 			}
-			if bw != "" || attrExists(line, "AVERAGE-BANDWIDTH") || attrExists(line, "BANDWIDTH") {
+			if bw != "" || attrExistsLoose(line, "AVERAGE-BANDWIDTH") || attrExistsLoose(line, "BANDWIDTH") {
 				bandwidth, err := strconv.Atoi(bw)
 				if err != nil {
 					return nil, err

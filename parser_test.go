@@ -123,6 +123,10 @@ func TestParseMasterInvalidNumericFieldsFailLikeUpstream(t *testing.T) {
 			raw:  "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=,RESOLUTION=1280x720\nvideo.m3u8\n",
 		},
 		{
+			name: "empty bandwidth suffix attribute",
+			raw:  "#EXTM3U\n#EXT-X-STREAM-INF:X-BANDWIDTH=,RESOLUTION=1280x720\nvideo.m3u8\n",
+		},
+		{
 			name: "frame rate",
 			raw:  "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=2000,FRAME-RATE=bad\nvideo.m3u8\n",
 		},
