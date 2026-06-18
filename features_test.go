@@ -576,6 +576,36 @@ func TestParseDurationBareNumberMeansSecondsLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestParseArgsStreamFilterPlaylistDurationUsesParseSecondsLikeUpstream(t *testing.T) {
+	opt, err := parseArgs([]string{"-sv", "plistDurMin=1h20m30s:plistDurMax=2h:for=all", "https://example.com/main.m3u8"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opt.VideoFilter == nil || opt.VideoFilter.PlaylistMin == nil || *opt.VideoFilter.PlaylistMin != 4830 {
+		t.Fatalf("playlist min duration should use h/m/s ParseSeconds format, got %#v", opt.VideoFilter)
+	}
+	if opt.VideoFilter.PlaylistMax == nil || *opt.VideoFilter.PlaylistMax != 7200 {
+		t.Fatalf("playlist max duration should use h/m/s ParseSeconds format, got %#v", opt.VideoFilter)
+	}
+
+	for _, tc := range []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{name: "bare number", input: "plistDurMin=30", want: "plistDurMin=30 not valid"},
+		{name: "colon duration", input: "plistDurMin=00:10", want: "plistDurMin=00 not valid"},
+		{name: "unsupported suffix", input: "plistDurMin=1d", want: "plistDurMin=1d not valid"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := parseArgs([]string{"-sv", tc.input, "https://example.com/main.m3u8"})
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("expected %q, got %v", tc.want, err)
+			}
+		})
+	}
+}
+
 func TestParseArgsTaskStartAtMatchesUpstreamFormat(t *testing.T) {
 	opt, err := parseArgs([]string{"--task-start-at", "20260618123456", "https://example.com/main.m3u8"})
 	if err != nil {

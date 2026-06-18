@@ -16,6 +16,8 @@ import (
 	"time"
 )
 
+var filterDurationRegex = regexp.MustCompile(`^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$`)
+
 func defaultOptions() Options {
 	return Options{
 		ThreadCount:        runtime.NumCPU(),
@@ -769,10 +771,10 @@ func parseFilter(input string) *Filter {
 	if v := parseOptionalInt64(complexParamValueOrEmpty(input, "segsMax")); v != nil {
 		f.SegmentsMax = v
 	}
-	if v := parseOptionalDurationSeconds(complexParamValueOrEmpty(input, "plistDurMin")); v != nil {
+	if v := parseOptionalFilterDurationSeconds(complexParamValueOrEmpty(input, "plistDurMin")); v != nil {
 		f.PlaylistMin = v
 	}
-	if v := parseOptionalDurationSeconds(complexParamValueOrEmpty(input, "plistDurMax")); v != nil {
+	if v := parseOptionalFilterDurationSeconds(complexParamValueOrEmpty(input, "plistDurMax")); v != nil {
 		f.PlaylistMax = v
 	}
 	if v := parseOptionalBandwidthKbps(complexParamValueOrEmpty(input, "bwMin")); v != nil {
@@ -816,7 +818,7 @@ func validateFilterValueFields(input string) error {
 	}
 	for _, key := range []string{"plistDurMin", "plistDurMax"} {
 		if value := complexParamValueOrEmpty(input, key); value != "" {
-			if _, err := parseDuration(value); err != nil {
+			if _, err := parseFilterDurationSeconds(value); err != nil {
 				return fmt.Errorf("%s=%s not valid", key, value)
 			}
 		}
@@ -866,16 +868,35 @@ func parseOptionalInt64(input string) *int64 {
 	return &v
 }
 
-func parseOptionalDurationSeconds(input string) *float64 {
+func parseOptionalFilterDurationSeconds(input string) *float64 {
 	if input == "" {
 		return nil
 	}
-	d, err := parseDuration(input)
+	v, err := parseFilterDurationSeconds(input)
 	if err != nil {
 		return nil
 	}
-	v := d.Seconds()
 	return &v
+}
+
+func parseFilterDurationSeconds(input string) (float64, error) {
+	match := filterDurationRegex.FindStringSubmatch(input)
+	if match == nil {
+		return 0, fmt.Errorf("invalid filter duration")
+	}
+	var values [3]int
+	for i := 1; i <= 3; i++ {
+		if match[i] == "" {
+			continue
+		}
+		value, err := strconv.Atoi(match[i])
+		if err != nil {
+			return 0, err
+		}
+		values[i-1] = value
+	}
+	// long: 选择器的播放列表时长走原版 ParseSeconds，只认 h/m/s 后缀；冒号时长属于 custom-range/live-record-limit，不能在这里放宽。
+	return float64(values[0]*3600 + values[1]*60 + values[2]), nil
 }
 
 func parseOptionalBandwidthKbps(input string) *int {
@@ -1046,7 +1067,7 @@ func moreHelp(topic string) string {
   best2 / worst3 / for=all
   res=1920x*:codecs=avc:for=best
   lang=zh|en:name=中文:for=all
-  bwMin=800:bwMax=5000:segsMin=10:plistDurMin=00:10:for=best2
+  bwMin=800:bwMax=5000:segsMin=10:plistDurMin=10m:for=best2
 `
 	default:
 		return "暂无该选项的详细帮助\n"
