@@ -1472,6 +1472,93 @@ cp "$input" "$output"
 	}
 }
 
+func TestRealtimeInitUsesShakaDetectedKIDBeforeKeyFileLookup(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell helper is unix-only")
+	}
+	tmp := t.TempDir()
+	initSrc := filepath.Join(tmp, "init-src.mp4")
+	if err := os.WriteFile(initSrc, []byte("encrypted-init"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	detectedKID := "1234567890abcdef1234567890abcdef"
+	key := "00112233445566778899aabbccddeeff"
+	keyFile := filepath.Join(tmp, "keys.txt")
+	if err := os.WriteFile(keyFile, []byte(detectedKID+":"+key+"\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	argsLog := filepath.Join(tmp, "shaka-init-args.txt")
+	tool := filepath.Join(tmp, "shaka-packager")
+	script := `#!/bin/sh
+printf -- '---\n%s\n' "$*" >> __ARGSLOG__
+case "$*" in
+  *key_id=00000000000000000000000000000000:key=00000000000000000000000000000000*)
+    echo 'Key for key_id=__KID__ was not found' >&2
+    exit 1
+    ;;
+esac
+input=''
+output=''
+for arg in "$@"; do
+  case "$arg" in
+    input=*)
+      rest=${arg#input=}
+      input=${rest%%,*}
+      ;;
+  esac
+  case "$arg" in
+    *output=*)
+      rest=${arg#*output=}
+      output=${rest%%,*}
+      ;;
+  esac
+done
+printf 'decrypted-init:%s' "$(cat "$input")" > "$output"
+`
+	script = strings.ReplaceAll(script, "__ARGSLOG__", argsLog)
+	script = strings.ReplaceAll(script, "__KID__", detectedKID)
+	if err := os.WriteFile(tool, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	opt := defaultOptions()
+	opt.MP4RealTimeDecryption = true
+	opt.DecryptionEngine = "SHAKA_PACKAGER"
+	opt.DecryptionBinaryPath = tool
+	opt.KeyTextFile = keyFile
+	actual, kid, err := downloadRealtimeInitSegment(
+		context.Background(),
+		&http.Client{},
+		Segment{URL: initSrc, Index: -1, Encrypt: EncryptInfo{Method: EncryptCENC}},
+		filepath.Join(tmp, "init.mp4"),
+		opt,
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if kid != detectedKID {
+		t.Fatalf("expected shaka detected kid %s, got %s", detectedKID, kid)
+	}
+	got, err := os.ReadFile(actual)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "decrypted-init:encrypted-init" {
+		t.Fatalf("init should be decrypted after shaka kid detection, got %q", got)
+	}
+	args, err := os.ReadFile(argsLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := string(args)
+	if !strings.Contains(joined, "key_id="+zeroKID+":key="+zeroKID) {
+		t.Fatalf("shaka probe was not invoked, args:\n%s", joined)
+	}
+	if !strings.Contains(joined, "key_id="+detectedKID+":key="+key) {
+		t.Fatalf("shaka init decrypt should use key-file entry matched by detected kid, args:\n%s", joined)
+	}
+}
+
 func TestFFmpegDecryptUsesKeyMatchingDetectedKID(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell helper is unix-only")

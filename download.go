@@ -755,6 +755,16 @@ func downloadRealtimeInitSegment(ctx context.Context, client *http.Client, seg S
 		return "", "", err
 	}
 	kid := extractDefaultKIDFromFile(actual)
+	if kid == "" && strings.EqualFold(opt.DecryptionEngine, "SHAKA_PACKAGER") {
+		bin := opt.DecryptionBinaryPath
+		if bin == "" {
+			bin = firstExecutable("shaka-packager", "packager-linux-x64", "packager-osx-x64", "packager-win-x64")
+		}
+		if detected, err := detectKIDWithShaka(actual, bin); err == nil && detected != "" {
+			// long: 某些 fMP4/WebM init 不暴露 tenc/PSSH KID；上游会借 shaka 的缺 key 错误反查 key_id，再继续匹配 key-file 做实时解密。
+			kid = detected
+		}
+	}
 	if !opt.MP4RealTimeDecryption || kid == "" || len(collectDecryptKeys(opt, kid)) == 0 {
 		return actual, kid, nil
 	}
