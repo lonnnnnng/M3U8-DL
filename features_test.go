@@ -331,6 +331,16 @@ func TestParseArgsCustomProxyValidatesURLLikeUpstream(t *testing.T) {
 	if opt.CustomProxy != "http://user:pass@127.0.0.1:8080" {
 		t.Fatalf("unexpected proxy: %s", opt.CustomProxy)
 	}
+	opt, err = parseArgs([]string{"--custom-proxy", "", "https://example.com/main.m3u8"})
+	if err != nil {
+		t.Fatalf("empty proxy should be ignored like upstream, got %v", err)
+	}
+	if opt.CustomProxy != "" {
+		t.Fatalf("empty proxy should not set custom proxy, got %q", opt.CustomProxy)
+	}
+	if _, err := parseArgs([]string{"--custom-proxy", " http://127.0.0.1:8080", "https://example.com/main.m3u8"}); err == nil || !strings.Contains(err.Error(), "error in parse proxy") {
+		t.Fatalf("proxy with leading whitespace should be rejected like upstream, got %v", err)
+	}
 	if _, err := parseArgs([]string{"--custom-proxy", "127.0.0.1:8080", "https://example.com/main.m3u8"}); err == nil || !strings.Contains(err.Error(), "error in parse proxy") {
 		t.Fatalf("expected invalid proxy to be rejected like upstream, got %v", err)
 	}

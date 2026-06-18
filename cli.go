@@ -324,6 +324,10 @@ func parseArgs(args []string) (Options, error) {
 			if err != nil {
 				return opt, err
 			}
+			if v == "" {
+				opt.CustomProxy = ""
+				continue
+			}
 			if err := validateProxyURL(v); err != nil {
 				return opt, err
 			}
@@ -1005,7 +1009,7 @@ func parseDecryptKey(input string) (string, error) {
 }
 
 func validateProxyURL(input string) error {
-	u, err := url.Parse(strings.TrimSpace(input))
+	u, err := url.Parse(input)
 	if err != nil || u.Scheme == "" || u.Host == "" {
 		return fmt.Errorf("error in parse proxy: %s", input)
 	}
