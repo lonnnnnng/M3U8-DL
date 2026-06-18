@@ -302,7 +302,7 @@ liveLoop:
 				return nil, true, err
 			}
 			added, duration := appendNewLiveSegmentsDetailed(&selected[i], next)
-			refreshedDurations[i] += duration
+			refreshedDurations[i] += int(duration)
 			if states[i] != nil {
 				states[i].stream = selected[i]
 				if err := states[i].downloadAndAppend(ctx, added); err != nil {
@@ -677,7 +677,7 @@ recordLoop:
 					}
 					return err
 				}
-				refreshedDurations[i] += appendNewLiveSegments(&selected[i], next)
+				refreshedDurations[i] += int(appendNewLiveSegments(&selected[i], next))
 			}
 		}
 		limitReached := liveRecordLimitReached(selected, refreshedDurations, limit)
@@ -732,13 +732,13 @@ func waitLiveRefresh(ctx context.Context, wait time.Duration) error {
 	}
 }
 
-func liveInitialRefreshedDurations(selected []StreamSpec) []float64 {
-	out := make([]float64, len(selected))
+func liveInitialRefreshedDurations(selected []StreamSpec) []int {
+	out := make([]int, len(selected))
 	for i, stream := range selected {
 		if stream.Playlist == nil || !stream.Playlist.IsLive {
 			continue
 		}
-		out[i] = liveFirstPartDuration(stream)
+		out[i] = int(liveFirstPartDuration(stream))
 	}
 	return out
 }
@@ -761,7 +761,7 @@ func liveFirstPartSegments(stream StreamSpec) []Segment {
 	return append([]Segment(nil), stream.Playlist.Parts[0].Segments...)
 }
 
-func liveRecordLimitReached(selected []StreamSpec, refreshed []float64, limit time.Duration) bool {
+func liveRecordLimitReached(selected []StreamSpec, refreshed []int, limit time.Duration) bool {
 	if limit <= 0 {
 		return true
 	}
@@ -772,7 +772,7 @@ func liveRecordLimitReached(selected []StreamSpec, refreshed []float64, limit ti
 			continue
 		}
 		hasLive = true
-		if i >= len(refreshed) || refreshed[i] < limitSec {
+		if i >= len(refreshed) || float64(refreshed[i]) < limitSec {
 			return false
 		}
 	}

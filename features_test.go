@@ -2204,9 +2204,26 @@ func TestLiveRecordLimitUsesInitialRefreshedDuration(t *testing.T) {
 	if !liveRecordLimitReached(streams, refreshed, 5*time.Second) {
 		t.Fatal("initial live window should count toward record limit like upstream")
 	}
-	refreshed[1] = 4.9
+	refreshed[1] = 4
 	if liveRecordLimitReached(streams, refreshed, 5*time.Second) {
 		t.Fatal("all live tracks must reach record limit before stopping")
+	}
+}
+
+func TestLiveRecordLimitTruncatesEachRefreshBatchLikeUpstream(t *testing.T) {
+	video := MediaVideo
+	streams := []StreamSpec{
+		{MediaType: &video, Playlist: &Playlist{IsLive: true, Parts: []MediaPart{{Segments: []Segment{{Duration: 2.6}, {Duration: 2.6}}}}}},
+	}
+	refreshed := liveInitialRefreshedDurations(streams)
+	if len(refreshed) != 1 || refreshed[0] != 5 {
+		t.Fatalf("initial live duration should truncate batch sum to integer seconds, got %#v", refreshed)
+	}
+	if liveRecordLimitReached(streams, refreshed, 5200*time.Millisecond) {
+		t.Fatal("integer refreshed duration should be compared with exact live-record-limit like upstream")
+	}
+	if !liveRecordLimitReached(streams, refreshed, 5*time.Second) {
+		t.Fatal("integer refreshed duration should still reach an integer second limit")
 	}
 }
 
