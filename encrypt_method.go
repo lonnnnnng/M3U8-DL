@@ -52,8 +52,9 @@ func parseHLSPlaylistEncryptMethod(input string) EncryptMethod {
 	case "UNKNOWN":
 		return EncryptUnknown
 	default:
-		if isUnsignedDecimal(normalized) {
-			if n, err := strconv.Atoi(normalized); err == nil {
+		if isEnumDecimal(normalized) {
+			if n64, err := strconv.ParseInt(normalized, 10, 32); err == nil {
+				n := int(n64)
 				switch n {
 				case 0:
 					return EncryptNone
@@ -72,7 +73,7 @@ func parseHLSPlaylistEncryptMethod(input string) EncryptMethod {
 				case 7:
 					return EncryptUnknown
 				default:
-					// long: C# Enum.TryParse 会接受未定义的非负数字枚举值并保留为数字；这类 METHOD 不等同于 UNKNOWN，下载阶段也不会误走已知解密分支。
+					// long: C# Enum.TryParse 会接受 int32 范围内的未定义数字枚举值并保留为数字；这类 METHOD 不等同于 UNKNOWN，下载阶段也不会误走已知解密分支。
 					return EncryptMethod(strconv.Itoa(n))
 				}
 			}
@@ -82,11 +83,18 @@ func parseHLSPlaylistEncryptMethod(input string) EncryptMethod {
 	}
 }
 
-func isUnsignedDecimal(input string) bool {
+func isEnumDecimal(input string) bool {
 	if input == "" {
 		return false
 	}
-	for _, r := range input {
+	start := 0
+	if input[0] == '+' {
+		if len(input) == 1 {
+			return false
+		}
+		start = 1
+	}
+	for _, r := range input[start:] {
 		if r < '0' || r > '9' {
 			return false
 		}

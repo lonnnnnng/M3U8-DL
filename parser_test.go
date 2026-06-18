@@ -1083,9 +1083,13 @@ func TestParseMediaKeyMethodNumericEnumValuesLikeUpstream(t *testing.T) {
 	}{
 		{name: "zero none", raw: "0", want: EncryptNone},
 		{name: "leading zero aes128", raw: "01", want: EncryptAES128},
+		{name: "explicit plus aes128", raw: "+1", want: EncryptAES128},
 		{name: "seven unknown", raw: "7", want: EncryptUnknown},
 		{name: "undefined positive", raw: "8", want: EncryptMethod("8")},
+		{name: "explicit plus undefined positive", raw: "+8", want: EncryptMethod("8")},
 		{name: "negative rejected after dash replacement", raw: "-1", want: EncryptUnknown},
+		{name: "int32 overflow rejected", raw: "2147483648", want: EncryptUnknown},
+		{name: "uint max rejected", raw: "4294967295", want: EncryptUnknown},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
