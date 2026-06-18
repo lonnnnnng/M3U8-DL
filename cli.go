@@ -728,11 +728,11 @@ func parseMux(input string) (*MuxOptions, error) {
 	if muxer == "mkvmerge" && format == "mp4" {
 		return nil, errors.New("mkvmerge can not do mp4")
 	}
-	keep, err := parseStrictMuxBool(input, p, "keep")
+	keep, err := parseStrictMuxBool(input, p, "keep", "keep")
 	if err != nil {
 		return nil, err
 	}
-	skipSub, err := parseStrictMuxBool(input, p, "skip_sub")
+	skipSub, err := parseStrictMuxBool(input, p, "skip_sub", "keep")
 	if err != nil {
 		return nil, err
 	}
@@ -745,7 +745,7 @@ func parseMux(input string) (*MuxOptions, error) {
 	}, nil
 }
 
-func parseStrictMuxBool(input string, params map[string]string, key string) (bool, error) {
+func parseStrictMuxBool(input string, params map[string]string, key string, errorValueKey string) (bool, error) {
 	hasExplicitValue := strings.Contains(input, key+"=")
 	value := params[key]
 	if !hasExplicitValue {
@@ -756,8 +756,16 @@ func parseStrictMuxBool(input string, params map[string]string, key string) (boo
 		return false, nil
 	}
 	if value != "true" && value != "false" {
+		displayValue := value
+		if errorValueKey != key {
+			// long: 上游 skip_sub 非法时会误回显 keep 的值；CLI 兼容测试依赖这个文案形态，避免脚本按原版错误文本判断时失配。
+			displayValue = params[errorValueKey]
+			if displayValue == "" {
+				displayValue = "false"
+			}
+		}
 		// long: 混流选项直接影响临时文件保留和字幕是否参与封装，非法布尔值应像上游一样立即拒绝，避免误删或漏封轨道。
-		return false, fmt.Errorf("%s=%s not valid", key, value)
+		return false, fmt.Errorf("%s=%s not valid", key, displayValue)
 	}
 	return value == "true", nil
 }

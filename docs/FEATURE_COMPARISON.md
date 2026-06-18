@@ -205,7 +205,8 @@
 1. CENC/PSSH/KID 已覆盖 `schm`、`tenc`、Widevine PSSH data、PSSH v1 KID 列表和 PlayReady 文本/`VALUE` 场景，但复杂 DRM 封装还缺系统性样本验证。
 2. MP4 实时解密已补齐 init 先读 KID、shaka 缺 key 探测 KID、shaka/ffmpeg 不重复合并 init、合并后不二次整文件解密的路径，但还没有达到上游直播状态机里所有边缘分支的等价程度。
 3. SAMPLE-AES/SAMPLE-AES-CTR 已按上游走外部 MP4 工具链或保留分片，但还缺真实 SAMPLE-AES 样本覆盖。
-4. 直播 producer/consumer 多轨状态机仍是简化实现；未设置 `--live-record-limit` 的普通和实时合并路径已补齐持续刷新到 `ENDLIST` 的行为，系统信号中断已能触发基础收尾，但键盘 `q` 停止和更完整的多轨收尾仍弱于原版，PipeMux 在 Windows 真实环境未实际运行验证。
+4. 直播 producer/consumer 多轨状态机仍是简化实现；未设置 `--live-record-limit` 的普通和实时合并路径已补齐持续刷新到 `ENDLIST` 的行为，系统信号中断已能触发基础收尾，但更完整的多轨收尾仍弱于原版，PipeMux 在 Windows 真实环境未实际运行验证。
+   已核对原版源码，未发现键盘 `q` 停止机制；原版全局 `Console.CancelKeyPress` 是 Ctrl+C 强制退出。
 5. ANSI/Spectre 风格动态进度 UI 未复刻；当前只对齐了重定向时清除 ANSI 颜色的控制台初始化行为。
 6. 多语言资源系统已覆盖默认环境语言映射和核心运行输出，但完整 `ResString` 资源表、帮助文本和全部错误提示仍未复刻。
 7. ffmpeg/mkvmerge 的全部参数边缘组合和媒体探测还需要继续按样本补证据。
