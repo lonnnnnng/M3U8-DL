@@ -374,6 +374,23 @@ func TestParseArgsKeyMatchesUpstreamFormats(t *testing.T) {
 		t.Fatalf("base64 KID:KEY should be converted to hex, got %s", got)
 	}
 
+	wrappedKeyB64 := keyB64[:8] + "\n " + keyB64[8:]
+	opt, err = parseArgs([]string{"--key", kidB64 + ":" + wrappedKeyB64, "https://example.com/main.m3u8"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := opt.Keys[0]; got != "000102030405060708090a0b0c0d0e0f:101112131415161718191a1b1c1d1e1f" {
+		t.Fatalf("base64 KID:KEY should ignore base64 whitespace like upstream, got %s", got)
+	}
+
+	opt, err = parseArgs([]string{"--key", " ABCDEFABCDEFABCDEFABCDEFABCDEFAB ", "https://example.com/main.m3u8"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := opt.Keys[0]; got != "abcdefabcdefabcdefabcdefabcdefab" {
+		t.Fatalf("spaced hex key should be normalized through split parser like upstream, got %s", got)
+	}
+
 	if _, err := parseArgs([]string{"--key", "not-a-valid-key", "https://example.com/main.m3u8"}); err == nil || !strings.Contains(err.Error(), "error in parse custom key") {
 		t.Fatalf("expected invalid key to be rejected like upstream, got %v", err)
 	}

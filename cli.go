@@ -539,14 +539,18 @@ func parseKeyBytes(input string) ([]byte, error) {
 	if b, err := hex.DecodeString(clean); err == nil {
 		return b, nil
 	}
-	// long: 上游 Convert.FromBase64String 会忽略复制 key 时常见的换行和空格，base64 分支需要保留这个宽容度。
-	base64Input := strings.Map(func(r rune) rune {
+	return decodeBase64LikeDotNet(input)
+}
+
+func decodeBase64LikeDotNet(input string) ([]byte, error) {
+	// long: 上游 Convert.FromBase64String 会忽略复制 key 时常见的换行和空格，所有 key 的 base64 分支都要保留这个宽容度。
+	clean := strings.Map(func(r rune) rune {
 		if unicode.IsSpace(r) {
 			return -1
 		}
 		return r
 	}, input)
-	return base64.StdEncoding.DecodeString(base64Input)
+	return base64.StdEncoding.DecodeString(clean)
 }
 
 func parseHLSCustomKeyOption(input string) ([]byte, error) {
@@ -975,7 +979,6 @@ func parseSpeed(input string) (int64, error) {
 }
 
 func parseDecryptKey(input string) (string, error) {
-	input = strings.TrimSpace(input)
 	if pairKeyRE.MatchString(input) || idHexKeyRE.MatchString(input) || singleHexKeyRE.MatchString(input) {
 		// long: 上游对已匹配标准 HEX / KID:KEY / trackId:KEY 的输入会直接加入列表，不会归一化大小写；这会影响后续运行时 StartsWith(kid) 的精确匹配。
 		return input, nil
@@ -996,7 +999,7 @@ func parseDecryptKey(input string) (string, error) {
 		if singleHexKeyRE.MatchString(part) {
 			return strings.ToLower(part), nil
 		}
-		raw, err := base64.StdEncoding.DecodeString(part)
+		raw, err := decodeBase64LikeDotNet(part)
 		if err == nil && len(raw) == 16 {
 			return hex.EncodeToString(raw), nil
 		}
