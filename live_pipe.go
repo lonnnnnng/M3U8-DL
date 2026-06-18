@@ -336,17 +336,17 @@ func splitQuotedArgs(input string) ([]string, error) {
 	var args []string
 	var b strings.Builder
 	var quote rune
-	escaped := false
 	inToken := false
-	for _, r := range input {
-		if escaped {
-			b.WriteRune(r)
-			inToken = true
-			escaped = false
-			continue
-		}
+	runes := []rune(input)
+	for i := 0; i < len(runes); i++ {
+		r := runes[i]
 		if r == '\\' {
-			escaped = true
+			if i+1 < len(runes) && livePipeBackslashEscapes(runes[i+1], quote) {
+				i++
+				b.WriteRune(runes[i])
+			} else {
+				b.WriteRune(r)
+			}
 			inToken = true
 			continue
 		}
@@ -376,9 +376,6 @@ func splitQuotedArgs(input string) ([]string, error) {
 		b.WriteRune(r)
 		inToken = true
 	}
-	if escaped {
-		b.WriteRune('\\')
-	}
 	if quote != 0 {
 		return nil, fmt.Errorf("unterminated quote")
 	}
@@ -386,6 +383,16 @@ func splitQuotedArgs(input string) ([]string, error) {
 		args = append(args, b.String())
 	}
 	return args, nil
+}
+
+func livePipeBackslashEscapes(next rune, quote rune) bool {
+	if quote == '\'' {
+		return false
+	}
+	if quote == '"' {
+		return next == '"' || next == '\\'
+	}
+	return next == '\'' || next == '"' || next == '\\' || next == ' ' || next == '\t' || next == '\n' || next == '\r'
 }
 
 func startLivePipeMux(binary string, pipeNames []string, outputPath string) error {

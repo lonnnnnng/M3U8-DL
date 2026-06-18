@@ -3444,6 +3444,14 @@ func TestSplitLivePipeOptionArgsFallsBackOnBrokenQuotes(t *testing.T) {
 	}
 }
 
+func TestSplitLivePipeOptionArgsPreservesWindowsBackslashes(t *testing.T) {
+	got := splitLivePipeOptionArgs(`-f mpegts C:\out\live.ts "D:\media output\live stream.ts" title=Live\ Stream`)
+	want := []string{"-f", "mpegts", `C:\out\live.ts`, `D:\media output\live stream.ts`, "title=Live Stream"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("windows path backslashes should be preserved, got %#v", got)
+	}
+}
+
 func TestBuildLivePipeMuxArgsWindowsPipePath(t *testing.T) {
 	args := buildLivePipeMuxArgs([]string{"videoPipe"}, "out.ts", time.Unix(0, 0).UTC(), livePipeEnv{}, true)
 	joined := "\n" + strings.Join(args, "\n") + "\n"
