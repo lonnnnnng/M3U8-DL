@@ -617,7 +617,10 @@ func parseMux(input string) (*MuxOptions, error) {
 	if muxer != "ffmpeg" && muxer != "mkvmerge" {
 		return nil, fmt.Errorf("muxer=%s not valid", muxer)
 	}
-	binPath := p["bin_path"]
+	binPath, hasBinPath := p["bin_path"]
+	if hasBinPath && binPath == "" {
+		return nil, errors.New("bin_path= not valid")
+	}
 	if binPath == "auto" {
 		binPath = ""
 	}

@@ -44,7 +44,7 @@ go run . "<m3u8-url-or-file>" --auto-select --save-dir ./downloads -M format=mp4
 - 布尔选项支持显式 `true/false`，例如 `--check-segments-count false`
 - 输入 URL 查询参数继承到分片 URL 和 HLS key URL、`--append-url-params`
 - 二进制合并、ffmpeg concat 合并，支持 `mp4/mkv/flv/ts/m4a/aac/eac3/ac3` 等上游单轨输出格式；TS 使用 `h264_mp4toannexb`，AAC 音频只在上游会启用的格式中条件添加 `aac_adtstoasc`；超长分片列表会按上游策略先分批预合并
-- 多轨最终 ffmpeg/mkvmerge 混流、`-M format=mp4|mkv|ts:muxer=ffmpeg|mkvmerge`，`--morehelp mux-import` 提供与上游一致的外部轨道导入参数说明
+- 多轨最终 ffmpeg/mkvmerge 混流、`-M format=mp4|mkv|ts:muxer=ffmpeg|mkvmerge`，并按上游拒绝空 `bin_path` 等非法混流参数；`--morehelp mux-import` 提供与上游一致的外部轨道导入参数说明
 - 最终混流会按上游完整语言表转换语言码，并在名称为空时填入默认语言描述
 - 最终 ffmpeg 混流清理输入 metadata、复制未知流，并设置默认视频/首音频/字幕非默认轨道标记；`keep=false` 时按上游只清理实际参与混流的轨道和外部导入轨，保留被 `skip_sub` 跳过的字幕
 - `--mux-import` 与 `-M` 互斥校验、外部导入文件存在性校验、开启最终混流时自动启用二进制合并

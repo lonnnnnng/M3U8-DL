@@ -392,6 +392,7 @@ func TestParseArgsMuxAfterDoneStrictValidation(t *testing.T) {
 		{name: "format", mux: "format=avi", want: "format=avi not valid"},
 		{name: "muxer", mux: "format=mkv:muxer=bad", want: "muxer=bad not valid"},
 		{name: "mkvmerge mp4", mux: "format=mp4:muxer=mkvmerge", want: "mkvmerge can not do mp4"},
+		{name: "empty bin_path", mux: "format=mp4:bin_path=", want: "bin_path= not valid"},
 		{name: "keep", mux: "format=mp4:keep=yes", want: "keep=yes not valid"},
 		{name: "skip_sub", mux: "format=mp4:skip_sub=yes", want: "skip_sub=yes not valid"},
 	}
