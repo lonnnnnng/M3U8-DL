@@ -1143,6 +1143,43 @@ func TestParseMediaInvalidInlineKeyDowngradesToUnknown(t *testing.T) {
 	}
 }
 
+func TestParseMediaMalformedQuotedKeyAttributesFailLikeUpstream(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+	}{
+		{
+			name: "uri",
+			raw: `#EXTM3U
+#EXT-X-TARGETDURATION:8
+#EXT-X-KEY:METHOD=AES-128,URI="base64:MDEyMzQ1Njc4OWFiY2RlZg==
+#EXTINF:8.0,
+0.ts
+#EXT-X-ENDLIST
+`,
+		},
+		{
+			name: "iv",
+			raw: `#EXTM3U
+#EXT-X-TARGETDURATION:8
+#EXT-X-KEY:METHOD=AES-128,URI="base64:MDEyMzQ1Njc4OWFiY2RlZg==",IV="0x00000000000000000000000000000001
+#EXTINF:8.0,
+0.ts
+#EXT-X-ENDLIST
+`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			opt := defaultOptions()
+			p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}
+			if _, err := p.parseMedia(context.Background(), tt.raw); err == nil {
+				t.Fatal("malformed quoted key attribute should fail like upstream GetAttribute")
+			}
+		})
+	}
+}
+
 func TestParseMediaHLSIVTrimsWhitespaceLikeUpstream(t *testing.T) {
 	opt := defaultOptions()
 	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/main.m3u8", currentURL: "https://example.com/main.m3u8", baseURL: "https://example.com/main.m3u8", rawFiles: map[string]string{}}

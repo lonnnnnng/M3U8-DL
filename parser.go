@@ -468,6 +468,9 @@ func (p *parser) preProcessURL(rawURL string) string {
 }
 
 func (p *parser) parseKey(ctx context.Context, line string) (EncryptInfo, error) {
+	if err := ensureQuotedAttrsClosed(line, "METHOD", "URI", "IV"); err != nil {
+		return EncryptInfo{}, err
+	}
 	method := normalizeEncryptMethod(attr(line, "METHOD"))
 	if method == "" || !isKnownHLSMethod(method) {
 		method = EncryptUnknown
