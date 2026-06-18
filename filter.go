@@ -161,7 +161,7 @@ func bestByType(streams []StreamSpec, mt MediaType, all bool) []StreamSpec {
 			items = append(items, s)
 		}
 	}
-	items = sortStreamsByQuality(items)
+	items = sortStreamsLikeUpstream(items)
 	if all || len(items) <= 1 {
 		return items
 	}
@@ -205,7 +205,7 @@ func applyFilterKeepByType(streams []StreamSpec, mt MediaType, f *Filter) []Stre
 			candidates = append(candidates, s)
 		}
 	}
-	candidates = sortStreamsByQuality(candidates)
+	candidates = sortStreamsLikeUpstream(candidates)
 	candidates = filterByPredicate(candidates, func(s StreamSpec) bool {
 		return matchFilterRegexFields(s, *f)
 	})
@@ -294,16 +294,19 @@ func betterQuality(a, b StreamSpec) bool {
 }
 
 func mediaSortRank(s StreamSpec) int {
-	if s.MediaType == nil || *s.MediaType == MediaVideo {
+	if s.MediaType == nil {
 		return 0
 	}
 	switch *s.MediaType {
 	case MediaAudio:
 		return 1
-	case MediaSubtitles:
+	case MediaVideo:
+		// long: 原版按 nullable MediaType 排序，基础流(null)永远排在 EXT-X-MEDIA:TYPE=VIDEO 前面，不能和备用视频 rendition 按码率混排。
 		return 2
-	default:
+	case MediaSubtitles:
 		return 3
+	default:
+		return 4
 	}
 }
 

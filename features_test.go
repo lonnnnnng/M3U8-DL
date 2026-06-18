@@ -938,6 +938,18 @@ func TestAutoSelectBreaksAudioBandwidthTieByChannelsLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestAutoSelectPrefersBasicStreamBeforeMediaVideoLikeUpstream(t *testing.T) {
+	video := MediaVideo
+	streams := []StreamSpec{
+		{ID: 1, Bandwidth: 1000, Resolution: "720p"},
+		{ID: 2, MediaType: &video, Bandwidth: 8000, Resolution: "2160p"},
+	}
+	selected := autoSelect(streams, Options{AutoSelect: true})
+	if len(selected) != 1 || selected[0].ID != 1 {
+		t.Fatalf("basic stream should stay before EXT-X-MEDIA TYPE=VIDEO like upstream, got %#v", selected)
+	}
+}
+
 func TestApplyFiltersKeepsOnlyRequestedTypeAndForCount(t *testing.T) {
 	audio := MediaAudio
 	sub := MediaSubtitles
@@ -963,6 +975,18 @@ func TestApplyFiltersForBestUsesUpstreamQualitySort(t *testing.T) {
 	got := applyFilters(streams, Options{VideoFilter: parseFilter("for=best2")})
 	if len(got) != 2 || got[0].ID != 2 || got[1].ID != 3 {
 		t.Fatalf("best2 should use upstream sorted quality order, got %#v", got)
+	}
+}
+
+func TestApplyFiltersVideoBestPrefersBasicStreamBeforeMediaVideoLikeUpstream(t *testing.T) {
+	video := MediaVideo
+	streams := []StreamSpec{
+		{ID: 1, Bandwidth: 1000, Resolution: "720p"},
+		{ID: 2, MediaType: &video, Bandwidth: 8000, Resolution: "2160p"},
+	}
+	got := applyFilters(streams, Options{VideoFilter: parseFilter("for=best")})
+	if len(got) != 1 || got[0].ID != 1 {
+		t.Fatalf("video best should keep basic stream before TYPE=VIDEO rendition like upstream, got %#v", got)
 	}
 }
 
