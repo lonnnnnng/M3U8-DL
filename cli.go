@@ -730,6 +730,10 @@ func parseStrictMuxBool(params map[string]string, key string) (bool, error) {
 	if value == "" {
 		return false, nil
 	}
+	if value == key {
+		// long: 上游 ComplexParamParser 在参数以 keep/skip_sub 结尾且没有等号时会返回 "true"，裸布尔写法要和 keep=true 等价。
+		return true, nil
+	}
 	if value != "true" && value != "false" {
 		// long: 混流选项直接影响临时文件保留和字幕是否参与封装，非法布尔值应像上游一样立即拒绝，避免误删或漏封轨道。
 		return false, fmt.Errorf("%s=%s not valid", key, value)

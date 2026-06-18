@@ -645,6 +645,16 @@ func TestParseArgsStreamFilterRejectsInvalidValuesLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestParseArgsMuxAfterDoneBareBoolFlagsMatchUpstream(t *testing.T) {
+	opt, err := parseArgs([]string{"-M", "format=mp4:keep:skip_sub", "https://example.com/main.m3u8"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opt.MuxAfterDone == nil || !opt.MuxAfterDone.Keep || !opt.MuxAfterDone.SkipSubtitle {
+		t.Fatalf("bare keep/skip_sub should parse as true like upstream, got %#v", opt.MuxAfterDone)
+	}
+}
+
 func TestParseArgsMuxImportAcceptsMultipleValuesAfterOneFlag(t *testing.T) {
 	tmp := t.TempDir()
 	en := filepath.Join(tmp, "extra-en.srt")
