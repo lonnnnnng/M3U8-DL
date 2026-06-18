@@ -316,15 +316,15 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 	}
 
 	if split, err := splitSingleMediaSegment(ctx, client, s, opt); err != nil {
-		fmt.Println("单分片切片检测失败:", err)
+		fmt.Println(tr(opt, "singleFileSplitFailed", err))
 	} else if len(split) > 0 {
 		// long: 单 URL 大文件支持 Range 时按上游拆成多个虚拟分片，让既有并发下载逻辑能并行拉取同一个媒体资源的不同字节窗口。
 		s.Playlist.Parts = []MediaPart{{Segments: split}}
 		if opt.MP4RealTimeDecryption {
 			opt.MP4RealTimeDecryption = false
-			fmt.Println("单分片切片已启用，自动关闭实时 MP4 解密")
+			fmt.Println(tr(opt, "singleFileRealtimeDisabled"))
 		}
-		fmt.Println("检测到单分片大文件，已启用 Range 切片下载")
+		fmt.Println(tr(opt, "singleFileSplitEnabled"))
 	}
 
 	var allSegs []Segment
@@ -382,7 +382,7 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 			}
 			files[i] = actual
 			v := atomic.AddInt64(&done, 1)
-			fmt.Printf("\r%s 下载进度 %d/%d", s.Short(), v, len(allSegs))
+			fmt.Print("\r" + tr(opt, "downloadProgress", s.Short(), v, len(allSegs)))
 		}()
 	}
 	wg.Wait()

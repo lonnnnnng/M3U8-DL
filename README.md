@@ -33,6 +33,7 @@ go run . "<m3u8-url-or-file>" --auto-select --save-dir ./downloads -M format=mp4
 - `base64://`、`hex://`、`file:` 分片 URL 读取
 - `--log-file-path` 日志写出、默认日志目录、`--no-log` 禁用日志、`--log-level` 日志文件等级过滤
 - `--ui-language`、`--log-level`、`--sub-format`、`--decryption-engine`、`--custom-hls-method` 按上游白名单/枚举值提前校验，避免非法值静默按默认行为执行
+- `--ui-language` 已开始接入核心运行输出、自动派生选项提示、更新检查提示和下载进度文本，默认中文，支持 `zh-CN/zh-TW/en-US`
 - GitHub latest release 更新检查、`--disable-update-check`
 - 未传 `--save-name` 时从输入 URL/文件名推导默认保存名，`--save-pattern` 支持 `<FrameRate>` 等变量，并按上游清理空字段产生的多余分隔符
 - 单请求限速、`--max-speed`，按上游规则只接受 `K`/`M` 单位，例如 `512K`、`1.5M`

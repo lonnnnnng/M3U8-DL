@@ -30,7 +30,7 @@ func maybeCheckUpdate(opt Options) {
 	if err != nil || !newer {
 		return
 	}
-	fmt.Printf("发现新版本: %s\n", latest)
+	fmt.Println(tr(opt, "newVersionFound", latest))
 }
 
 func newUpdateHTTPClient(opt Options) (*http.Client, error) {
@@ -326,12 +326,12 @@ func applyOptionImplicationsWithMessages(opt *Options) []string {
 	var messages []string
 	if opt.LivePipeMux && !opt.LiveRealTimeMerge {
 		opt.LiveRealTimeMerge = true
-		messages = append(messages, "LivePipeMux detected, forced enable LiveRealTimeMerge")
+		messages = append(messages, tr(*opt, "livePipeMuxForcesRealtime"))
 	}
 	if opt.MuxAfterDone != nil && !opt.BinaryMerge {
 		// long: 最终混流要拿到每条轨道的原始输出，上游会自动切到二进制合并，避免单轨先被 ffmpeg 改写后再混流。
 		opt.BinaryMerge = true
-		messages = append(messages, "MuxAfterDone detected, forced enable BinaryMerge")
+		messages = append(messages, tr(*opt, "muxAfterDoneForcesBinaryMerge"))
 	}
 	return messages
 }

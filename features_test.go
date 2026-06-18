@@ -3001,6 +3001,39 @@ func TestValidateOptionsAcceptsEnumValuesCaseInsensitively(t *testing.T) {
 	}
 }
 
+func TestCoreMessagesFollowUILanguage(t *testing.T) {
+	opt := defaultOptions()
+	opt.UILanguage = "en-US"
+	if got := tr(opt, "streamsParsed", 3); got != "Parsed 3 streams" {
+		t.Fatalf("english streamsParsed wrong: %q", got)
+	}
+	opt.UILanguage = "zh-TW"
+	if got := tr(opt, "skipDownload"); got != "已按 --skip-download 跳過下載" {
+		t.Fatalf("traditional skipDownload wrong: %q", got)
+	}
+	opt.UILanguage = "zh-CN"
+	if got := tr(opt, "downloadProgress", "VIDEO", 1, 2); got != "VIDEO 下载进度 1/2" {
+		t.Fatalf("simplified downloadProgress wrong: %q", got)
+	}
+}
+
+func TestOptionImplicationMessagesFollowUILanguage(t *testing.T) {
+	opt := defaultOptions()
+	opt.UILanguage = "en-US"
+	opt.MuxAfterDone = &MuxOptions{Format: "mp4"}
+	messages := applyOptionImplicationsWithMessages(&opt)
+	if len(messages) != 1 || messages[0] != "MuxAfterDone detected, forced enable BinaryMerge" {
+		t.Fatalf("english implication message wrong: %#v", messages)
+	}
+	opt = defaultOptions()
+	opt.UILanguage = "zh-TW"
+	opt.LivePipeMux = true
+	messages = applyOptionImplicationsWithMessages(&opt)
+	if len(messages) != 1 || messages[0] != "檢測到 LivePipeMux，已強制啟用 LiveRealTimeMerge" {
+		t.Fatalf("traditional implication message wrong: %#v", messages)
+	}
+}
+
 func TestValidateOptionsRejectsMuxImportWithoutMuxAfterDone(t *testing.T) {
 	err := validateOptions(Options{MuxImports: []string{"path=extra.srt"}})
 	if err == nil || !strings.Contains(err.Error(), "MuxAfterDone disabled") {

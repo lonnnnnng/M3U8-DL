@@ -53,7 +53,7 @@ func run() error {
 		fmt.Println(msg)
 	}
 	if opt.TaskStartAt != nil && opt.TaskStartAt.After(time.Now()) {
-		fmt.Println("等待任务开始:", opt.TaskStartAt.Format("2006-01-02 15:04:05"))
+		fmt.Println(tr(opt, "taskStartAt", opt.TaskStartAt.Format("2006-01-02 15:04:05")))
 		time.Sleep(time.Until(*opt.TaskStartAt))
 	}
 	client, err := newHTTPClient(opt)
@@ -65,7 +65,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("解析到 %d 条轨道\n", len(streams))
+	fmt.Println(tr(opt, "streamsParsed", len(streams)))
 	selected, err := chooseStreams(streams, opt)
 	if err != nil {
 		return err
@@ -86,7 +86,7 @@ func run() error {
 		}
 	}
 	if opt.SkipDownload {
-		fmt.Println("已按 --skip-download 跳过下载")
+		fmt.Println(tr(opt, "skipDownload"))
 		return nil
 	}
 	outs, liveHandled, err := downloadLiveRealtimeIfNeeded(ctx, client, selected, p, opt)
@@ -114,11 +114,11 @@ func run() error {
 			return err
 		}
 		if muxed != "" {
-			fmt.Println("混流输出:", muxed)
+			fmt.Println(tr(opt, "muxOutput", muxed))
 		}
 	}
 	for _, o := range outs {
-		fmt.Println("输出:", o.Path)
+		fmt.Println(tr(opt, "output", o.Path))
 	}
 	return nil
 }
