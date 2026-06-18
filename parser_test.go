@@ -1617,6 +1617,28 @@ func TestParseMediaRelativeBackslashURLsMatchUpstreamUri(t *testing.T) {
 	}
 }
 
+func TestParseMediaSameSchemeRelativeURLsMatchUpstreamUri(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/a/main.m3u8", currentURL: "https://example.com/a/main.m3u8", baseURL: "https://example.com/a/main.m3u8", rawFiles: map[string]string{}}
+	raw := "#EXTM3U\n" +
+		"#EXT-X-TARGETDURATION:4\n" +
+		"#EXT-X-MAP:URI=\"https:/init.mp4\"\n" +
+		"#EXTINF:4.0,\n" +
+		"https:dir/seg.m4s\n" +
+		"#EXT-X-ENDLIST\n"
+	pl, err := p.parseMedia(context.Background(), raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pl.MediaInit == nil || pl.MediaInit.URL != "https://example.com/init.mp4" {
+		t.Fatalf("same-scheme root-relative map URI should match upstream Uri, got %#v", pl.MediaInit)
+	}
+	segs := sortedSegments(pl)
+	if len(segs) != 1 || segs[0].URL != "https://example.com/a/dir/seg.m4s" {
+		t.Fatalf("same-scheme relative segment URI should match upstream Uri, got %#v", segs)
+	}
+}
+
 func TestParseMediaMultipleExtMapMatchesUpstream(t *testing.T) {
 	raw := `#EXTM3U
 #EXT-X-TARGETDURATION:4

@@ -118,11 +118,24 @@ func combineURL(baseURL, ref string) string {
 	if err != nil {
 		return ref
 	}
+	ref = normalizeSameSchemeRelativeURI(ref, b.Scheme)
 	r, err := url.Parse(ref)
 	if err != nil {
 		return ref
 	}
 	return b.ResolveReference(r).String()
+}
+
+func normalizeSameSchemeRelativeURI(ref, baseScheme string) string {
+	if baseScheme == "" || ref == "" {
+		return ref
+	}
+	prefix := baseScheme + ":"
+	if !strings.HasPrefix(ref, prefix) || strings.HasPrefix(ref, prefix+"//") {
+		return ref
+	}
+	// long: .NET Uri 会把 https:seg.ts / https:/seg.ts 这类同 scheme 非 // 地址按相对路径解析；Go 会把它保留成 opaque URL，导致后续下载器拿到不可请求地址。
+	return ref[len(prefix):]
 }
 
 func normalizeRelativeURIPathSeparators(ref string) string {
