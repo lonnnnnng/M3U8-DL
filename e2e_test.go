@@ -520,6 +520,29 @@ func TestProbeRangeSizeAcceptsAnyAcceptRangesHeaderLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestProbeRangeSizeChecksAcceptRangesWithoutCustomHeadersLikeUpstream(t *testing.T) {
+	payloadSize := int64(largeSingleFileSplitSize + 1)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodHead {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Length", strconv.FormatInt(payloadSize, 10))
+		if r.Header.Get("X-Auth") == "ok" {
+			w.Header().Set("Accept-Ranges", "bytes")
+		}
+	}))
+	defer srv.Close()
+
+	size, ok, err := probeRangeSize(context.Background(), srv.Client(), srv.URL+"/single.ts", map[string]string{"X-Auth": "ok"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok || size != 0 {
+		t.Fatalf("Accept-Ranges gated by custom headers should not split like upstream, ok=%v size=%d", ok, size)
+	}
+}
+
 func TestConcurrentDownloadKeepsInputStreamOrder(t *testing.T) {
 	var base string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -639,19 +639,27 @@ func splitSingleMediaSegment(ctx context.Context, client *http.Client, s StreamS
 }
 
 func probeRangeSize(ctx context.Context, client *http.Client, rawURL string, headers map[string]string) (int64, bool, error) {
-	resp, err := doRequestWithRedirects(ctx, client, http.MethodHead, rawURL, headers, nil)
+	rangeResp, err := doRequestWithRedirects(ctx, client, http.MethodHead, rawURL, nil, nil)
 	if err != nil {
 		return 0, false, err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return 0, false, fmt.Errorf("HEAD %s 返回 HTTP %d", rawURL, resp.StatusCode)
+	defer rangeResp.Body.Close()
+	if rangeResp.StatusCode < 200 || rangeResp.StatusCode >= 300 {
+		return 0, false, fmt.Errorf("HEAD %s 返回 HTTP %d", rawURL, rangeResp.StatusCode)
 	}
-	// long: 原版只检查服务器是否声明 Accept-Ranges，不限定值必须是 bytes；这里保留同样的宽松判断，兼容非标准但可 Range 的源站。
-	if resp.Header.Get("Accept-Ranges") == "" {
+	// long: 原版 CanSplitAsync 的第一次 HEAD 不附带用户 headers，只检查是否声明 Accept-Ranges；带鉴权才出现的 Range 能力不能触发单文件拆分。
+	if rangeResp.Header.Get("Accept-Ranges") == "" {
 		return 0, false, nil
 	}
-	return resp.ContentLength, resp.ContentLength > 0, nil
+	sizeResp, err := doRequestWithRedirects(ctx, client, http.MethodHead, rawURL, headers, nil)
+	if err != nil {
+		return 0, false, err
+	}
+	defer sizeResp.Body.Close()
+	if sizeResp.StatusCode < 200 || sizeResp.StatusCode >= 300 {
+		return 0, false, fmt.Errorf("HEAD %s 返回 HTTP %d", rawURL, sizeResp.StatusCode)
+	}
+	return sizeResp.ContentLength, sizeResp.ContentLength > 0, nil
 }
 
 func cloneInt64(v int64) *int64 {
