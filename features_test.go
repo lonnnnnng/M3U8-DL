@@ -3076,6 +3076,25 @@ func TestOptionImplicationMessagesFollowUILanguage(t *testing.T) {
 	}
 }
 
+func TestPrepareSelectedStreamsMessagesFollowUILanguage(t *testing.T) {
+	opt := defaultOptions()
+	opt.UILanguage = "en-US"
+	streams := []StreamSpec{{
+		Playlist: &Playlist{Parts: []MediaPart{{Segments: []Segment{{Encrypt: EncryptInfo{Method: EncryptCENC}}}}}},
+	}}
+	messages := prepareSelectedStreams(streams, &opt)
+	if len(messages) != 1 || messages[0] != "When CENC encryption is detected, binary merging is automatically enabled" {
+		t.Fatalf("english CENC binary merge message wrong: %#v", messages)
+	}
+	opt = defaultOptions()
+	opt.UILanguage = "zh-TW"
+	streams = []StreamSpec{{Playlist: &Playlist{MediaInit: &Segment{URL: "init.mp4"}}}}
+	messages = prepareSelectedStreams(streams, &opt)
+	if len(messages) != 1 || messages[0] != "檢測到fMP4，自動開啟二進位制合併" {
+		t.Fatalf("traditional fMP4 binary merge message wrong: %#v", messages)
+	}
+}
+
 func TestValidateOptionsRejectsMuxImportWithoutMuxAfterDone(t *testing.T) {
 	err := validateOptions(Options{MuxImports: []string{"path=extra.srt"}})
 	if err == nil || !strings.Contains(err.Error(), "MuxAfterDone disabled") {

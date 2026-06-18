@@ -287,17 +287,17 @@ func prepareSelectedStreams(selected []StreamSpec, opt *Options) []string {
 	if !opt.BinaryMerge && hasUnknownEncryption(selected) {
 		// long: 未识别加密方式在裁剪前就要触发二进制合并；否则用户范围刚好裁掉未知片段时，会和上游的全局流判断不一致。
 		opt.BinaryMerge = true
-		messages = append(messages, "检测到无法识别的加密方式，自动开启二进制合并")
+		messages = append(messages, tr(*opt, "autoBinaryMergeUnknown"))
 	}
 	if !opt.BinaryMerge && hasCENCEncryption(selected) {
 		// long: CENC 分片通常需要保持 init 和媒体分片的原始盒结构，先用二进制合并能为后续外部解密保留完整上下文。
 		opt.BinaryMerge = true
-		messages = append(messages, "检测到CENC加密方式，自动开启二进制合并")
+		messages = append(messages, tr(*opt, "autoBinaryMergeCENC"))
 	}
 	if !opt.BinaryMerge && hasFMP4Media(selected) {
 		// long: fMP4 HLS 由 init 与 m4s 分片共同组成完整媒体，按上游策略优先顺序拼接，避免 ffmpeg 过早改写片段时间线。
 		opt.BinaryMerge = true
-		messages = append(messages, "检测到fMP4，自动开启二进制合并")
+		messages = append(messages, tr(*opt, "autoBinaryMerge"))
 	}
 	if !living {
 		for i := range selected {

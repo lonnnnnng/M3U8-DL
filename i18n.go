@@ -24,6 +24,21 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "檢測到 MuxAfterDone，已強制啟用 BinaryMerge",
 		EnUS: "MuxAfterDone detected, forced enable BinaryMerge",
 	},
+	"autoBinaryMerge": {
+		ZhCN: "检测到fMP4，自动开启二进制合并",
+		ZhTW: "檢測到fMP4，自動開啟二進位制合併",
+		EnUS: "fMP4 is detected, binary merging is automatically enabled",
+	},
+	"autoBinaryMergeUnknown": {
+		ZhCN: "检测到无法识别的加密方式，自动开启二进制合并",
+		ZhTW: "檢測到無法識別的加密方式，自動開啟二進位制合併",
+		EnUS: "An unrecognized encryption method is detected, binary merging is automatically enabled",
+	},
+	"autoBinaryMergeCENC": {
+		ZhCN: "检测到CENC加密方式，自动开启二进制合并",
+		ZhTW: "檢測到CENC加密方式，自動開啟二進位制合併",
+		EnUS: "When CENC encryption is detected, binary merging is automatically enabled",
+	},
 	"taskStartAt": {
 		ZhCN: "等待任务开始: %s",
 		ZhTW: "等待任務開始: %s",
