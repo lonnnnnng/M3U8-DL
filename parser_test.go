@@ -1077,6 +1077,47 @@ func TestParseMediaKeyLoadRetriesBeforeDowngrade(t *testing.T) {
 	}
 }
 
+func TestParseMediaKeyLoadFailureUsesUpstreamRetryCount(t *testing.T) {
+	var keyHits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/key.bin" {
+			http.NotFound(w, r)
+			return
+		}
+		keyHits++
+		http.Error(w, "temporary key failure", http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	opt := defaultOptions()
+	p := &parser{
+		opt:         opt,
+		client:      srv.Client(),
+		originalURL: srv.URL + "/main.m3u8",
+		currentURL:  srv.URL + "/main.m3u8",
+		baseURL:     srv.URL + "/main.m3u8",
+		rawFiles:    map[string]string{},
+	}
+	raw := `#EXTM3U
+#EXT-X-TARGETDURATION:8
+#EXT-X-KEY:METHOD=AES-128,URI="key.bin"
+#EXTINF:8.0,
+0.ts
+#EXT-X-ENDLIST
+`
+	pl, err := p.parseMedia(context.Background(), raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segs := sortedSegments(pl)
+	if len(segs) != 1 || segs[0].Encrypt.Method != EncryptUnknown {
+		t.Fatalf("key failure after retries should downgrade to UNKNOWN, got %#v", segs)
+	}
+	if keyHits != hlsKeyRetryCount+1 {
+		t.Fatalf("expected upstream retry count to make %d key attempts, got %d", hlsKeyRetryCount+1, keyHits)
+	}
+}
+
 func TestParseMediaKeyURLAppliesAppendURLParamsLikeUpstream(t *testing.T) {
 	var keyHits int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
