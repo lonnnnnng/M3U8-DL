@@ -1639,6 +1639,29 @@ func TestParseMediaSameSchemeRelativeURLsMatchUpstreamUri(t *testing.T) {
 	}
 }
 
+func TestParseMediaURLDisplayEscapesMatchUpstreamUri(t *testing.T) {
+	opt := defaultOptions()
+	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/a/main.m3u8", currentURL: "https://example.com/a/main.m3u8", baseURL: "https://example.com/a/main.m3u8", rawFiles: map[string]string{}}
+	raw := "#EXTM3U\n" +
+		"#EXT-X-TARGETDURATION:4\n" +
+		"#EXT-X-MAP:URI=\"init%20文件%7E%41.mp4?token=a%20b&safe=a%2Fb\"\n" +
+		"#EXTINF:4.0,\n" +
+		"seg%20中文.ts?x=a%20b&path=a%2Fb&next=a%3Fb&frag=a%23b&pct=a%25b\n" +
+		"#EXT-X-ENDLIST\n"
+	pl, err := p.parseMedia(context.Background(), raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pl.MediaInit == nil || pl.MediaInit.URL != "https://example.com/a/init 文件~A.mp4?token=a b&safe=a%2Fb" {
+		t.Fatalf("EXT-X-MAP display escapes should match upstream Uri.ToString, got %#v", pl.MediaInit)
+	}
+	segs := sortedSegments(pl)
+	want := "https://example.com/a/seg 中文.ts?x=a b&path=a%2Fb&next=a%3Fb&frag=a%23b&pct=a%25b"
+	if len(segs) != 1 || segs[0].URL != want {
+		t.Fatalf("segment URL display escapes should match upstream Uri.ToString:\nwant %s\ngot  %#v", want, segs)
+	}
+}
+
 func TestParseMediaMultipleExtMapMatchesUpstream(t *testing.T) {
 	raw := `#EXTM3U
 #EXT-X-TARGETDURATION:4

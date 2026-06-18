@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 func attr(line, key string) string {
@@ -123,7 +124,91 @@ func combineURL(baseURL, ref string) string {
 	if err != nil {
 		return ref
 	}
-	return b.ResolveReference(r).String()
+	return upstreamURIString(b.ResolveReference(r))
+}
+
+func upstreamURIString(u *url.URL) string {
+	return decodeUpstreamDisplayEscapes(u.String())
+}
+
+func decodeUpstreamDisplayEscapes(input string) string {
+	if !strings.Contains(input, "%") {
+		return input
+	}
+	var out strings.Builder
+	out.Grow(len(input))
+	for i := 0; i < len(input); {
+		if input[i] != '%' || i+2 >= len(input) {
+			out.WriteByte(input[i])
+			i++
+			continue
+		}
+		var decoded []byte
+		var encoded strings.Builder
+		j := i
+		for j+2 < len(input) && input[j] == '%' {
+			b, ok := parseHexByte(input[j+1], input[j+2])
+			if !ok || !displayEscapedByteCanDecode(b) {
+				break
+			}
+			decoded = append(decoded, b)
+			encoded.WriteString(input[j : j+3])
+			j += 3
+		}
+		if len(decoded) == 0 {
+			out.WriteString(input[i : i+3])
+			i += 3
+			continue
+		}
+		// long: 上游 Uri.ToString 会展示可读的空格、ASCII 非结构字符和 UTF-8 字符；保留会改变 URL 结构的保留字符转义。
+		if utf8.Valid(decoded) {
+			out.WriteString(string(decoded))
+		} else {
+			out.WriteString(encoded.String())
+		}
+		i = j
+	}
+	return out.String()
+}
+
+func displayEscapedByteCanDecode(b byte) bool {
+	if b == ' ' || b >= utf8.RuneSelf {
+		return true
+	}
+	if b >= 'A' && b <= 'Z' || b >= 'a' && b <= 'z' || b >= '0' && b <= '9' {
+		return true
+	}
+	switch b {
+	case '-', '.', '_', '~':
+		return true
+	default:
+		return false
+	}
+}
+
+func parseHexByte(a, b byte) (byte, bool) {
+	hi, ok := hexDigit(a)
+	if !ok {
+		return 0, false
+	}
+	lo, ok := hexDigit(b)
+	if !ok {
+		return 0, false
+	}
+	return hi<<4 | lo, true
+}
+
+func hexDigit(b byte) (byte, bool) {
+	switch {
+	case b >= '0' && b <= '9':
+		return b - '0', true
+	case b >= 'A' && b <= 'F':
+		return b - 'A' + 10, true
+	case b >= 'a' && b <= 'f':
+		return b - 'a' + 10, true
+	default:
+		return 0, false
+	}
 }
 
 func normalizeSameSchemeRelativeURI(ref, baseScheme string) string {
