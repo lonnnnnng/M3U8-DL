@@ -72,12 +72,23 @@ func parseArgs(args []string) (Options, error) {
 		case "--version":
 			return opt, errors.New("version")
 		case "--morehelp":
-			v, _ := next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
 			return opt, fmt.Errorf("morehelp:%s", v)
 		case "--tmp-dir":
-			opt.TmpDir, _ = next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
+			opt.TmpDir = v
 		case "--save-dir":
-			opt.SaveDir, _ = next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
+			opt.SaveDir = v
 		case "--save-name":
 			v, err := next()
 			if err != nil {
@@ -89,11 +100,23 @@ func parseArgs(args []string) (Options, error) {
 			}
 			opt.SaveName = saveName
 		case "--save-pattern":
-			opt.SavePattern, _ = next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
+			opt.SavePattern = v
 		case "--log-file-path":
-			opt.LogFilePath, _ = next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
+			opt.LogFilePath = v
 		case "--base-url":
-			opt.BaseURL, _ = next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
+			opt.BaseURL = v
 		case "--thread-count":
 			v, err := next()
 			if err != nil {
@@ -113,7 +136,10 @@ func parseArgs(args []string) (Options, error) {
 				return opt, err
 			}
 		case "--http-request-timeout":
-			v, _ := next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
 			timeout, err := strconv.ParseFloat(v, 64)
 			if err != nil || timeout <= 0 {
 				return opt, fmt.Errorf("error in parse HttpRequestTimeout: %s", v)
@@ -161,17 +187,37 @@ func parseArgs(args []string) (Options, error) {
 		case "--sub-only":
 			opt.SubOnly = boolFlag(true)
 		case "--sub-format":
-			opt.SubFormat, _ = next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
+			opt.SubFormat = v
 		case "--auto-subtitle-fix":
 			opt.AutoSubtitleFix = boolFlag(true)
 		case "--ffmpeg-binary-path":
-			opt.FFmpegBinaryPath, _ = next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
+			opt.FFmpegBinaryPath = v
 		case "--log-level":
-			opt.LogLevel, _ = next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
+			opt.LogLevel = v
 		case "--ui-language":
-			opt.UILanguage, _ = next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
+			opt.UILanguage = v
 		case "--urlprocessor-args":
-			opt.URLProcessorArgs, _ = next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
+			opt.URLProcessorArgs = v
 		case "--key":
 			v, err := next()
 			if err != nil {
@@ -196,27 +242,48 @@ func parseArgs(args []string) (Options, error) {
 				opt.Keys = append(opt.Keys, nextKey)
 			}
 		case "--key-text-file":
-			opt.KeyTextFile, _ = next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
+			opt.KeyTextFile = v
 		case "--decryption-engine":
-			opt.DecryptionEngine, _ = next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
+			opt.DecryptionEngine = v
 		case "--decryption-binary-path":
-			opt.DecryptionBinaryPath, _ = next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
+			opt.DecryptionBinaryPath = v
 		case "--mp4-real-time-decryption":
 			opt.MP4RealTimeDecryption = boolFlag(true)
 		case "--use-shaka-packager":
 			opt.DecryptionEngine = "SHAKA_PACKAGER"
 		case "--custom-hls-method":
-			v, _ := next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
 			opt.CustomHLSMethod = normalizeEncryptMethod(v)
 		case "--custom-hls-key":
-			v, _ := next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
 			b, err := parseKeyBytes(v)
 			if err != nil {
 				return opt, err
 			}
 			opt.CustomHLSKey = b
 		case "--custom-hls-iv":
-			v, _ := next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
 			b, err := parseKeyBytes(v)
 			if err != nil {
 				return opt, err
@@ -234,14 +301,20 @@ func parseArgs(args []string) (Options, error) {
 			}
 			opt.CustomProxy = v
 		case "--custom-range":
-			v, _ := next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
 			cr, err := parseCustomRange(v)
 			if err != nil {
 				return opt, err
 			}
 			opt.CustomRange = cr
 		case "--task-start-at":
-			v, _ := next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
 			t, err := time.ParseInLocation("20060102150405", v, time.Local)
 			if err != nil {
 				return opt, err
@@ -256,7 +329,10 @@ func parseArgs(args []string) (Options, error) {
 		case "--live-pipe-mux":
 			opt.LivePipeMux = boolFlag(true)
 		case "--live-record-limit":
-			v, _ := next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
 			d, err := parseDuration(v)
 			if err != nil {
 				return opt, err
@@ -284,7 +360,10 @@ func parseArgs(args []string) (Options, error) {
 		case "--live-fix-vtt-by-audio":
 			opt.LiveFixVTTByAudio = boolFlag(true)
 		case "-M", "--mux-after-done":
-			v, _ := next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
 			mux, err := parseMux(v)
 			if err != nil {
 				return opt, err
@@ -302,22 +381,40 @@ func parseArgs(args []string) (Options, error) {
 				opt.MuxImports = append(opt.MuxImports, args[i])
 			}
 		case "-sv", "--select-video":
-			v, _ := next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
 			opt.VideoFilter = parseFilter(v)
 		case "-sa", "--select-audio":
-			v, _ := next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
 			opt.AudioFilter = parseFilter(v)
 		case "-ss", "--select-subtitle":
-			v, _ := next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
 			opt.SubtitleFilter = parseFilter(v)
 		case "-dv", "--drop-video":
-			v, _ := next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
 			opt.DropVideoFilter = parseFilter(v)
 		case "-da", "--drop-audio":
-			v, _ := next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
 			opt.DropAudioFilter = parseFilter(v)
 		case "-ds", "--drop-subtitle":
-			v, _ := next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
 			opt.DropSubtitleFilter = parseFilter(v)
 		case "--ad-keyword":
 			v, err := next()
@@ -335,7 +432,10 @@ func parseArgs(args []string) (Options, error) {
 		case "--allow-hls-multi-ext-map":
 			opt.AllowHLSMultiExtMap = boolFlag(true)
 		case "-R", "--max-speed":
-			v, _ := next()
+			v, err := next()
+			if err != nil {
+				return opt, err
+			}
 			speed, err := parseSpeed(v)
 			if err != nil {
 				return opt, err

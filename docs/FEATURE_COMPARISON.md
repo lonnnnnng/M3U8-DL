@@ -152,7 +152,7 @@
 | HTTP Header/文本编码/解压 | 默认 UA、自定义 Header、多 Header，playlist/key 默认 `Accept-Encoding: gzip, deflate` 与 `Cache-Control: no-cache`，播放列表文本按响应 charset 解码，gzip/deflate/br 响应自动解压 | 已支持；用户自定义 `Accept-Encoding` 不会被覆盖，跳转后保留 Header/Range，非 UTF-8 playlist 文本按 `Content-Type` charset 解码，playlist/key/分片 HTTP deflate 和 Brotli 响应可解压 | 已追平 |
 | 代理 | 系统代理、自定义代理 | 已支持系统代理和 `--custom-proxy` 校验 | 已追平 |
 | 重试/超时 | 请求超时、下载重试、key 重试 | 已支持，`--http-request-timeout` 支持小数秒 | 已追平 |
-| 数值参数解析 | int/double 参数非法值在 CLI 阶段报错 | 已支持整数参数和超时/限速等自定义 parser 的非法值拒绝 | 已追平 |
+| CLI 参数解析 | 缺值、int/double 参数非法值在 CLI 阶段报错 | 已支持必填选项参数缺值拒绝、整数参数和超时/限速等自定义 parser 的非法值拒绝 | 已追平 |
 | 并发下载 | 分片并发、多轨并发 | 已支持，且多轨输出顺序稳定 | 已追平 |
 | 限速 | `--max-speed` | 已支持共享限速预算，参数规则按上游 `K/M` | 已追平 |
 | Range 下载 | BYTERANGE 和大文件切片 | 已支持 BYTERANGE 校验、大文件 Range 并发切分 | 已追平 |

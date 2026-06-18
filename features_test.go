@@ -132,6 +132,24 @@ func TestParseArgsNumericOptionsRejectInvalidIntegersLikeUpstream(t *testing.T) 
 	}
 }
 
+func TestParseArgsValueOptionsRequireValuesLikeUpstream(t *testing.T) {
+	cases := []string{
+		"--morehelp",
+		"--tmp-dir",
+		"--sub-format",
+		"--custom-hls-key",
+		"--custom-range",
+		"--mux-after-done",
+		"--select-video",
+		"--max-speed",
+	}
+	for _, option := range cases {
+		if _, err := parseArgs([]string{option}); err == nil || !strings.Contains(err.Error(), option+" 缺少参数值") {
+			t.Fatalf("expected missing value error for %s, got %v", option, err)
+		}
+	}
+}
+
 func TestParseArgsSaveNameSanitizesLikeUpstream(t *testing.T) {
 	opt, err := parseArgs([]string{"--save-name", `bad name:ok?.mp4`, "https://example.com/main.m3u8"})
 	if err != nil {
