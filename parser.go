@@ -191,13 +191,14 @@ func (p *parser) fetchPlaylist(ctx context.Context, s *StreamSpec) error {
 		return err
 	}
 	if s.Playlist != nil && s.Playlist.MediaInit != nil {
-		// long: fMP4 直播刷新时后续窗口常省略 EXT-X-MAP，上游只替换媒体分片并沿用首次解析到的 init。
-		pl.MediaInit = s.Playlist.MediaInit
+		// long: fMP4 直播刷新时上游只替换媒体分片，不刷新 init、TargetDuration 和 IsLive 等 playlist 元数据。
+		s.Playlist.Parts = pl.Parts
+	} else {
+		s.Playlist = pl
 	}
-	s.Playlist = pl
 	if s.MediaType != nil && *s.MediaType == MediaSubtitles {
-		s.Extension = subtitleExt(pl)
-	} else if pl.MediaInit != nil {
+		s.Extension = subtitleExt(s.Playlist)
+	} else if s.Playlist != nil && s.Playlist.MediaInit != nil {
 		s.Extension = "m4s"
 	} else {
 		s.Extension = "ts"

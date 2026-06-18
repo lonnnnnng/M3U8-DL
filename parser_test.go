@@ -1108,7 +1108,7 @@ a.m4s
 			return
 		}
 		_, _ = w.Write([]byte(`#EXTM3U
-#EXT-X-TARGETDURATION:4
+#EXT-X-TARGETDURATION:9
 #EXT-X-MEDIA-SEQUENCE:1
 #EXTINF:4.0,
 b.m4s
@@ -1126,11 +1126,15 @@ b.m4s
 		t.Fatalf("first playlist should contain init: %#v", stream.Playlist)
 	}
 	firstInit := stream.Playlist.MediaInit.URL
+	firstTargetDuration := stream.Playlist.TargetDuration
 	if err := p.fetchPlaylist(context.Background(), &stream); err != nil {
 		t.Fatal(err)
 	}
 	if stream.Playlist == nil || stream.Playlist.MediaInit == nil || stream.Playlist.MediaInit.URL != firstInit {
 		t.Fatalf("refresh should preserve existing init, got %#v want %s", stream.Playlist, firstInit)
+	}
+	if stream.Playlist.TargetDuration != firstTargetDuration {
+		t.Fatalf("refresh with existing init should only replace media parts like upstream, target duration got %v want %v", stream.Playlist.TargetDuration, firstTargetDuration)
 	}
 	if stream.Extension != "m4s" {
 		t.Fatalf("refresh without EXT-X-MAP should still keep fMP4 extension, got %s", stream.Extension)
