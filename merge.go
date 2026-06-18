@@ -11,6 +11,11 @@ import (
 
 const partialMergeThreshold = 1800
 
+func upstreamDateMetadata(t time.Time) string {
+	// long: ffmpeg 的 date metadata 来自原版 DateTime.Now.ToString("o")；固定 7 位小数能保持 .NET tick 级 round-trip 形态。
+	return t.Format("2006-01-02T15:04:05.0000000Z07:00")
+}
+
 func ffmpegMerge(files []string, outputBase, format string, opt Options, useAACFilter bool) (string, error) {
 	if opt.FFmpegBinaryPath == "" {
 		opt.FFmpegBinaryPath = "ffmpeg"
@@ -63,7 +68,7 @@ func ffmpegMerge(files []string, outputBase, format string, opt Options, useAACF
 		args = append(args, "-map", "0:v?", "-map", "0:a?", "-map", "0:s?", "-c", "copy")
 		if !opt.NoDateInfo {
 			// long: 原版单轨 ffmpeg 合并只在 MP4 分支写 date；其他容器不应被提前塞入 metadata，避免参数面和输出标签偏离上游。
-			args = append(args, "-metadata", "date="+time.Now().Format(time.RFC3339Nano))
+			args = append(args, "-metadata", "date="+upstreamDateMetadata(time.Now()))
 		}
 		args = append(args,
 			"-metadata", "encoding_tool=",
@@ -209,7 +214,7 @@ func muxOutputs(files []outputFile, opt Options) (string, error) {
 	// long: 最终混流应以本次选择的轨道信息为准，上游会清理输入文件旧 metadata 并复制未知流，避免源文件遗留标签污染输出。
 	args = append(args, "-map_metadata", "-1")
 	if !opt.NoDateInfo {
-		args = append(args, "-metadata", "date="+time.Now().Format(time.RFC3339))
+		args = append(args, "-metadata", "date="+upstreamDateMetadata(time.Now()))
 	}
 	streamIndex := 0
 	for _, f := range inputs {

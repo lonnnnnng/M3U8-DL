@@ -178,8 +178,8 @@
 | meta 输出 | `raw.m3u8`、`meta.json`、`meta_selected.json`，`--write-meta-json false` 关闭写出，已有文件不覆盖 | 已支持 | 已追平 |
 | 保存名/模板 | 文件名清理、模板变量、冲突处理 | 已支持上游清理语义、模板变量和冲突命名；`<Id>` 按本次下载任务序号而非原始流编号生成 | 已追平 |
 | 二进制合并 | 普通分片合并、分批预合并 | 已支持，超长列表可分批预合并 | 已追平 |
-| ffmpeg 单轨合并 | concat protocol/demuxer、多输出格式 | 已支持 `mp4/mkv/flv/ts/m4a/aac/eac3/ac3` 等常见路径 | 基本追平 |
-| 最终混流 | ffmpeg/mkvmerge、metadata、disposition | 已支持多轨混流、语言/标题元数据、默认轨道标记、外部导入；无语言轨道会按上游写入 `und`，并按上游处理 keep=false 清理范围 | 基本追平 |
+| ffmpeg 单轨合并 | concat protocol/demuxer、多输出格式 | 已支持 `mp4/mkv/flv/ts/m4a/aac/eac3/ac3` 等常见路径，MP4 date metadata 按上游 `.NET` round-trip `"o"` 格式写入 | 基本追平 |
+| 最终混流 | ffmpeg/mkvmerge、metadata、disposition | 已支持多轨混流、语言/标题元数据、date metadata、默认轨道标记、外部导入；无语言轨道会按上游写入 `und`，并按上游处理 keep=false 清理范围 | 基本追平 |
 | `--mux-import` | 多外部轨道导入 | 已支持多条导入和存在性校验 | 已追平 |
 | `--skip-download` | 只解析/写 meta | 已支持 | 已追平 |
 | `--skip-merge` | 保留分片目录 | 已支持，且不触发最终 `-M` | 已追平 |
@@ -193,7 +193,7 @@
 | 直播起点同步 | 多轨按日期或序号对齐 | 已支持 PDT/序号对齐和 `--live-take-count` | 基本追平 |
 | 直播录制限制 | `--live-record-limit` | 已支持，初始窗口计入限制 | 基本追平 |
 | 直播实时合并 | 刷新过程中追加输出 | 非字幕输出已按批次实时追加；字幕收尾会按上游在无音频时关闭 VTT 音频时间轴修正，并在可探测音频输出时复用 start_time | 部分追平 |
-| PipeMux | Unix FIFO、Windows named pipe、ffmpeg 参数 | 已实现 Unix FIFO/Windows 命名管道和参数构造，Windows 仅交叉编译验证 | 部分追平 |
+| PipeMux | Unix FIFO、Windows named pipe、ffmpeg 参数 | 已实现 Unix FIFO/Windows 命名管道、参数构造和上游 date metadata 格式，Windows 仅交叉编译验证 | 部分追平 |
 | ANSI 进度 UI | Spectre Console 动态进度列 | Go 版已按上游在 stdout/stderr 重定向时清除 ANSI 颜色并强制 console 状态，但没有完整动态进度 UI | 部分追平 |
 | 多语言资源 | zh-CN/zh-TW/en-US 完整资源 | Go 版已接入核心运行输出、自动派生选项提示、更新检查提示、实时解密引擎建议和下载进度文本，完整 `ResString` 资源表仍未复刻 | 部分追平 |
 | 更新检查 | GitHub latest release | 已支持，可 `--disable-update-check` 禁用 | 已追平 |

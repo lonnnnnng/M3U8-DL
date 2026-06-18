@@ -2633,6 +2633,33 @@ func TestMuxOutputsByFFmpegMetadataUsesOutputStreamIndex(t *testing.T) {
 	}
 }
 
+func TestUpstreamDateMetadataMatchesDotNetRoundTripShape(t *testing.T) {
+	local := time.FixedZone("UTC+8", 8*60*60)
+	cases := []struct {
+		name string
+		now  time.Time
+		want string
+	}{
+		{
+			name: "local offset keeps seven fractional digits",
+			now:  time.Date(2026, 6, 18, 20, 34, 56, 123456789, local),
+			want: "2026-06-18T20:34:56.1234567+08:00",
+		},
+		{
+			name: "utc keeps round trip Z suffix",
+			now:  time.Date(2026, 6, 18, 12, 0, 0, 123, time.UTC),
+			want: "2026-06-18T12:00:00.0000001Z",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := upstreamDateMetadata(tc.now); got != tc.want {
+				t.Fatalf("date metadata mismatch:\nwant %s\ngot  %s", tc.want, got)
+			}
+		})
+	}
+}
+
 func TestMuxDispositionArgsFollowUpstreamAudioSubtitleCondition(t *testing.T) {
 	audio := MediaAudio
 	sub := MediaSubtitles
@@ -3730,7 +3757,7 @@ func TestBuildLivePipeMuxArgsMatchesUpstreamDefaults(t *testing.T) {
 		"\n-map\n1\n",
 		"\n-strict\nunofficial\n",
 		"\n-c\ncopy\n",
-		"\n-metadata\ndate=2026-06-18T12:00:00.000000123Z\n",
+		"\n-metadata\ndate=2026-06-18T12:00:00.0000001Z\n",
 		"\n-ignore_unknown\n-copy_unknown\n",
 		"\n-f\nmpegts\n-shortest\n/out/live.ts\n",
 	} {

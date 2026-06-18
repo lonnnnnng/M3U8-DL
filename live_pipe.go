@@ -307,7 +307,7 @@ func buildLivePipeMuxArgs(pipeNames []string, outputPath string, now time.Time, 
 	args = append(args,
 		"-strict", "unofficial",
 		"-c", "copy",
-		"-metadata", "date="+now.Format(time.RFC3339Nano),
+		"-metadata", "date="+upstreamDateMetadata(now),
 		"-ignore_unknown", "-copy_unknown",
 	)
 	custom := strings.TrimSpace(env.Options)
