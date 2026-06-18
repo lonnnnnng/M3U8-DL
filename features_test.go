@@ -4724,6 +4724,12 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	if got := tr(opt, "selectedStream"); got != "已選擇的流:" {
 		t.Fatalf("traditional selectedStream wrong: %q", got)
 	}
+	if got := tr(opt, "promptTitle"); got != "請選擇 [green]你要下載的內容[/]:" {
+		t.Fatalf("traditional promptTitle wrong: %q", got)
+	}
+	if got := stripSpectreMarkup(tr(opt, "promptInfo")); got != "(按 空格鍵 選擇流, 確認鍵 完成選擇)" {
+		t.Fatalf("traditional promptInfo display wrong: %q", got)
+	}
 	opt.UILanguage = "zh-CN"
 	if got := tr(opt, "downloadProgress", "VIDEO", 1, 2); got != "VIDEO 下载进度 1/2" {
 		t.Fatalf("simplified downloadProgress wrong: %q", got)
@@ -4755,6 +4761,12 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	}
 	if got := tr(opt, "partMerge"); got != "Segments more than 1800, start partial merge..." {
 		t.Fatalf("english partMerge wrong: %q", got)
+	}
+	if got := tr(opt, "promptChoiceText"); got != "[grey](Move up and down to reveal more streams)[/]" {
+		t.Fatalf("english promptChoiceText wrong: %q", got)
+	}
+	if got := interactivePromptInput(opt); got != "Enter stream IDs separated by commas, or press enter to select default streams: " {
+		t.Fatalf("english interactive prompt input wrong: %q", got)
 	}
 	if got := tr(opt, "ffmpegNotFound"); got != "ffmpeg not found, please download at: https://ffmpeg.org/download.html" {
 		t.Fatalf("english ffmpegNotFound wrong: %q", got)

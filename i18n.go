@@ -79,6 +79,21 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "已選擇的流:",
 		EnUS: "Selected streams:",
 	},
+	"promptChoiceText": {
+		ZhCN: "[grey](按键盘上下键以浏览更多内容)[/]",
+		ZhTW: "[grey](按鍵盤上下鍵以瀏覽更多內容)[/]",
+		EnUS: "[grey](Move up and down to reveal more streams)[/]",
+	},
+	"promptInfo": {
+		ZhCN: "(按 [blue]空格键[/] 选择流, [green]回车键[/] 完成选择)",
+		ZhTW: "(按 [blue]空格鍵[/] 選擇流, [green]確認鍵[/] 完成選擇)",
+		EnUS: "(Press [blue]<space>[/] to toggle a stream, [green]<enter>[/] to accept)",
+	},
+	"promptTitle": {
+		ZhCN: "请选择 [green]你要下载的内容[/]:",
+		ZhTW: "請選擇 [green]你要下載的內容[/]:",
+		EnUS: "Please select [green]what you want to download[/]:",
+	},
 	"noStreamsToDownload": {
 		ZhCN: "没有找到需要下载的流",
 		ZhTW: "沒有找到需要下載的流",

@@ -42,10 +42,12 @@ func chooseStreams(streams []StreamSpec, opt Options) ([]StreamSpec, error) {
 	if len(streams) == 1 {
 		return streams, nil
 	}
+	fmt.Println(stripSpectreMarkup(tr(opt, "promptTitle")))
+	fmt.Println(stripSpectreMarkup(tr(opt, "promptInfo")))
 	for _, s := range streams {
 		fmt.Printf("[%d] %s bw=%d codec=%s lang=%s name=%s url=%s\n", s.ID, s.Short(), s.Bandwidth, s.Codecs, s.Language, s.Name, s.URL)
 	}
-	fmt.Print("请选择轨道编号，多个用逗号分隔，直接回车选择默认轨道: ")
+	fmt.Print(interactivePromptInput(opt))
 	line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
 	line = strings.TrimSpace(line)
 	if line == "" {
@@ -68,6 +70,23 @@ func chooseStreams(streams []StreamSpec, opt Options) ([]StreamSpec, error) {
 		return nil, fmt.Errorf("%s", tr(opt, "noStreamsToDownload"))
 	}
 	return out, nil
+}
+
+func interactivePromptInput(opt Options) string {
+	switch opt.UILanguage {
+	case "zh-CN":
+		return "请输入轨道编号，多个用逗号分隔，直接回车选择默认轨道: "
+	case "zh-TW":
+		return "請輸入軌道編號，多個用逗號分隔，直接確認選擇預設軌道: "
+	default:
+		return "Enter stream IDs separated by commas, or press enter to select default streams: "
+	}
+}
+
+var spectreMarkupTagRE = regexp.MustCompile(`\[[^\]]+\]`)
+
+func stripSpectreMarkup(text string) string {
+	return spectreMarkupTagRE.ReplaceAllString(text, "")
 }
 
 func defaultInteractiveSelection(streams []StreamSpec) []StreamSpec {
