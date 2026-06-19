@@ -79,6 +79,15 @@ func (p *parser) extract(ctx context.Context, raw string) ([]StreamSpec, *parser
 	return []StreamSpec{{ID: 0, URL: p.currentURL, OriginalURL: p.originalURL, Playlist: pl, Extension: ext}}, p, nil
 }
 
+func (p *parser) preProcessLoadedPlaylist(raw, m3u8URL string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	raw = preProcessHLSContent(raw, m3u8URL)
+	if !strings.HasPrefix(raw, "#EXTM3U") {
+		return "", fmt.Errorf("%s", tr(p.opt, "badM3u8"))
+	}
+	return raw, nil
+}
+
 func loadingURLMessage(opt Options, input string) string {
 	return tr(opt, "loadingUrl") + input
 }
@@ -232,6 +241,11 @@ func (p *parser) fetchPlaylist(ctx context.Context, s *StreamSpec) error {
 	if p.opt.BaseURL != "" {
 		p.baseURL = p.opt.BaseURL
 	}
+	raw, err = p.preProcessLoadedPlaylist(raw, finalURL)
+	if err != nil {
+		p.currentURL, p.baseURL = oldURL, oldBase
+		return err
+	}
 	pl, err := p.parseMedia(ctx, raw)
 	p.currentURL, p.baseURL = oldURL, oldBase
 	if err != nil {
@@ -263,6 +277,11 @@ func (p *parser) refreshPlaylistURLFromMaster(ctx context.Context, s *StreamSpec
 	p.baseURL = finalURL
 	if p.opt.BaseURL != "" {
 		p.baseURL = p.opt.BaseURL
+	}
+	raw, err = p.preProcessLoadedPlaylist(raw, finalURL)
+	if err != nil {
+		p.currentURL, p.baseURL = oldURL, oldBase
+		return err
 	}
 	streams, err := p.parseMaster(raw)
 	p.currentURL, p.baseURL = oldURL, oldBase

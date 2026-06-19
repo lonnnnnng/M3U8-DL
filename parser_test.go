@@ -1828,6 +1828,49 @@ seg.ts
 	}
 }
 
+func TestFetchPlaylistPreProcessesChildPlaylistLikeUpstream(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/master.m3u8":
+			_, _ = w.Write([]byte(`#EXTM3U
+#EXT-X-STREAM-INF:BANDWIDTH=2000,RESOLUTION=1280x720,CODECS="avc1.4d401f"
+child.m3u8
+`))
+		case "/child.m3u8":
+			_, _ = w.Write([]byte(`#EXTM3U
+#EXT-X-TARGETDURATION:4
+#EXTINF:4.0,
+#EXT-X-KEY:METHOD=AES-128,URI="data:;base64,AAAAAAAAAAAAAAAAAAAAAA=="
+seg.ts
+#EXT-X-ENDLIST
+`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	opt := defaultOptions()
+	opt.Input = srv.URL + "/master.m3u8"
+	streams, p, err := parseSource(context.Background(), srv.Client(), opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(streams) != 1 {
+		t.Fatalf("unexpected initial streams: %#v", streams)
+	}
+	if err := p.fetchPlaylist(context.Background(), &streams[0]); err != nil {
+		t.Fatal(err)
+	}
+	segs := sortedSegments(streams[0].Playlist)
+	if len(segs) != 1 {
+		t.Fatalf("expected one child playlist segment, got %#v", segs)
+	}
+	if segs[0].Encrypt.Method != EncryptAES128 {
+		t.Fatalf("child playlist should run HLS preprocessor before parse so KEY applies to EXTINF, got %#v", segs[0].Encrypt)
+	}
+}
+
 func TestFetchPlaylistPreservesExistingMediaInitLikeUpstream(t *testing.T) {
 	var hits int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
