@@ -59,11 +59,6 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "檢測到 LivePipeMux，已強制啟用 LiveRealTimeMerge",
 		EnUS: "LivePipeMux detected, forced enable LiveRealTimeMerge",
 	},
-	"muxAfterDoneForcesBinaryMerge": {
-		ZhCN: "检测到 MuxAfterDone，已强制启用 BinaryMerge",
-		ZhTW: "檢測到 MuxAfterDone，已強制啟用 BinaryMerge",
-		EnUS: "MuxAfterDone detected, forced enable BinaryMerge",
-	},
 	"autoBinaryMerge": {
 		ZhCN: "检测到fMP4，自动开启二进制合并",
 		ZhTW: "檢測到fMP4，自動開啟二進位制合併",
@@ -88,6 +83,11 @@ var localizedTexts = map[string]localizedText{
 		ZhCN: "检测到杜比视界内容，混流功能已禁用",
 		ZhTW: "檢測到杜比視界內容，混流功能已禁用",
 		EnUS: "Dolby Vision content is detected, mux after done is automatically disabled",
+	},
+	"autoBinaryMerge6": {
+		ZhCN: "你已开启下载完成后混流，自动开启二进制合并",
+		ZhTW: "你已開啟下載完成後混流，自動開啟二進制合併",
+		EnUS: "MuxAfterDone is detected, binary merging is automatically enabled",
 	},
 	"realTimeDecMessage": {
 		ZhCN: "启用实时解密时，建议用shaka-packager而非mp4decrypt/ffmpeg",

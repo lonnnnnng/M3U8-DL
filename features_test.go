@@ -5159,6 +5159,9 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	if got := tr(opt, "autoBinaryMerge5"); got != "檢測到杜比視界內容，混流功能已禁用" {
 		t.Fatalf("traditional autoBinaryMerge5 wrong: %q", got)
 	}
+	if got := tr(opt, "autoBinaryMerge6"); got != "你已開啟下載完成後混流，自動開啟二進制合併" {
+		t.Fatalf("traditional autoBinaryMerge6 wrong: %q", got)
+	}
 	if got := tr(opt, "selectedStream"); got != "已選擇的流:" {
 		t.Fatalf("traditional selectedStream wrong: %q", got)
 	}
@@ -5402,7 +5405,7 @@ func TestOptionImplicationMessagesFollowUILanguage(t *testing.T) {
 	opt.UILanguage = "en-US"
 	opt.MuxAfterDone = &MuxOptions{Format: "mp4"}
 	messages := applyOptionImplicationsWithMessages(&opt)
-	if len(messages) != 1 || messages[0] != "MuxAfterDone detected, forced enable BinaryMerge" {
+	if len(messages) != 1 || messages[0] != "MuxAfterDone is detected, binary merging is automatically enabled" {
 		t.Fatalf("english implication message wrong: %#v", messages)
 	}
 	opt = defaultOptions()
@@ -5566,12 +5569,12 @@ func TestValidateOptionsAcceptsExistingDecryptionBinary(t *testing.T) {
 }
 
 func TestMuxAfterDoneForcesBinaryMerge(t *testing.T) {
-	opt := Options{MuxAfterDone: &MuxOptions{Format: "mp4"}}
+	opt := Options{UILanguage: "en-US", MuxAfterDone: &MuxOptions{Format: "mp4"}}
 	msgs := applyOptionImplicationsWithMessages(&opt)
 	if !opt.BinaryMerge {
 		t.Fatal("mux-after-done should force binary merge")
 	}
-	if len(msgs) != 1 || !strings.Contains(msgs[0], "BinaryMerge") {
+	if len(msgs) != 1 || msgs[0] != "MuxAfterDone is detected, binary merging is automatically enabled" {
 		t.Fatalf("unexpected implication messages: %#v", msgs)
 	}
 }

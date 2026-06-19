@@ -307,7 +307,7 @@ func applyOptionImplicationsWithMessages(opt *Options) []string {
 	if opt.MuxAfterDone != nil && !opt.BinaryMerge {
 		// long: 最终混流要拿到每条轨道的原始输出，上游会自动切到二进制合并，避免单轨先被 ffmpeg 改写后再混流。
 		opt.BinaryMerge = true
-		messages = append(messages, tr(*opt, "muxAfterDoneForcesBinaryMerge"))
+		messages = append(messages, tr(*opt, "autoBinaryMerge6"))
 	}
 	return messages
 }
