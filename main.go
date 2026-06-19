@@ -208,9 +208,6 @@ func downloadLiveRealtimeIfNeeded(ctx context.Context, client *http.Client, sele
 	if opt.LivePerformAsVOD || !opt.LiveRealTimeMerge || opt.SkipMerge || !hasLiveStream(selected) {
 		return nil, false, nil
 	}
-	for i := range selected {
-		trimLiveInitial(&selected[i], opt.LiveTakeCount)
-	}
 	syncLiveStreams(selected, opt.LiveTakeCount)
 
 	limiter := newRateLimiter(opt.MaxSpeed)
@@ -646,9 +643,6 @@ func recordLiveIfNeeded(ctx context.Context, client *http.Client, selected []Str
 	}
 	if !hasLiveStream(selected) {
 		return nil
-	}
-	for i := range selected {
-		trimLiveInitial(&selected[i], opt.LiveTakeCount)
 	}
 	syncLiveStreams(selected, opt.LiveTakeCount)
 	refreshedDurations := liveInitialRefreshedDurations(selected)

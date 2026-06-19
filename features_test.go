@@ -2351,6 +2351,58 @@ func TestSyncLiveStreamsAlignsByIndexAndTakeWindow(t *testing.T) {
 	}
 }
 
+func TestSyncLiveStreamsTakesWindowAfterAlignmentLikeUpstream(t *testing.T) {
+	var videoSegs []Segment
+	for i := int64(1); i <= 200; i++ {
+		videoSegs = append(videoSegs, Segment{Index: i})
+	}
+	var audioSegs []Segment
+	for i := int64(90); i <= 105; i++ {
+		audioSegs = append(audioSegs, Segment{Index: i})
+	}
+	streams := []StreamSpec{
+		{Playlist: &Playlist{IsLive: true, Parts: []MediaPart{{Segments: videoSegs}}}},
+		{Playlist: &Playlist{IsLive: true, Parts: []MediaPart{{Segments: audioSegs}}}},
+	}
+	syncLiveStreams(streams, 16)
+	video := streams[0].Playlist.Parts[0].Segments
+	audio := streams[1].Playlist.Parts[0].Segments
+	if len(audio) == 0 {
+		t.Fatal("short live track should survive alignment; upstream trims only after cross-track sync")
+	}
+	if video[0].Index != 91 || audio[0].Index != 91 || audio[len(audio)-1].Index != 105 {
+		t.Fatalf("live take window should be applied after alignment like upstream, video=%#v audio=%#v", video[:min(len(video), 3)], audio)
+	}
+}
+
+func TestRecordLiveSyncDoesNotTrimBeforeAlignmentLikeUpstream(t *testing.T) {
+	video := MediaVideo
+	audio := MediaAudio
+	var videoSegs []Segment
+	for i := int64(1); i <= 200; i++ {
+		videoSegs = append(videoSegs, Segment{Index: i, Duration: 1})
+	}
+	var audioSegs []Segment
+	for i := int64(90); i <= 105; i++ {
+		audioSegs = append(audioSegs, Segment{Index: i, Duration: 1})
+	}
+	selected := []StreamSpec{
+		{MediaType: &video, Playlist: &Playlist{IsLive: true, Parts: []MediaPart{{Segments: videoSegs}}}},
+		{MediaType: &audio, Playlist: &Playlist{IsLive: true, Parts: []MediaPart{{Segments: audioSegs}}}},
+	}
+	limit := time.Second
+	opt := defaultOptions()
+	opt.LiveTakeCount = 16
+	opt.LiveRecordLimit = &limit
+	if err := recordLiveIfNeeded(context.Background(), nil, selected, nil, opt); err != nil {
+		t.Fatal(err)
+	}
+	got := selected[1].Playlist.Parts[0].Segments
+	if len(got) == 0 || got[0].Index != 91 || got[len(got)-1].Index != 105 {
+		t.Fatalf("record live entry should sync before taking window like upstream, got %#v", got)
+	}
+}
+
 func TestLiveRefreshWaitDurationMatchesUpstreamDefault(t *testing.T) {
 	streams := []StreamSpec{
 		{Playlist: &Playlist{IsLive: true, Parts: []MediaPart{{Segments: []Segment{{Duration: 8}, {Duration: 8}}}}}},
