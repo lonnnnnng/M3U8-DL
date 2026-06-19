@@ -26,6 +26,8 @@ type parser struct {
 const hlsKeyRetryCount = 3
 const maxHLSLineSize = 16 * 1024 * 1024
 
+var hlsKeyRetryDelay = time.Second
+
 func newHLSScanner(raw string) *bufio.Scanner {
 	sc := bufio.NewScanner(strings.NewReader(raw))
 	// long: HLS 里常见带长签名的分片 URL 或 data URI key；上游逐行读取没有 64KB 限制，Go 版必须显式放大 Scanner 缓冲。
@@ -591,6 +593,9 @@ func (p *parser) loadHLSKey(ctx context.Context, uri string) ([]byte, error) {
 				return key, nil
 			}
 			lastErr = err
+			retryCount := hlsKeyRetryCount - try
+			fmt.Printf("%s retryCount: %d\n", err.Error(), retryCount)
+			time.Sleep(hlsKeyRetryDelay)
 		}
 		return nil, lastErr
 	}

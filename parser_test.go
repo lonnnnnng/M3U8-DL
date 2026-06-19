@@ -19,6 +19,15 @@ func mediaPtr(mt MediaType) *MediaType {
 	return &mt
 }
 
+func withHLSKeyRetryDelay(t *testing.T, delay time.Duration) {
+	t.Helper()
+	old := hlsKeyRetryDelay
+	hlsKeyRetryDelay = delay
+	t.Cleanup(func() {
+		hlsKeyRetryDelay = old
+	})
+}
+
 func TestParseMaster(t *testing.T) {
 	opt := defaultOptions()
 	p := &parser{opt: opt, client: http.DefaultClient, originalURL: "https://example.com/master.m3u8", currentURL: "https://example.com/master.m3u8", baseURL: "https://example.com/master.m3u8", rawFiles: map[string]string{}}
@@ -1389,6 +1398,7 @@ func TestParseMediaKeyMethodNumericEnumValuesLikeUpstream(t *testing.T) {
 }
 
 func TestParseMediaKeyLoadRetriesBeforeDowngrade(t *testing.T) {
+	withHLSKeyRetryDelay(t, 0)
 	var keyHits int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/key.bin" {
@@ -1420,7 +1430,11 @@ func TestParseMediaKeyLoadRetriesBeforeDowngrade(t *testing.T) {
 0.ts
 #EXT-X-ENDLIST
 `
-	pl, err := p.parseMedia(context.Background(), raw)
+	var pl *Playlist
+	var err error
+	output := captureStdout(t, func() {
+		pl, err = p.parseMedia(context.Background(), raw)
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1431,9 +1445,13 @@ func TestParseMediaKeyLoadRetriesBeforeDowngrade(t *testing.T) {
 	if keyHits != 3 {
 		t.Fatalf("expected key endpoint to be retried until success, got %d hits", keyHits)
 	}
+	if !strings.Contains(output, "retryCount: 3") || !strings.Contains(output, "retryCount: 2") || strings.Contains(output, "Failed to get KEY") {
+		t.Fatalf("key retry should print upstream retry counts before success, got %q", output)
+	}
 }
 
 func TestParseMediaKeyLoadFailureUsesUpstreamRetryCount(t *testing.T) {
+	withHLSKeyRetryDelay(t, 0)
 	var keyHits int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/key.bin" {
@@ -1476,8 +1494,10 @@ func TestParseMediaKeyLoadFailureUsesUpstreamRetryCount(t *testing.T) {
 	if keyHits != hlsKeyRetryCount+1 {
 		t.Fatalf("expected upstream retry count to make %d key attempts, got %d", hlsKeyRetryCount+1, keyHits)
 	}
-	if !strings.Contains(output, "Failed to get KEY, ignore.") || !strings.Contains(output, "HTTP 500") {
-		t.Fatalf("key load failure should print upstream cmd_loadKeyFailed message and error, got %q", output)
+	for _, want := range []string{"retryCount: 3", "retryCount: 2", "retryCount: 1", "retryCount: 0", "Failed to get KEY, ignore.", "HTTP 500"} {
+		if !strings.Contains(output, want) {
+			t.Fatalf("key load failure should print upstream retry and cmd_loadKeyFailed messages, missing %q in %q", want, output)
+		}
 	}
 }
 

@@ -1,6 +1,6 @@
 # N_m3u8DL-RE 功能清单与 Go HLS 复刻进度对比
 
-更新时间：2026-06-19 09:20:13（北京时间）
+更新时间：2026-06-19 09:29:13（北京时间）
 
 ## 代码目录
 
@@ -159,7 +159,7 @@
 | 断点跳过 | 跳过已存在分片和 `_dec` 文件 | 已支持 | 已追平 |
 | 图片伪装头 | PNG/GIF/BMP/JPEG 伪装头剥离 | 已支持固定偏移和 TS sync fallback，并有 GIF/PNG/JPEG 测试 | 已追平 |
 | gzip 分片 | 解压原始 gzip payload | 已支持，且在 HLS 解密后处理 | 已追平 |
-| HLS key 来源 | URI、base64、data URI、本地文件、HTTP | 已支持三类 inline key、本地文件、HTTP key 重试；key 加载最终失败时按上游输出 `cmd_loadKeyFailed` 后降级 `UNKNOWN` | 已追平 |
+| HLS key 来源 | URI、base64、data URI、本地文件、HTTP | 已支持三类 inline key、本地文件、HTTP key 重试；HTTP key 失败重试会按上游输出 `retryCount`，最终失败时输出 `cmd_loadKeyFailed` 后降级 `UNKNOWN` | 已追平 |
 | AES-128 | CBC 解密 | 已内置实现 | 已追平 |
 | AES-128-ECB | ECB 解密 | 已内置实现 | 已追平 |
 | CHACHA20 | 每 1024 字节解密 | 已实现 | 已追平 |
