@@ -279,9 +279,8 @@ func downloadLiveRealtimeIfNeeded(ctx context.Context, client *http.Client, sele
 	refreshedDurations := liveInitialRefreshedDurations(selected)
 	wait := liveRefreshWaitDuration(selected, opt)
 	limit := liveRecordLimitOrForever(opt.LiveRecordLimit)
-	deadline, hasDeadline := liveRecordDeadline(opt.LiveRecordLimit, time.Now())
 liveLoop:
-	for !liveRecordLimitReached(selected, refreshedDurations, limit) && (!hasDeadline || time.Now().Before(deadline)) {
+	for !liveRecordLimitReached(selected, refreshedDurations, limit) {
 		if err := waitLiveRefresh(ctx, wait); err != nil {
 			break
 		}
@@ -660,9 +659,8 @@ func recordLiveIfNeeded(ctx context.Context, client *http.Client, selected []Str
 		return nil
 	}
 	wait := liveRefreshWaitDuration(selected, opt)
-	deadline, hasDeadline := liveRecordDeadline(opt.LiveRecordLimit, time.Now())
 recordLoop:
-	for !hasDeadline || time.Now().Before(deadline) {
+	for !liveRecordLimitReached(selected, refreshedDurations, limit) {
 		allDone := true
 		for i := range selected {
 			if selected[i].Playlist != nil && selected[i].Playlist.IsLive {
@@ -709,13 +707,6 @@ func liveRecordLimitOrForever(limit *time.Duration) time.Duration {
 		return time.Duration(1<<63 - 1)
 	}
 	return *limit
-}
-
-func liveRecordDeadline(limit *time.Duration, now time.Time) (time.Time, bool) {
-	if limit == nil {
-		return time.Time{}, false
-	}
-	return now.Add(*limit), true
 }
 
 func waitLiveRefresh(ctx context.Context, wait time.Duration) error {

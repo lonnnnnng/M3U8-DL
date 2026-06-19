@@ -471,6 +471,57 @@ func TestRecordLiveWithoutLimitRefreshesUntilEndlistLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestRecordLiveLimitUsesMediaDurationNotWallClockLikeUpstream(t *testing.T) {
+	var playlistHits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/main.m3u8":
+			playlistHits++
+			switch playlistHits {
+			case 1:
+				_, _ = w.Write([]byte("#EXTM3U\n#EXT-X-TARGETDURATION:1\n#EXT-X-MEDIA-SEQUENCE:0\n#EXTINF:0.1,\n0.ts\n"))
+			case 2:
+				_, _ = w.Write([]byte("#EXTM3U\n#EXT-X-TARGETDURATION:1\n#EXT-X-MEDIA-SEQUENCE:0\n#EXTINF:0.1,\n0.ts\n#EXTINF:0.1,\n1.ts\n"))
+			default:
+				_, _ = w.Write([]byte("#EXTM3U\n#EXT-X-TARGETDURATION:1\n#EXT-X-MEDIA-SEQUENCE:0\n#EXTINF:0.1,\n0.ts\n#EXTINF:0.1,\n1.ts\n#EXTINF:1.0,\n2.ts\n#EXT-X-ENDLIST\n"))
+			}
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	opt := defaultOptions()
+	opt.Input = srv.URL + "/main.m3u8"
+	opt.AutoSelect = true
+	wait := 1
+	opt.LiveWaitTime = &wait
+	limit := 500 * time.Millisecond
+	opt.LiveRecordLimit = &limit
+	client, err := newHTTPClient(opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	streams, p, err := parseSource(context.Background(), client, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	selected, err := chooseStreams(streams, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := recordLiveIfNeeded(context.Background(), client, selected, p, opt); err != nil {
+		t.Fatal(err)
+	}
+	if playlistHits < 3 {
+		t.Fatalf("live record limit should wait for media duration instead of wall clock, hits=%d", playlistHits)
+	}
+	got := selected[0].Playlist.Parts[0].Segments
+	if len(got) != 3 || got[2].Index != 2 {
+		t.Fatalf("live record should include segment that reaches media-duration limit, got %#v", got)
+	}
+}
+
 func TestDownloadLivePipeMuxWritesRefreshBatchesToPipe(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("this fake ffmpeg shell script test is Unix-only; Windows named pipe runtime is covered by live_pipe_windows_test.go")
