@@ -1256,6 +1256,21 @@ func TestAutoBinaryMergeDetectionForCENCAndFMP4(t *testing.T) {
 	}
 }
 
+func TestPrepareSelectedStreamsCENCUsesUpstreamAutoBinaryMerge4Message(t *testing.T) {
+	streams := []StreamSpec{{
+		Playlist: &Playlist{Parts: []MediaPart{{Segments: []Segment{{Encrypt: EncryptInfo{Method: EncryptCENC}}}}}},
+	}}
+	opt := defaultOptions()
+	opt.UILanguage = "en-US"
+	messages := prepareSelectedStreams(streams, &opt)
+	if !opt.BinaryMerge {
+		t.Fatal("CENC stream should force binary merge like upstream")
+	}
+	if len(messages) != 1 || messages[0] != "When CENC encryption is detected, binary merging is automatically enabled" {
+		t.Fatalf("CENC auto binary merge should use upstream autoBinaryMerge4 text, got %#v", messages)
+	}
+}
+
 func TestDefaultNameSavePatternFrameRate(t *testing.T) {
 	opt := Options{SavePattern: "<SaveName>_<FrameRate>_<Resolution>", SaveName: "movie"}
 	got := defaultName(opt, StreamSpec{FrameRate: 23.976, Resolution: "1920x1080"}, "fallback")

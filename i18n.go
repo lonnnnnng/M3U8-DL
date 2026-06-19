@@ -74,12 +74,12 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "檢測到杜比視界內容，自動開啟二進位制合併",
 		EnUS: "Dolby Vision content is detected, binary merging is automatically enabled",
 	},
-	"autoBinaryMergeUnknown": {
+	"autoBinaryMerge3": {
 		ZhCN: "检测到无法识别的加密方式，自动开启二进制合并",
 		ZhTW: "檢測到無法識別的加密方式，自動開啟二進位制合併",
 		EnUS: "An unrecognized encryption method is detected, binary merging is automatically enabled",
 	},
-	"autoBinaryMergeCENC": {
+	"autoBinaryMerge4": {
 		ZhCN: "检测到CENC加密方式，自动开启二进制合并",
 		ZhTW: "檢測到CENC加密方式，自動開啟二進位制合併",
 		EnUS: "When CENC encryption is detected, binary merging is automatically enabled",
