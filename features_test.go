@@ -3434,6 +3434,40 @@ func TestApplyMediaInfoDolbyVisionForcesBinaryMerge(t *testing.T) {
 	}
 }
 
+func TestDolbyVisionOutputDisablesFinalMuxGlobally(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell helper is unix-only")
+	}
+	tmp := t.TempDir()
+	ffmpeg := filepath.Join(tmp, "ffmpeg")
+	ffprobe := filepath.Join(tmp, "ffprobe")
+	if err := os.WriteFile(ffmpeg, []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	script := "#!/bin/sh\nprintf '%s\\n' '{\"streams\":[{\"codec_type\":\"video\",\"codec_name\":\"hevc\",\"codec_tag_string\":\"DOVI\"}]}'\n"
+	if err := os.WriteFile(ffprobe, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	media := filepath.Join(tmp, "dolby-output.mp4")
+	if err := os.WriteFile(media, []byte("probe"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	opt := defaultOptions()
+	opt.UILanguage = "zh-CN"
+	opt.FFmpegBinaryPath = ffmpeg
+	opt.MuxAfterDone = &MuxOptions{Format: "mp4"}
+	messages := disableMuxAfterDoneForDolbyVisionOutputs(&opt, []outputFile{{Path: media}})
+	if opt.MuxAfterDone != nil {
+		t.Fatal("Dolby Vision output should disable final mux globally like upstream")
+	}
+	if len(messages) != 1 || messages[0] != "检测到杜比视界内容，混流功能已禁用" {
+		t.Fatalf("unexpected Dolby Vision global mux warning: %#v", messages)
+	}
+	if shouldMuxAfterDownload(opt, []outputFile{{Path: media}}) {
+		t.Fatal("final mux should stay disabled after global Dolby Vision probe")
+	}
+}
+
 func TestLiveAudioStartTrackerWaitsForStartTime(t *testing.T) {
 	tracker := &liveAudioStartTracker{}
 	done := make(chan struct{})

@@ -126,6 +126,9 @@ func runWithContext(ctx context.Context, args []string, command []string) error 
 	if err := cleanupRawMetaAfterDownload(opt, p); err != nil {
 		return err
 	}
+	for _, msg := range disableMuxAfterDoneForDolbyVisionOutputs(&opt, outs) {
+		fmt.Println(msg)
+	}
 	if shouldMuxAfterDownload(opt, outs) {
 		muxed, err := muxOutputs(outs, opt)
 		if err != nil {

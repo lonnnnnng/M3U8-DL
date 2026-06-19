@@ -174,6 +174,23 @@ func applyMediaInfoToStream(s *StreamSpec, opt *Options, infos []mediaInfo) []st
 	return messages
 }
 
+func disableMuxAfterDoneForDolbyVisionOutputs(opt *Options, outputs []outputFile) []string {
+	if opt == nil || opt.MuxAfterDone == nil {
+		return nil
+	}
+	for _, out := range outputs {
+		if out.Path == "" {
+			continue
+		}
+		if anyDolbyVision(probeMediaInfo(out.Path, *opt)) {
+			// long: 上游在任意轨道探测到 Dolby Vision 后会改全局选项禁用最终混流；Go 版下载函数拿到的是 Options 副本，所以主流程收口前还要补一次全局保护。
+			opt.MuxAfterDone = nil
+			return []string{tr(*opt, "autoBinaryMerge5")}
+		}
+	}
+	return nil
+}
+
 func mediaInfosUseAACFilter(infos []mediaInfo) bool {
 	for _, info := range infos {
 		if info.Type != "audio" {
