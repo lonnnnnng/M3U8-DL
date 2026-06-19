@@ -213,7 +213,30 @@ func decryptMP4File(path string, opt Options, kid string, initPath string) (stri
 		// long: shaka-packager/ffmpeg 需要 init+media 才能解密，原版遇到单独 _init.mp4 会直接跳过，避免把 init 文件误交给外部工具。
 		return path, nil
 	}
+	if len(opt.Keys) == 0 && opt.KeyTextFile == "" {
+		return path, nil
+	}
 	bin := opt.DecryptionBinaryPath
+	if kid == "" && engine == "SHAKA_PACKAGER" {
+		if bin == "" {
+			bin = firstExecutable("shaka-packager", "packager-linux-x64", "packager-osx-x64", "packager-win-x64")
+		}
+		if bin == "" {
+			return path, fmt.Errorf("%s", decryptToolNotFoundText(opt, engine))
+		}
+		if detected, err := detectKIDWithShaka(path, bin); err == nil && detected != "" {
+			kid = detected
+			multiDRM = false
+		}
+	}
+	keys := collectDecryptKeys(opt, kid)
+	if len(keys) == 0 {
+		return path, nil
+	}
+	selectedKey, ok := selectDecryptKeyPair(keys, kid)
+	if !ok {
+		return path, nil
+	}
 	if bin == "" {
 		switch engine {
 		case "SHAKA_PACKAGER":
@@ -230,16 +253,6 @@ func decryptMP4File(path string, opt Options, kid string, initPath string) (stri
 	if bin == "" {
 		return path, fmt.Errorf("%s", decryptToolNotFoundText(opt, engine))
 	}
-	if kid == "" && engine == "SHAKA_PACKAGER" {
-		if detected, err := detectKIDWithShaka(path, bin); err == nil && detected != "" {
-			kid = detected
-			multiDRM = false
-		}
-	}
-	keys := collectDecryptKeys(opt, kid)
-	if len(keys) == 0 {
-		return path, nil
-	}
 	dest := strings.TrimSuffix(path, filepath.Ext(path)) + "_dec" + filepath.Ext(path)
 	var cmd *exec.Cmd
 	inputPath := path
@@ -247,10 +260,6 @@ func decryptMP4File(path string, opt Options, kid string, initPath string) (stri
 	tmpEncFile := ""
 	tmpDecFile := ""
 	mp4decryptTmp := false
-	selectedKey, ok := selectDecryptKeyPair(keys, kid)
-	if !ok {
-		return path, nil
-	}
 	switch engine {
 	case "SHAKA_PACKAGER":
 		label, keyID, key := normalizeKeyForShakaWithFlags(selectedKey, kid, multiDRM)

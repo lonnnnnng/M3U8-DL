@@ -1819,6 +1819,80 @@ func TestRealtimeExternalDecrypt(t *testing.T) {
 	}
 }
 
+func TestFinalExternalDecryptUsesKeyTextFileAfterReadingKID(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell helper is unix-only")
+	}
+	kidBytes := []byte{0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x30}
+	kid := "2122232425262728292a2b2c2d2e2f30"
+	key := "00112233445566778899aabbccddeeff"
+	tencPayload := append([]byte{0, 0, 0, 0, 0, 0, 0, 0}, kidBytes...)
+	initData := mustMP4Box("moov", mustMP4Box("trak", mustMP4Box("mdia", mustMP4Box("minf", mustMP4Box("stbl", mustMP4Box("encv", mustMP4Box("sinf", mustMP4Box("schi", mustMP4Box("tenc", tencPayload)))))))))
+	var base string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/main.m3u8":
+			_, _ = w.Write([]byte("#EXTM3U\n#EXT-X-KEY:METHOD=CENC,URI=\"data:;base64,AA==\"\n#EXT-X-MAP:URI=\"" + base + "/init.mp4\"\n#EXTINF:1,\n" + base + "/seg.m4s\n#EXT-X-ENDLIST\n"))
+		case "/init.mp4":
+			_, _ = w.Write(initData)
+		case "/seg.m4s":
+			_, _ = w.Write([]byte("encrypted-seg"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	base = srv.URL
+
+	tmp := t.TempDir()
+	argsLog := filepath.Join(tmp, "mp4decrypt-args.txt")
+	tool := filepath.Join(tmp, "mp4decrypt")
+	script := "#!/bin/sh\nprintf '%s\\n' \"$*\" > " + strconv.Quote(argsLog) + "\nlast=\"\"\nfor arg in \"$@\"; do last=\"$arg\"; done\nprintf 'final-keyfile-decrypted' > \"$last\"\n"
+	if err := os.WriteFile(tool, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	keyFile := filepath.Join(tmp, "keys.txt")
+	if err := os.WriteFile(keyFile, []byte(kid+":"+key+"\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	opt := defaultOptions()
+	opt.Input = srv.URL + "/main.m3u8"
+	opt.AutoSelect = true
+	opt.BinaryMerge = true
+	opt.SaveDir = tmp
+	opt.TmpDir = filepath.Join(tmp, "tmp")
+	opt.SaveName = "final-keyfile"
+	opt.DecryptionBinaryPath = tool
+	opt.KeyTextFile = keyFile
+
+	client, err := newHTTPClient(opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	streams, _, err := parseSource(context.Background(), client, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	outs, err := downloadAll(context.Background(), client, streams, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(outs[0].Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "final-keyfile-decrypted" {
+		t.Fatalf("final decrypt should use key-text-file after reading KID, got %q", got)
+	}
+	args, err := os.ReadFile(argsLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(args), "--key "+kid+":"+key) {
+		t.Fatalf("mp4decrypt should receive key from key-text-file, args:\n%s", args)
+	}
+}
+
 func TestRealtimeShakaDecryptExcludesStandaloneInitFromMerge(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell helper is unix-only")

@@ -524,7 +524,7 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 		}
 		output = merged
 	}
-	if !opt.MP4RealTimeDecryption && hasExternalMP4Encryption(s) && len(collectDecryptKeys(opt, "")) > 0 {
+	if !opt.MP4RealTimeDecryption && hasExternalMP4Encryption(s) {
 		decrypted, err := decryptMP4Output(output, opt)
 		if err != nil {
 			return outputFile{}, err
