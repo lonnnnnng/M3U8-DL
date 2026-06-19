@@ -159,6 +159,11 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "正在嘗試從文本文件搜尋KEY...",
 		EnUS: "Trying to search for KEY from text file...",
 	},
+	"cmd_loadKeyFailed": {
+		ZhCN: "获取KEY失败，忽略读取.",
+		ZhTW: "獲取KEY失敗，忽略讀取.",
+		EnUS: "Failed to get KEY, ignore.",
+	},
 	"fixingTTML": {
 		ZhCN: "正在提取TTML(raw)字幕...",
 		ZhTW: "正在提取TTML(raw)字幕...",

@@ -1461,7 +1461,11 @@ func TestParseMediaKeyLoadFailureUsesUpstreamRetryCount(t *testing.T) {
 0.ts
 #EXT-X-ENDLIST
 `
-	pl, err := p.parseMedia(context.Background(), raw)
+	var pl *Playlist
+	var err error
+	output := captureStdout(t, func() {
+		pl, err = p.parseMedia(context.Background(), raw)
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1471,6 +1475,9 @@ func TestParseMediaKeyLoadFailureUsesUpstreamRetryCount(t *testing.T) {
 	}
 	if keyHits != hlsKeyRetryCount+1 {
 		t.Fatalf("expected upstream retry count to make %d key attempts, got %d", hlsKeyRetryCount+1, keyHits)
+	}
+	if !strings.Contains(output, "Failed to get KEY, ignore.") || !strings.Contains(output, "HTTP 500") {
+		t.Fatalf("key load failure should print upstream cmd_loadKeyFailed message and error, got %q", output)
 	}
 }
 

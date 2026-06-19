@@ -550,6 +550,7 @@ func (p *parser) parseKey(ctx context.Context, line string) (EncryptInfo, error)
 			key, err := p.loadHLSKey(ctx, uri)
 			if err != nil {
 				// long: 上游 key 加载失败时不会中断解析，而是把该加密标成 UNKNOWN，让下载阶段保留原始分片供后续外部处理。
+				fmt.Println(tr(p.opt, "cmd_loadKeyFailed") + ": " + err.Error())
 				ei.Method = EncryptUnknown
 			} else {
 				ei.Key = key
