@@ -52,6 +52,7 @@ func parseSource(ctx context.Context, client *http.Client, opt Options) ([]Strea
 
 func (p *parser) extract(ctx context.Context, raw string) ([]StreamSpec, *parser, error) {
 	raw = strings.TrimSpace(raw)
+	p.rawFiles["raw.m3u8"] = raw
 	raw = preProcessHLSContent(raw, p.currentURL)
 	if !strings.HasPrefix(raw, "#EXTM3U") {
 		return nil, p, fmt.Errorf("%s", tr(p.opt, "badM3u8"))
@@ -95,7 +96,9 @@ func masterM3u8FoundMessage(opt Options) string {
 }
 
 func (p *parser) parseMaster(raw string) ([]StreamSpec, error) {
-	p.rawFiles["raw.m3u8"] = raw
+	if _, ok := p.rawFiles["raw.m3u8"]; !ok {
+		p.rawFiles["raw.m3u8"] = raw
+	}
 	var streams []StreamSpec
 	sc := newHLSScanner(raw)
 	expectPlaylist := false
@@ -292,7 +295,9 @@ func streamRefreshKey(s StreamSpec) string {
 }
 
 func (p *parser) parseMedia(ctx context.Context, raw string) (*Playlist, error) {
-	p.rawFiles["raw.m3u8"] = raw
+	if _, ok := p.rawFiles["raw.m3u8"]; !ok {
+		p.rawFiles["raw.m3u8"] = raw
+	}
 	if p.opt.AllowHLSMultiExtMap {
 		// long: 多 EXT-X-MAP 会把一个播放列表拆成多个 init 上下文；上游开启实验开关时会明确提示用户人工确认完整性。
 		fmt.Println(tr(p.opt, "allowHlsMultiExtMap"))

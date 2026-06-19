@@ -730,6 +730,30 @@ func TestPreProcessHLSContentMatchesUpstreamSiteFixes(t *testing.T) {
 	})
 }
 
+func TestParseSourceRawM3U8IsSavedBeforeHLSPreprocessLikeUpstream(t *testing.T) {
+	raw := "#EXTM3U\n#EXT-X-TARGETDURATION:1\n#EXTINF:1,\nseg.ts"
+	opt := defaultOptions()
+	opt.Input = "https://tlivecloud-playback-cdn.ysp.cctv.cn/live.m3u8?endtime=1"
+	p := &parser{
+		opt:         opt,
+		client:      http.DefaultClient,
+		originalURL: opt.Input,
+		currentURL:  opt.Input,
+		baseURL:     opt.Input,
+		rawFiles:    map[string]string{},
+	}
+	streams, _, err := p.extract(context.Background(), raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(streams) != 1 || streams[0].Playlist == nil || streams[0].Playlist.IsLive {
+		t.Fatalf("YSP replay should parse with appended ENDLIST, got %#v", streams)
+	}
+	if p.rawFiles["raw.m3u8"] != raw {
+		t.Fatalf("raw.m3u8 should keep trimmed source before HLS preprocess like upstream:\nwant %q\ngot  %q", raw, p.rawFiles["raw.m3u8"])
+	}
+}
+
 func TestParseSourceLocalRelativePathResolvesSegmentsFromPlaylistDir(t *testing.T) {
 	tmp := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(tmp, "media"), 0755); err != nil {

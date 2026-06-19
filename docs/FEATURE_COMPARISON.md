@@ -175,7 +175,7 @@
 | 选择/丢弃过滤 | `-sv/-sa/-ss`、`-dv/-da/-ds` | 已支持主要过滤条件、Role、`bestN/worstN/all`、先 drop 后 keep | 已追平 |
 | 广告清理 | Uplynk/Youku 内置和 `--ad-keyword` | 已支持上游内置广告条件、自定义正则、关键字提示和清理前后分片数提示 | 已追平 |
 | 自定义范围 | 分片序号和时间范围 | 已支持开区间、冒号时长、字幕偏移、范围提示和不同步警告；直播按上游跳过裁剪 | 已追平 |
-| meta 输出 | `raw.m3u8`、`meta.json`、`meta_selected.json`，`--write-meta-json false` 关闭写出，已有文件不覆盖 | 已支持 | 已追平 |
+| meta 输出 | `raw.m3u8`、`meta.json`、`meta_selected.json`，`--write-meta-json false` 关闭写出，已有文件不覆盖 | 已支持；`raw.m3u8` 按上游保存 HLS 预处理前的 trimmed 原始播放列表 | 已追平 |
 | 保存名/模板 | 文件名清理、模板变量、冲突处理 | 已支持上游清理语义、模板变量和冲突命名；`<Id>` 按本次下载任务序号而非原始流编号生成 | 已追平 |
 | 二进制合并 | 普通分片合并、分批预合并 | 已支持，超长列表可分批预合并 | 已追平 |
 | ffmpeg 单轨合并 | concat protocol/demuxer，下载主流程按音频 `m4a`、其他 `mp4` 输出 | 下载主流程已按上游固定为音频 `.m4a`、非音频 `.mp4`；底层 ffmpeg 合并函数保留 `mp4/mkv/flv/ts/m4a/aac/eac3/ac3` 分支，MP4 date metadata 按上游 `.NET` round-trip `"o"` 格式写入，`aac_adtstoasc` 按上游 `Where(Audio).All(...)` 空集合为真的语义启用 | 基本追平 |
