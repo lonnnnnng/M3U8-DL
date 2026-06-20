@@ -732,6 +732,14 @@ func firstMediaProbeFile(files []string) string {
 }
 
 func downloadSegment(ctx context.Context, client *http.Client, seg Segment, path string, opt Options, limiter *rateLimiter, kid string, initPath string) (string, error) {
+	if shouldPreferExistingDecryptedSegment(seg, opt) {
+		if dec := decryptedSegmentPath(path); dec != path {
+			if _, err := os.Stat(dec); err == nil {
+				// long: 实时 MP4 解密续跑时，原始加密分片和 _dec 可能同时存在；继续用 _dec 才不会把已解密片段退回加密态。
+				return dec, nil
+			}
+		}
+	}
 	if _, err := os.Stat(path); err == nil {
 		return path, nil
 	}
@@ -816,6 +824,10 @@ func downloadSegment(ctx context.Context, client *http.Client, seg Segment, path
 		return path, nil
 	}
 	return "", lastErr
+}
+
+func shouldPreferExistingDecryptedSegment(seg Segment, opt Options) bool {
+	return opt.MP4RealTimeDecryption && isExternalEncryptedSegment(seg)
 }
 
 func downloadRealtimeInitSegment(ctx context.Context, client *http.Client, seg Segment, path string, opt Options, limiter *rateLimiter) (realtimeInitSegmentResult, error) {

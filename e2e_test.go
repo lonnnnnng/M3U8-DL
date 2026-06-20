@@ -1257,6 +1257,28 @@ func TestDownloadSegmentReusesExistingDecryptedFile(t *testing.T) {
 	}
 }
 
+func TestDownloadSegmentPrefersExistingDecryptedFileForRealtimeExternalDecrypt(t *testing.T) {
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "000.m4s")
+	dec := filepath.Join(tmp, "000_dec.m4s")
+	if err := os.WriteFile(path, []byte("encrypted"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(dec, []byte("decrypted"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	opt := defaultOptions()
+	opt.MP4RealTimeDecryption = true
+	seg := Segment{URL: "https://example.com/seg.m4s", Encrypt: EncryptInfo{Method: EncryptCENC}}
+	got, err := downloadSegment(context.Background(), http.DefaultClient, seg, path, opt, nil, "11111111111111111111111111111111", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != dec {
+		t.Fatalf("realtime external decrypt should prefer existing _dec when raw and _dec coexist, got %s", got)
+	}
+}
+
 func TestDownloadFileURLByteRangeUsesLocalPathLikeUpstream(t *testing.T) {
 	tmp := t.TempDir()
 	source := filepath.Join(tmp, "range source.ts")

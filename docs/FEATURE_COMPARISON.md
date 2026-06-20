@@ -1,6 +1,6 @@
 # N_m3u8DL-RE 功能清单与 Go HLS 复刻进度对比
 
-更新时间：2026-06-20 10:35:51（北京时间）
+更新时间：2026-06-20 10:58:18（北京时间）
 
 ## 代码目录
 
@@ -156,7 +156,7 @@
 | 并发下载 | 分片并发、多轨并发 | 已支持，且多轨输出顺序稳定 | 已追平 |
 | 限速 | `--max-speed` | 已支持共享限速预算，参数规则按上游 `K/M` | 已追平 |
 | Range 下载 | BYTERANGE 和大文件切片 | 已支持 BYTERANGE 校验、大文件 Range 并发切分 | 已追平 |
-| 断点跳过 | 跳过已存在分片和 `_dec` 文件 | 已支持 | 已追平 |
+| 断点跳过 | 跳过已存在分片和 `_dec` 文件 | 已支持；实时外部解密续跑时原始分片和 `_dec` 同时存在会优先复用 `_dec` | 已追平 |
 | 图片伪装头 | PNG/GIF/BMP/JPEG 伪装头剥离 | 已支持固定偏移和 TS sync fallback，并有 GIF/PNG/JPEG 测试 | 已追平 |
 | gzip 分片 | 解压原始 gzip payload | 已支持，且在 HLS 解密后处理 | 已追平 |
 | HLS key 来源 | URI、base64、data URI、本地文件、HTTP | 已支持三类 inline key、本地文件、HTTP key 重试；HTTP key 失败重试会按上游输出 `retryCount`，最终失败时输出 `cmd_loadKeyFailed` 后降级 `UNKNOWN` | 已追平 |
