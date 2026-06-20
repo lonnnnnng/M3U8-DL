@@ -5201,6 +5201,15 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	if got := tr(opt, "autoBinaryMerge6"); got != "你已開啟下載完成後混流，自動開啟二進制合併" {
 		t.Fatalf("traditional autoBinaryMerge6 wrong: %q", got)
 	}
+	if got := tr(opt, "cmd_skipMerge"); got != "跳過合併分片" {
+		t.Fatalf("traditional cmd_skipMerge wrong: %q", got)
+	}
+	if got := tr(opt, "matchTS"); got != "內容匹配: [white on green3]HTTP Live MPEG2-TS[/]" {
+		t.Fatalf("traditional matchTS wrong: %q", got)
+	}
+	if got := tr(opt, "notSupported"); got != "當前輸入不受支援 " {
+		t.Fatalf("traditional notSupported wrong: %q", got)
+	}
 	if got := tr(opt, "selectedStream"); got != "已選擇的流:" {
 		t.Fatalf("traditional selectedStream wrong: %q", got)
 	}
@@ -5229,9 +5238,42 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	if got := tr(opt, "loadUrlFailed"); got != "加载URL失败" {
 		t.Fatalf("simplified loadUrlFailed wrong: %q", got)
 	}
+	if got := tr(opt, "checkingLast"); got != "验证最后一个分片有效性" {
+		t.Fatalf("simplified checkingLast wrong: %q", got)
+	}
+	if got := tr(opt, "cmd_appendUrlParams"); got != "将输入Url的Params添加至分片, 对某些网站很有用, 例如 kakao.com" {
+		t.Fatalf("simplified cmd_appendUrlParams wrong: %q", got)
+	}
+	if got := tr(opt, "keyProcessorNotFound"); got != "找不到支持的Processor" {
+		t.Fatalf("simplified keyProcessorNotFound wrong: %q", got)
+	}
 	opt.UILanguage = "en-US"
 	if got := tr(opt, "startDownloading"); got != "Start downloading..." {
 		t.Fatalf("english startDownloading wrong: %q", got)
+	}
+	if got := tr(opt, "cmd_forceAnsiConsole"); got != "Force assuming the terminal is ANSI-compatible and interactive" {
+		t.Fatalf("english cmd_forceAnsiConsole wrong: %q", got)
+	}
+	if got := tr(opt, "cmd_noAnsiColor"); got != "Remove ANSI colors" {
+		t.Fatalf("english cmd_noAnsiColor wrong: %q", got)
+	}
+	if got := tr(opt, "cmd_noDateInfo"); got != "Date information is not written during muxing" {
+		t.Fatalf("english cmd_noDateInfo wrong: %q", got)
+	}
+	if got := tr(opt, "cmd_skipDownload"); got != "Skip download" {
+		t.Fatalf("english cmd_skipDownload wrong: %q", got)
+	}
+	if got := tr(opt, "cmd_subtitleFix"); got != "Automatically fix subtitles" {
+		t.Fatalf("english cmd_subtitleFix wrong: %q", got)
+	}
+	if got := tr(opt, "cmd_writeMetaJson"); got != "Write meta json after parsed" {
+		t.Fatalf("english cmd_writeMetaJson wrong: %q", got)
+	}
+	if got := tr(opt, "fetch"); got != "Fetch: " {
+		t.Fatalf("english fetch wrong: %q", got)
+	}
+	if got := tr(opt, "matchBinaryData"); got != "Content Matched: [white on deepskyblue1]Binary Data[/]" {
+		t.Fatalf("english matchBinaryData wrong: %q", got)
 	}
 	if got := tr(opt, "matchHLS"); got != "Content Matched: [white on deepskyblue1]HTTP Live Streaming[/]" {
 		t.Fatalf("english matchHLS wrong: %q", got)

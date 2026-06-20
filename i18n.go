@@ -29,6 +29,16 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "輸出被重定向, 將清除ANSI顏色",
 		EnUS: "Output is redirected, ANSI colors are cleared.",
 	},
+	"cmd_forceAnsiConsole": {
+		ZhCN: "强制认定终端为支持ANSI且可交互的终端",
+		ZhTW: "強制認定終端為支援ANSI且可交往的終端",
+		EnUS: "Force assuming the terminal is ANSI-compatible and interactive",
+	},
+	"cmd_noAnsiColor": {
+		ZhCN: "去除ANSI颜色",
+		ZhTW: "關閉ANSI顏色",
+		EnUS: "Remove ANSI colors",
+	},
 	"processImageSub": {
 		ZhCN: "正在处理图形字幕",
 		ZhTW: "正在處理圖形字幕",
@@ -43,6 +53,21 @@ var localizedTexts = map[string]localizedText{
 		ZhCN: "自定义下载范围无效",
 		ZhTW: "自定義下載範圍無效",
 		EnUS: "User customed range invalid",
+	},
+	"checkingLast": {
+		ZhCN: "验证最后一个分片有效性",
+		ZhTW: "驗證最後一個分片有效性",
+		EnUS: "Verifying the validity of the last segment",
+	},
+	"cmd_noDateInfo": {
+		ZhCN: "混流时不写入日期信息",
+		ZhTW: "混流時不寫入日期訊息",
+		EnUS: "Date information is not written during muxing",
+	},
+	"cmd_appendUrlParams": {
+		ZhCN: "将输入Url的Params添加至分片, 对某些网站很有用, 例如 kakao.com",
+		ZhTW: "將輸入Url的Params添加至分片, 對某些網站很有用, 例如 kakao.com",
+		EnUS: "Add Params of input Url to segments, useful for some websites, such as kakao.com",
 	},
 	"customAdKeywordsFound": {
 		ZhCN: "用户自定义广告分片URL关键字：",
@@ -109,6 +134,21 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "已按 --skip-download 跳過下載",
 		EnUS: "Skip download due to --skip-download",
 	},
+	"cmd_skipDownload": {
+		ZhCN: "跳过下载",
+		ZhTW: "跳過下載",
+		EnUS: "Skip download",
+	},
+	"cmd_skipMerge": {
+		ZhCN: "跳过合并分片",
+		ZhTW: "跳過合併分片",
+		EnUS: "Skip segments merge",
+	},
+	"cmd_subtitleFix": {
+		ZhCN: "自动修正字幕",
+		ZhTW: "自動修正字幕",
+		EnUS: "Automatically fix subtitles",
+	},
 	"selectedStream": {
 		ZhCN: "已选择的流:",
 		ZhTW: "已選擇的流:",
@@ -144,10 +184,20 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "寫出meta json",
 		EnUS: "Writing meta json",
 	},
+	"cmd_writeMetaJson": {
+		ZhCN: "解析后的信息是否输出json文件",
+		ZhTW: "解析後的訊息是否輸出json文件",
+		EnUS: "Write meta json after parsed",
+	},
 	"startDownloading": {
 		ZhCN: "开始下载...",
 		ZhTW: "開始下載...",
 		EnUS: "Start downloading...",
+	},
+	"fetch": {
+		ZhCN: "获取: ",
+		ZhTW: "獲取: ",
+		EnUS: "Fetch: ",
 	},
 	"readingInfo": {
 		ZhCN: "读取媒体信息...",
@@ -243,6 +293,26 @@ var localizedTexts = map[string]localizedText{
 		ZhCN: "检测到Master列表，开始解析全部流信息",
 		ZhTW: "檢測到Master列表，開始解析全部流訊息",
 		EnUS: "Master List detected, try parse all streams",
+	},
+	"keyProcessorNotFound": {
+		ZhCN: "找不到支持的Processor",
+		ZhTW: "找不到支持的Processor",
+		EnUS: "No Processor matched",
+	},
+	"matchTS": {
+		ZhCN: "内容匹配: [white on green3]HTTP Live MPEG2-TS[/]",
+		ZhTW: "內容匹配: [white on green3]HTTP Live MPEG2-TS[/]",
+		EnUS: "Content Matched: [white on green3]HTTP Live MPEG2-TS[/]",
+	},
+	"matchBinaryData": {
+		ZhCN: "内容匹配: [white on deepskyblue1]Binary Data[/]",
+		ZhTW: "內容匹配: [white on deepskyblue1]Binary Data[/]",
+		EnUS: "Content Matched: [white on deepskyblue1]Binary Data[/]",
+	},
+	"notSupported": {
+		ZhCN: "当前输入不受支持 ",
+		ZhTW: "當前輸入不受支援 ",
+		EnUS: "Input not supported ",
 	},
 	"liveFound": {
 		ZhCN: "检测到直播流",
