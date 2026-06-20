@@ -902,6 +902,40 @@ func TestMoreHelpIncludesMuxImportLikeUpstream(t *testing.T) {
 	}
 }
 
+func TestUsageUsesUpstreamCommandDescriptionResources(t *testing.T) {
+	english := usageWithOptions(Options{UILanguage: "en-US"})
+	for _, want := range []string{
+		"--auto-select",
+		"Automatically selects the best tracks of all types",
+		"Set output directory",
+		"Pass custom header(s) to server",
+		"Set the HLS decryption key. Can be file, HEX or Base64",
+		"When all works is done, try to mux the downloaded streams",
+		"Set more help info about one option",
+	} {
+		if !strings.Contains(english, want) {
+			t.Fatalf("english usage missing %q:\n%s", want, english)
+		}
+	}
+	traditional := usageWithOptions(Options{UILanguage: "zh-TW"})
+	for _, want := range []string{
+		"自動選擇所有類型的最佳軌道",
+		"設置輸出目錄",
+		"即時解密MP4分片",
+		"查看某個選項的詳細幫助訊息",
+	} {
+		if !strings.Contains(traditional, want) {
+			t.Fatalf("traditional usage missing %q:\n%s", want, traditional)
+		}
+	}
+	simplified := usage()
+	for _, want := range []string{"自动选择所有类型的最佳轨道", "查看某个选项的详细帮助信息"} {
+		if !strings.Contains(simplified, want) {
+			t.Fatalf("default usage missing %q:\n%s", want, simplified)
+		}
+	}
+}
+
 func TestMoreHelpMatchesUpstreamDetailedTopics(t *testing.T) {
 	tests := []struct {
 		topic string

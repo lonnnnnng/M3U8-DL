@@ -1062,24 +1062,37 @@ func validateMuxImportArg(raw string) error {
 }
 
 func usage() string {
-	return `N_m3u8DL-GO-HLS <input> [options]
+	return usageWithOptions(Options{UILanguage: "zh-CN"})
+}
 
-常用:
-  --auto-select
-  --save-dir <dir>
-  --save-name <name>
-  -H "Cookie: xxx" -H "User-Agent: xxx"
-  --thread-count <n>
-  --custom-hls-key <file|hex|base64>
-  --custom-hls-iv <file|hex|base64>
-  --mp4-real-time-decryption
-  --custom-range <0-10|01:00-02:00>
-  --skip-download
-  --skip-merge
-  --binary-merge
-  -M format=mp4
-  --morehelp <mux-after-done|mux-import|custom-range|select-video|select-audio|select-subtitle>
-`
+func usageWithOptions(opt Options) string {
+	lines := []struct {
+		option string
+		key    string
+	}{
+		{"--auto-select", "cmd_autoSelect"},
+		{"--save-dir <dir>", "cmd_saveDir"},
+		{"--save-name <name>", "cmd_saveName"},
+		{"-H \"Cookie: xxx\" -H \"User-Agent: xxx\"", "cmd_header"},
+		{"--thread-count <n>", "cmd_threadCount"},
+		{"--custom-hls-key <file|hex|base64>", "cmd_customHLSKey"},
+		{"--custom-hls-iv <file|hex|base64>", "cmd_customHLSIv"},
+		{"--mp4-real-time-decryption", "cmd_MP4RealTimeDecryption"},
+		{"--custom-range <0-10|01:00-02:00>", "cmd_customRange"},
+		{"--skip-download", "cmd_skipDownload"},
+		{"--skip-merge", "cmd_skipMerge"},
+		{"--binary-merge", "cmd_binaryMerge"},
+		{"-M format=mp4", "cmd_muxAfterDone"},
+		{"--morehelp <mux-after-done|mux-import|custom-range|select-video|select-audio|select-subtitle>", "cmd_moreHelp"},
+	}
+	var b strings.Builder
+	b.WriteString("N_m3u8DL-GO-HLS <input> [options]\n\n")
+	b.WriteString("常用:\n")
+	for _, line := range lines {
+		// long: usage 属于用户直接看到的 CLI 表面；用原版 ResString key 生成说明，后续补齐语言资源时不会再遗留硬编码文案。
+		fmt.Fprintf(&b, "  %-92s %s\n", line.option, tr(opt, line.key))
+	}
+	return b.String()
 }
 
 func moreHelp(topic string) string {

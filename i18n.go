@@ -69,6 +69,66 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "將輸入Url的Params添加至分片, 對某些網站很有用, 例如 kakao.com",
 		EnUS: "Add Params of input Url to segments, useful for some websites, such as kakao.com",
 	},
+	"cmd_autoSelect": {
+		ZhCN: "自动选择所有类型的最佳轨道",
+		ZhTW: "自動選擇所有類型的最佳軌道",
+		EnUS: "Automatically selects the best tracks of all types",
+	},
+	"cmd_binaryMerge": {
+		ZhCN: "二进制合并",
+		ZhTW: "二進位制合併",
+		EnUS: "Binary merge",
+	},
+	"cmd_header": {
+		ZhCN: "为HTTP请求设置特定的请求头, 例如:\n-H \"Cookie: mycookie\" -H \"User-Agent: iOS\"",
+		ZhTW: "為HTTP請求設置特定的請求頭, 例如:\n-H \"Cookie: mycookie\" -H \"User-Agent: iOS\"",
+		EnUS: "Pass custom header(s) to server, Example:\n-H \"Cookie: mycookie\" -H \"User-Agent: iOS\"",
+	},
+	"cmd_saveDir": {
+		ZhCN: "设置输出目录",
+		ZhTW: "設置輸出目錄",
+		EnUS: "Set output directory",
+	},
+	"cmd_saveName": {
+		ZhCN: "设置保存文件名",
+		ZhTW: "設置保存檔案名",
+		EnUS: "Set output filename",
+	},
+	"cmd_threadCount": {
+		ZhCN: "设置下载线程数",
+		ZhTW: "設置下載執行緒數",
+		EnUS: "Set download thread count",
+	},
+	"cmd_MP4RealTimeDecryption": {
+		ZhCN: "实时解密MP4分片",
+		ZhTW: "即時解密MP4分片",
+		EnUS: "Decrypt MP4 segments in real time",
+	},
+	"cmd_customRange": {
+		ZhCN: "仅下载部分分片. 输入 \"--morehelp custom-range\" 以查看详细信息",
+		ZhTW: "僅下載部分分片. 輸入 \"--morehelp custom-range\" 以查看詳細訊息",
+		EnUS: "Download only part of the segments. Use \"--morehelp custom-range\" for more details",
+	},
+	"cmd_customHLSKey": {
+		ZhCN: "指定HLS解密KEY. 可以是文件, HEX或Base64",
+		ZhTW: "指定HLS解密KEY. 可以是文件, HEX或Base64",
+		EnUS: "Set the HLS decryption key. Can be file, HEX or Base64",
+	},
+	"cmd_customHLSIv": {
+		ZhCN: "指定HLS解密IV. 可以是文件, HEX或Base64",
+		ZhTW: "指定HLS解密IV. 可以是文件, HEX或Base64",
+		EnUS: "Set the HLS decryption iv. Can be file, HEX or Base64",
+	},
+	"cmd_moreHelp": {
+		ZhCN: "查看某个选项的详细帮助信息",
+		ZhTW: "查看某個選項的詳細幫助訊息",
+		EnUS: "Set more help info about one option",
+	},
+	"cmd_muxAfterDone": {
+		ZhCN: "所有工作完成时尝试混流分离的音视频. 输入 \"--morehelp mux-after-done\" 以查看详细信息",
+		ZhTW: "所有工作完成時嘗試混流分離的影音. 輸入 \"--morehelp mux-after-done\" 以查看詳細訊息",
+		EnUS: "When all works is done, try to mux the downloaded streams. Use \"--morehelp mux-after-done\" for more details",
+	},
 	"customAdKeywordsFound": {
 		ZhCN: "用户自定义广告分片URL关键字：",
 		ZhTW: "用戶自定義廣告分片URL關鍵字：",
