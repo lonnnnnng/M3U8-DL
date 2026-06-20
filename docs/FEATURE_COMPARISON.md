@@ -1,6 +1,6 @@
 # N_m3u8DL-RE 功能清单与 Go HLS 复刻进度对比
 
-更新时间：2026-06-20 12:31:05（北京时间）
+更新时间：2026-06-20 12:49:36（北京时间）
 
 ## 代码目录
 
@@ -192,7 +192,7 @@
 | 直播刷新 | 按窗口刷新追加新增分片 | 已支持基础刷新、去重、追加；未设置 `--live-record-limit` 时会按上游持续刷新到直播结束或外部中断；直播录制会按上游强制多轨并发和 MP4 实时解密 | 基本追平 |
 | 直播起点同步 | 多轨按日期或序号对齐 | 已支持 PDT/序号对齐，且 `--live-take-count` 按上游在多轨同步后统一裁剪最新窗口，避免长轨先裁剪导致短轨被裁空 | 基本追平 |
 | 直播录制限制 | `--live-record-limit` | 已支持，初始窗口计入限制；按上游只用已刷新出的媒体时长累计判断，不用墙钟 deadline 提前停录 | 基本追平 |
-| 直播实时合并 | 刷新过程中追加输出 | 非字幕输出已按批次实时追加；未设置 `--live-record-limit` 时已覆盖单轨和基础音视频多轨刷新到 `ENDLIST`；系统信号取消会进入已下载内容收尾；字幕收尾会按上游在无音频时关闭 VTT 音频时间轴修正，并在可探测音频输出时复用 start_time | 部分追平 |
+| 直播实时合并 | 刷新过程中追加输出 | 非字幕输出已按批次实时追加；未设置 `--live-record-limit` 时已覆盖单轨、基础音视频多轨刷新到 `ENDLIST`，以及其中一轨先结束后继续刷新剩余轨道；系统信号取消会进入已下载内容收尾；字幕收尾会按上游在无音频时关闭 VTT 音频时间轴修正，并在可探测音频输出时复用 start_time | 部分追平 |
 | PipeMux | Unix FIFO、Windows named pipe、ffmpeg 参数 | 已实现 Unix FIFO/Windows 命名管道、参数构造和上游 date metadata 格式，Windows 仅交叉编译验证 | 部分追平 |
 | ANSI 进度 UI | Spectre Console 动态进度列 | Go 版已按上游在 stdout/stderr 重定向时清除 ANSI 颜色并强制 console 状态，但没有完整动态进度 UI | 部分追平 |
 | 多语言资源 | zh-CN/zh-TW/en-US 完整资源 | Go 版已接入默认环境语言映射、核心运行输出、任务延迟开始提示、加载 URL 和失败提示、HLS 内容匹配、错误 m3u8 提示、解析媒体信息、Master 列表检出、直播流检出、直播录制上限和达到上限提示、PipeMux 命名管道创建/混流提示、字幕修复/抽取提示、图形字幕处理提示、HLS key 加载失败提示、key 文本搜索提示、自定义范围和广告关键字提示、分片数量校验和解密失败提示、解析后四项轨道统计、已选流列表、交互选轨提示、无流错误、保存文件名、meta json 写出、开始下载、读取媒体信息、二进制合并、ffmpeg 合并、分块合并、自动派生选项提示、单分片切片提示、多 EXT-X-MAP 风险提示、未知加密/CENC/fMP4/Dolby Vision/MuxAfterDone 自动二进制合并和 Dolby Vision 禁用混流提示、按上游固定资源文本追加版本号的更新检查提示、实时解密引擎建议、下载进度文本、外部工具缺失提示和 `--morehelp` 详细帮助；完整 `ResString` 资源表仍未复刻 | 部分追平 |
@@ -205,7 +205,7 @@
 1. CENC/PSSH/KID 已覆盖 `schm`、`tenc`、Widevine PSSH data、PSSH v1 KID 列表、PlayReady UTF-16LE 文本/`VALUE`、PlayReady Object 记录，以及 `tenc` 全 0 时从 Widevine/PlayReady PSSH 取真实 KID 但仍使用 MultiDRM track/label=1 的参数形态；复杂 DRM 封装还缺系统性真实样本验证。
 2. MP4 实时解密已补齐 init 先读 KID、shaka 缺 key 探测 KID、shaka/ffmpeg 跳过单独 `_init.mp4`、不重复合并 init、mp4decrypt 保留原始 init 作为媒体分片 `--fragments-info` 且合并使用解密 init、合并后不二次整文件解密的路径，但还没有达到上游直播状态机里所有边缘分支的等价程度。
 3. SAMPLE-AES/SAMPLE-AES-CTR 已按上游走外部 MP4 工具链或保留分片，并覆盖 raw key 交给 mp4decrypt track 1 的最终外部解密；但还缺真实 SAMPLE-AES 样本覆盖。
-4. 直播 producer/consumer 多轨状态机仍是简化实现；未设置 `--live-record-limit` 的普通和实时合并路径已补齐持续刷新到 `ENDLIST` 的行为，其中实时合并已有基础音视频多轨覆盖；系统信号中断已能触发基础收尾，但更完整的多轨收尾仍弱于原版，PipeMux 在 Windows 真实环境未实际运行验证。
+4. 直播 producer/consumer 多轨状态机仍是简化实现；未设置 `--live-record-limit` 的普通和实时合并路径已补齐持续刷新到 `ENDLIST` 的行为，其中实时合并已有基础音视频多轨和单轨先结束后继续刷新剩余轨道的覆盖；系统信号中断已能触发基础收尾，但更完整的多轨收尾仍弱于原版，PipeMux 在 Windows 真实环境未实际运行验证。
    已核对原版源码，未发现键盘 `q` 停止机制；原版全局 `Console.CancelKeyPress` 是 Ctrl+C 强制退出。
 5. ANSI/Spectre 风格动态进度 UI 未复刻；当前只对齐了重定向时清除 ANSI 颜色的控制台初始化行为。
 6. 多语言资源系统已覆盖默认环境语言映射、核心运行输出、任务延迟开始提示、加载 URL 和失败提示、HLS 内容匹配、错误 m3u8 提示、解析媒体信息、Master 列表检出、直播流检出、直播录制上限和达到上限提示、PipeMux 命名管道创建/混流提示、字幕修复/抽取提示、图形字幕处理提示、HLS key 加载失败提示、key 文本搜索提示、自定义范围和广告关键字提示、分片数量校验和解密失败提示、解析统计、已选流列表、交互选轨提示、无流错误、保存文件名、meta json 写出、开始下载、读取媒体信息、二进制合并、ffmpeg 合并、分块合并、多 EXT-X-MAP 风险提示、未知加密/CENC/fMP4/Dolby Vision/MuxAfterDone 自动二进制合并和 Dolby Vision 禁用混流提示、外部工具缺失提示和 `--morehelp` 详细帮助，但完整 `ResString` 资源表和全部错误提示仍未复刻。
