@@ -425,6 +425,98 @@ func TestDownloadLiveRealtimeWithoutLimitRefreshesUntilEndlistLikeUpstream(t *te
 	}
 }
 
+func TestDownloadLiveRealtimeMultiTrackWithoutLimitRefreshesUntilEndlist(t *testing.T) {
+	hits := map[string]int{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/master.m3u8":
+			_, _ = w.Write([]byte("#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"aud\",NAME=\"main\",LANGUAGE=\"en\",URI=\"a.m3u8\"\n#EXT-X-STREAM-INF:BANDWIDTH=1000,CODECS=\"avc1.4d401f,mp4a.40.2\",AUDIO=\"aud\"\nv.m3u8\n"))
+		case "/v.m3u8":
+			hits[r.URL.Path]++
+			if hits[r.URL.Path] == 1 {
+				_, _ = w.Write([]byte("#EXTM3U\n#EXT-X-TARGETDURATION:1\n#EXT-X-MEDIA-SEQUENCE:0\n#EXTINF:1,\nv0.ts\n"))
+				return
+			}
+			_, _ = w.Write([]byte("#EXTM3U\n#EXT-X-TARGETDURATION:1\n#EXT-X-MEDIA-SEQUENCE:0\n#EXTINF:1,\nv0.ts\n#EXTINF:1,\nv1.ts\n#EXT-X-ENDLIST\n"))
+		case "/a.m3u8":
+			hits[r.URL.Path]++
+			if hits[r.URL.Path] == 1 {
+				_, _ = w.Write([]byte("#EXTM3U\n#EXT-X-TARGETDURATION:1\n#EXT-X-MEDIA-SEQUENCE:0\n#EXTINF:1,\na0.ts\n"))
+				return
+			}
+			_, _ = w.Write([]byte("#EXTM3U\n#EXT-X-TARGETDURATION:1\n#EXT-X-MEDIA-SEQUENCE:0\n#EXTINF:1,\na0.ts\n#EXTINF:1,\na1.ts\n#EXT-X-ENDLIST\n"))
+		case "/v0.ts":
+			_, _ = w.Write([]byte("v0"))
+		case "/v1.ts":
+			_, _ = w.Write([]byte("v1"))
+		case "/a0.ts":
+			_, _ = w.Write([]byte("a0"))
+		case "/a1.ts":
+			_, _ = w.Write([]byte("a1"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	tmp := t.TempDir()
+	opt := defaultOptions()
+	opt.Input = srv.URL + "/master.m3u8"
+	opt.AutoSelect = true
+	opt.SaveDir = tmp
+	opt.TmpDir = filepath.Join(tmp, "tmp")
+	opt.SaveName = "live-multi-no-limit"
+	opt.LiveRealTimeMerge = true
+	wait := 0
+	opt.LiveWaitTime = &wait
+	client, err := newHTTPClient(opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	streams, p, err := parseSource(context.Background(), client, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	selected, err := chooseStreams(streams, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(selected) != 2 {
+		t.Fatalf("master auto select should include video and audio, got %d streams: %#v", len(selected), selected)
+	}
+	for i := range selected {
+		if selected[i].Playlist == nil {
+			if err := p.fetchPlaylist(context.Background(), &selected[i]); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	outs, handled, err := downloadLiveRealtimeIfNeeded(context.Background(), client, selected, p, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !handled {
+		t.Fatal("multi-track live realtime path should handle live streams without live-record-limit")
+	}
+	if hits["/v.m3u8"] < 2 || hits["/a.m3u8"] < 2 {
+		t.Fatalf("multi-track live realtime should refresh both tracks until ENDLIST, hits=%#v", hits)
+	}
+	if len(outs) != 2 {
+		t.Fatalf("want 2 outputs, got %d: %#v", len(outs), outs)
+	}
+	contents := map[string]bool{}
+	for _, out := range outs {
+		b, err := os.ReadFile(out.Path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		contents[string(b)] = true
+	}
+	if !contents["v0v1"] || !contents["a0a1"] {
+		t.Fatalf("multi-track live realtime output mismatch: %#v", contents)
+	}
+}
+
 func TestRecordLiveWithoutLimitRefreshesUntilEndlistLikeUpstream(t *testing.T) {
 	var playlistHits int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
