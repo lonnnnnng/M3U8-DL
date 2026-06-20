@@ -1,6 +1,6 @@
 # N_m3u8DL-RE 功能清单与 Go HLS 复刻进度对比
 
-更新时间：2026-06-20 10:01:15（北京时间）
+更新时间：2026-06-20 10:35:51（北京时间）
 
 ## 代码目录
 
@@ -168,7 +168,7 @@
 | SAMPLE-AES | 原版保留分片并通过 MP4 外部工具链处理 | Go 版按上游不做伪原生分片解密，保留分片并走外部解密入口 | 基本追平 |
 | SAMPLE-AES-CTR | 外部工具路径 | Go 版支持外部解密入口 | 基本追平 |
 | 复杂 PSSH/KID | 多 DRM、复杂 box 场景 | 已支持 `schm`、`tenc`、Widevine PSSH data、PSSH v1 KID 列表、PlayReady UTF-16LE 文本/`VALUE` 和 PlayReady Object 记录；`tenc` 全 0 但真实 KID 来自 Widevine/PlayReady PSSH 时会保留 MultiDRM track/label=1 参数形态，复杂 DRM 样本仍未系统验证 | 部分追平 |
-| MP4 实时解密 | `--mp4-real-time-decryption` | 已覆盖 init+fragment 基础实时外部解密；init 会先保留原始盒读取 KID，本地读不到且使用 shaka 时会从缺 key 错误探测 `key_id`；shaka/ffmpeg 会按上游跳过单独 `_init.mp4`，再用 init+fragment 构造外部工具输入并避免最终重复合并 init，实时解密开启时也会跳过最终整文件二次解密 | 部分追平 |
+| MP4 实时解密 | `--mp4-real-time-decryption` | 已覆盖 init+fragment 基础实时外部解密；init 会先保留原始盒读取 KID，本地读不到且使用 shaka 时会从缺 key 错误探测 `key_id`；shaka/ffmpeg 会按上游跳过单独 `_init.mp4`，再用 init+fragment 构造外部工具输入并避免最终重复合并 init；mp4decrypt 实时 init 解密会保留原始 init 给后续媒体分片 `--fragments-info`，并把解密后的 init 放入合并队列，实时解密开启时也会跳过最终整文件二次解密 | 部分追平 |
 | 自定义 HLS method/key/iv | 文件、HEX、Base64、枚举 method | 已支持，并按上游枚举校验 | 已追平 |
 | 轨道自动选择 | 最佳视频、音频、字幕 | 已支持最佳视频、每语言最高码率音频、全部字幕等路径 | 基本追平 |
 | 交互选择 | Spectre 交互多选 | Go 版实现了默认回车选择语义，交互选轨提示已接入上游三语言资源；但没有完整 Spectre UI | 部分追平 |
@@ -203,7 +203,7 @@
 ## 当前最需要继续补齐的 HLS 差距
 
 1. CENC/PSSH/KID 已覆盖 `schm`、`tenc`、Widevine PSSH data、PSSH v1 KID 列表、PlayReady UTF-16LE 文本/`VALUE`、PlayReady Object 记录，以及 `tenc` 全 0 时从 Widevine/PlayReady PSSH 取真实 KID 但仍使用 MultiDRM track/label=1 的参数形态；复杂 DRM 封装还缺系统性真实样本验证。
-2. MP4 实时解密已补齐 init 先读 KID、shaka 缺 key 探测 KID、shaka/ffmpeg 跳过单独 `_init.mp4`、不重复合并 init、合并后不二次整文件解密的路径，但还没有达到上游直播状态机里所有边缘分支的等价程度。
+2. MP4 实时解密已补齐 init 先读 KID、shaka 缺 key 探测 KID、shaka/ffmpeg 跳过单独 `_init.mp4`、不重复合并 init、mp4decrypt 保留原始 init 作为媒体分片 `--fragments-info` 且合并使用解密 init、合并后不二次整文件解密的路径，但还没有达到上游直播状态机里所有边缘分支的等价程度。
 3. SAMPLE-AES/SAMPLE-AES-CTR 已按上游走外部 MP4 工具链或保留分片，但还缺真实 SAMPLE-AES 样本覆盖。
 4. 直播 producer/consumer 多轨状态机仍是简化实现；未设置 `--live-record-limit` 的普通和实时合并路径已补齐持续刷新到 `ENDLIST` 的行为，系统信号中断已能触发基础收尾，但更完整的多轨收尾仍弱于原版，PipeMux 在 Windows 真实环境未实际运行验证。
    已核对原版源码，未发现键盘 `q` 停止机制；原版全局 `Console.CancelKeyPress` 是 Ctrl+C 强制退出。

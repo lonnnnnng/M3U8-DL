@@ -54,6 +54,12 @@ type liveRealtimeDownloadState struct {
 	currentKID        string
 }
 
+type realtimeInitSegmentResult struct {
+	mergePath       string
+	decryptInitPath string
+	kid             string
+}
+
 func (t *liveAudioStartTracker) set(value time.Duration) {
 	if t == nil || value <= 0 {
 		return
@@ -211,15 +217,15 @@ func (s *liveRealtimeDownloadState) downloadAndAppend(ctx context.Context, batch
 	s.liveDateTimeNames = allMediaSegmentsHaveProgramDateTime(batch)
 	if s.stream.Playlist != nil && s.stream.Playlist.MediaInit != nil && !s.initDone {
 		initSeg := *s.stream.Playlist.MediaInit
-		initFile, kid, err := downloadRealtimeInitSegment(ctx, s.client, initSeg, s.nextLiveSegmentPath(initSeg, "mp4"), s.opt, s.limiter)
+		initResult, err := downloadRealtimeInitSegment(ctx, s.client, initSeg, s.nextLiveSegmentPath(initSeg, "mp4"), s.opt, s.limiter)
 		if err != nil {
 			return err
 		}
 		s.initDone = true
-		s.initPath = initFile
-		s.currentKID = kid
-		if shouldKeepRealtimeInitForMerge(s.opt, kid) {
-			files = append(files, initFile)
+		s.initPath = initResult.decryptInitPath
+		s.currentKID = initResult.kid
+		if shouldKeepRealtimeInitForMerge(s.opt, initResult.kid) {
+			files = append(files, initResult.mergePath)
 			segments = append(segments, initSeg)
 		}
 	}
@@ -351,14 +357,14 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 	if opt.MP4RealTimeDecryption && s.Playlist.MediaInit != nil && hasExternalMP4Encryption(s) {
 		initSeg := *s.Playlist.MediaInit
 		initPath = segmentTempPath(tmpDir, initSeg, 0, pad, "mp4", liveSegmentNames, liveDateTimeNames)
-		actual, kid, err := downloadRealtimeInitSegment(ctx, client, initSeg, initPath, opt, limiter)
+		initResult, err := downloadRealtimeInitSegment(ctx, client, initSeg, initPath, opt, limiter)
 		if err != nil {
 			return outputFile{}, err
 		}
-		files[0] = actual
-		initPath = actual
-		currentKID = kid
-		if !shouldKeepRealtimeInitForMerge(opt, kid) {
+		files[0] = initResult.mergePath
+		initPath = initResult.decryptInitPath
+		currentKID = initResult.kid
+		if !shouldKeepRealtimeInitForMerge(opt, initResult.kid) {
 			// long: shaka/ffmpeg 实时解密会把 init 与每个媒体分片临时拼接后交给外部工具；最终再合并独立 init 会比上游多出一段重复初始化数据。
 			files[0] = ""
 		}
@@ -558,6 +564,23 @@ func cleanupFixedSubtitleSourceFiles(files []string, honorImageKeepEnv bool) {
 		// long: 字幕修复成功后，上游会把原始 VTT/TTML/m4s 分片从结果集合中移除；保留它们会让 --del-after-done=false 时多出非最终产物。
 		_ = os.Remove(file)
 	}
+}
+
+func copyFile(src string, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		_ = out.Close()
+		return err
+	}
+	return out.Close()
 }
 
 func shouldUseLiveSegmentNames(s StreamSpec, opt Options) bool {
@@ -795,12 +818,12 @@ func downloadSegment(ctx context.Context, client *http.Client, seg Segment, path
 	return "", lastErr
 }
 
-func downloadRealtimeInitSegment(ctx context.Context, client *http.Client, seg Segment, path string, opt Options, limiter *rateLimiter) (string, string, error) {
+func downloadRealtimeInitSegment(ctx context.Context, client *http.Client, seg Segment, path string, opt Options, limiter *rateLimiter) (realtimeInitSegmentResult, error) {
 	initOpt := opt
 	initOpt.MP4RealTimeDecryption = false
 	actual, err := downloadSegment(ctx, client, seg, path, initOpt, limiter, "", "")
 	if err != nil {
-		return "", "", err
+		return realtimeInitSegmentResult{}, err
 	}
 	kid := extractDefaultKIDFromFile(actual)
 	if kid == "" && strings.EqualFold(opt.DecryptionEngine, "SHAKA_PACKAGER") {
@@ -813,18 +836,26 @@ func downloadRealtimeInitSegment(ctx context.Context, client *http.Client, seg S
 			kid = detected
 		}
 	}
+	result := realtimeInitSegmentResult{mergePath: actual, decryptInitPath: actual, kid: kid}
 	if !opt.MP4RealTimeDecryption || kid == "" || len(collectDecryptKeys(opt, kid)) == 0 {
-		return actual, kid, nil
+		return result, nil
 	}
 	if !canDecryptRealtimeInitFile(opt) {
-		return actual, kid, nil
+		return result, nil
 	}
-	// long: init 需要先保持原始盒结构读出 KID，再按匹配到的 key 解密；如果下载时直接解密，后续媒体分片会丢失用于选 key 的 KID。
-	dec, err := decryptMP4File(actual, opt, kid, "")
+	decPath := decryptedSegmentPath(actual)
+	if err := copyFile(actual, decPath); err != nil {
+		return realtimeInitSegmentResult{}, err
+	}
+	// long: 上游把原始 init 留给后续媒体分片的 --fragments-info，同时把解密后的 init 放入合并队列；两条路径不能混用。
+	dec, err := decryptMP4File(decPath, opt, kid, "")
 	if err != nil {
-		return "", "", err
+		_ = os.Remove(decPath)
+		return realtimeInitSegmentResult{}, err
 	}
-	return dec, kid, nil
+	result.mergePath = dec
+	result.decryptInitPath = actual
+	return result, nil
 }
 
 func canDecryptRealtimeInitFile(opt Options) bool {

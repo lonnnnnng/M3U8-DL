@@ -2856,7 +2856,7 @@ printf 'decrypted-init:%s' "$(cat "$input")" > "$output"
 	opt.DecryptionEngine = "SHAKA_PACKAGER"
 	opt.DecryptionBinaryPath = tool
 	opt.KeyTextFile = keyFile
-	actual, kid, err := downloadRealtimeInitSegment(
+	initResult, err := downloadRealtimeInitSegment(
 		context.Background(),
 		&http.Client{},
 		Segment{URL: initSrc, Index: -1, Encrypt: EncryptInfo{Method: EncryptCENC}},
@@ -2867,10 +2867,10 @@ printf 'decrypted-init:%s' "$(cat "$input")" > "$output"
 	if err != nil {
 		t.Fatal(err)
 	}
-	if kid != detectedKID {
-		t.Fatalf("expected shaka detected kid %s, got %s", detectedKID, kid)
+	if initResult.kid != detectedKID {
+		t.Fatalf("expected shaka detected kid %s, got %s", detectedKID, initResult.kid)
 	}
-	got, err := os.ReadFile(actual)
+	got, err := os.ReadFile(initResult.mergePath)
 	if err != nil {
 		t.Fatal(err)
 	}

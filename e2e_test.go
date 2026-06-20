@@ -1870,6 +1870,92 @@ func TestRealtimeExternalDecrypt(t *testing.T) {
 	}
 }
 
+func TestRealtimeMP4DecryptUsesOriginalInitForFragmentsInfo(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell helper is unix-only")
+	}
+	kidBytes := []byte{0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f, 0x40}
+	kid := "3132333435363738393a3b3c3d3e3f40"
+	key := "00112233445566778899aabbccddeeff"
+	tencPayload := append([]byte{0, 0, 0, 0, 0, 0, 0, 0}, kidBytes...)
+	initData := mustMP4Box("moov", mustMP4Box("trak", mustMP4Box("mdia", mustMP4Box("minf", mustMP4Box("stbl", mustMP4Box("encv", mustMP4Box("sinf", mustMP4Box("schi", mustMP4Box("tenc", tencPayload)))))))))
+	initData = append(initData, []byte("ORIGINAL-INIT-MARK")...)
+	var base string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/main.m3u8":
+			_, _ = w.Write([]byte("#EXTM3U\n#EXT-X-KEY:METHOD=CENC,URI=\"data:;base64,AA==\"\n#EXT-X-MAP:URI=\"" + base + "/init.mp4\"\n#EXTINF:1,\n" + base + "/seg.m4s\n#EXT-X-ENDLIST\n"))
+		case "/init.mp4":
+			_, _ = w.Write(initData)
+		case "/seg.m4s":
+			_, _ = w.Write([]byte("encrypted-seg"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	base = srv.URL
+
+	tmp := t.TempDir()
+	tool := filepath.Join(tmp, "mp4decrypt")
+	script := `#!/bin/sh
+frag=''
+prev=''
+last=''
+for arg in "$@"; do
+  if [ "$prev" = "--fragments-info" ]; then
+    frag="$arg"
+  fi
+  prev="$arg"
+  last="$arg"
+done
+if [ -n "$frag" ]; then
+  printf 'media-uses-init:%s;' "$(cat "$frag")" > "$last"
+else
+  printf 'decrypted-init;' > "$last"
+fi
+`
+	if err := os.WriteFile(tool, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	opt := defaultOptions()
+	opt.Input = srv.URL + "/main.m3u8"
+	opt.AutoSelect = true
+	opt.BinaryMerge = true
+	opt.SaveDir = tmp
+	opt.TmpDir = filepath.Join(tmp, "tmp")
+	opt.SaveName = "rt-original-init"
+	opt.MP4RealTimeDecryption = true
+	opt.DecryptionBinaryPath = tool
+	opt.Keys = []string{kid + ":" + key}
+
+	client, err := newHTTPClient(opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	streams, _, err := parseSource(context.Background(), client, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	outs, err := downloadAll(context.Background(), client, streams, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(outs[0].Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), "decrypted-init;") {
+		t.Fatalf("realtime output should keep decrypted init in merge, got %q", got)
+	}
+	if !strings.Contains(string(got), "ORIGINAL-INIT-MARK") {
+		t.Fatalf("media decrypt should receive original init as fragments-info, got %q", got)
+	}
+	if strings.Contains(string(got), "media-uses-init:decrypted-init") {
+		t.Fatalf("media decrypt must not use decrypted init as fragments-info, got %q", got)
+	}
+}
+
 func TestFinalExternalDecryptUsesKeyTextFileAfterReadingKID(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell helper is unix-only")
