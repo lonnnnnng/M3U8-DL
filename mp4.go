@@ -128,8 +128,15 @@ func readMP4Info(data []byte) (parsedMP4Info, error) {
 			continue
 		}
 		if bytes.Equal(systemID, playReadySystemID) {
-			if kid := extractPlayReadyKIDFromData(psshData); kid != "" && (info.KID == "" || strings.EqualFold(info.KID, zeroKID)) {
-				info.KID = kid
+			if kid := extractPlayReadyKIDFromData(psshData); kid != "" {
+				switch {
+				case info.KID == "":
+					info.KID = kid
+				case strings.EqualFold(info.KID, zeroKID):
+					// long: 有些 MultiDRM init 把真实 KID 放在 PlayReady PSSH，tenc 仍写全 0；读取真实 KID 便于匹配 key-file，但解密命令仍要走 track/label=1。
+					info.KID = kid
+					info.MultiDRM = zeroTencKID
+				}
 			}
 		}
 	}

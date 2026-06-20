@@ -4088,15 +4088,54 @@ func TestExtractPlayReadyPSSHKIDFromValueAttribute(t *testing.T) {
 	}
 }
 
+func TestReadMP4InfoMarksZeroTencPlayReadyPSSHAsMultiDRM(t *testing.T) {
+	rawKID := []byte{0x03, 0x02, 0x01, 0x00, 0x05, 0x04, 0x07, 0x06, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f}
+	xml := `<WRMHEADER><DATA><PROTECTINFO><KID ALGID="AESCTR" VALUE="` + base64.StdEncoding.EncodeToString(rawKID) + `" /></PROTECTINFO></DATA></WRMHEADER>`
+	zeroTenc := append([]byte{0, 0, 0, 0, 0, 0, 0, 0}, make([]byte, 16)...)
+	mp4 := mustMP4Box("moov", concatBytes(
+		mustPlayReadyPSSHPayloadWithObject(xml),
+		mustMP4Box("trak", mustMP4Box("mdia", mustMP4Box("minf", mustMP4Box("stbl", mustMP4Box("encv", mustMP4Box("sinf", mustMP4Box("schi", mustMP4Box("tenc", zeroTenc)))))))),
+	))
+	info, err := readMP4Info(mp4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.KID != "000102030405060708090a0b0c0d0e0f" {
+		t.Fatalf("playready object kid wrong: %s", info.KID)
+	}
+	if !info.MultiDRM {
+		t.Fatal("zero tenc with PlayReady PSSH should keep MultiDRM track/label=1 decrypt mode")
+	}
+}
+
 func mustPlayReadyPSSH(xml string) []byte {
+	return mustMP4Box("moov", mustPlayReadyPSSHPayload(xmlBytesUTF16LE(xml)))
+}
+
+func mustPlayReadyPSSHPayloadWithObject(xml string) []byte {
+	prXML := xmlBytesUTF16LE(xml)
+	pro := make([]byte, 0, 10+len(prXML))
+	pro = binary.LittleEndian.AppendUint32(pro, uint32(10+len(prXML)))
+	pro = binary.LittleEndian.AppendUint16(pro, 1)
+	pro = binary.LittleEndian.AppendUint16(pro, 1)
+	pro = binary.LittleEndian.AppendUint16(pro, uint16(len(prXML)))
+	pro = append(pro, prXML...)
+	return mustPlayReadyPSSHPayload(pro)
+}
+
+func mustPlayReadyPSSHPayload(prData []byte) []byte {
+	payload := append([]byte{0, 0, 0, 0}, playReadySystemID...)
+	payload = binary.BigEndian.AppendUint32(payload, uint32(len(prData)))
+	payload = append(payload, prData...)
+	return mustMP4Box("pssh", payload)
+}
+
+func xmlBytesUTF16LE(xml string) []byte {
 	var prData []byte
 	for _, b := range []byte(xml) {
 		prData = append(prData, b, 0)
 	}
-	payload := append([]byte{0, 0, 0, 0}, playReadySystemID...)
-	payload = append(payload, []byte{0, 0, 0, byte(len(prData))}...)
-	payload = append(payload, prData...)
-	return mustMP4Box("moov", mustMP4Box("pssh", payload))
+	return prData
 }
 
 func TestCollectDecryptKeysByKID(t *testing.T) {
