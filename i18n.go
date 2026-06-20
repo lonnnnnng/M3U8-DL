@@ -129,6 +129,204 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "所有工作完成時嘗試混流分離的影音. 輸入 \"--morehelp mux-after-done\" 以查看詳細訊息",
 		EnUS: "When all works is done, try to mux the downloaded streams. Use \"--morehelp mux-after-done\" for more details",
 	},
+	"cmd_muxAfterDone_more": {
+		ZhCN: "所有工作完成时尝试混流分离的音视频. 你能够以:分隔形式指定如下参数:\n\n" +
+			"* format=FORMAT: 指定混流容器 mkv, mp4, ts\n" +
+			"* muxer=MUXER: 指定混流程序 ffmpeg, mkvmerge (默认: ffmpeg)\n" +
+			"* bin_path=PATH: 指定程序路径 (默认: 自动寻找)\n" +
+			"* skip_sub=BOOL: 是否忽略字幕文件 (默认: false)\n" +
+			"* keep=BOOL: 混流完成是否保留文件 true, false (默认: false)\n\n" +
+			"例如: \n" +
+			"# 混流为mp4容器\n" +
+			"-M format=mp4\n" +
+			"# 使用mkvmerge, 自动寻找程序\n" +
+			"-M format=mkv:muxer=mkvmerge\n" +
+			"# 使用mkvmerge, 自定义程序路径\n" +
+			"-M format=mkv:muxer=mkvmerge:bin_path=\"C\\:\\Program Files\\MKVToolNix\\mkvmerge.exe\"\n",
+		ZhTW: "所有工作完成時嘗試混流分離的影音. 你能夠以:分隔形式指定如下參數:\n\n" +
+			"* format=FORMAT: 指定混流容器 mkv, mp4, ts\n" +
+			"* muxer=MUXER: 指定混流程序 ffmpeg, mkvmerge (默認: ffmpeg)\n" +
+			"* bin_path=PATH: 指定程序路徑 (默認: 自動尋找)\n" +
+			"* skip_sub=BOOL: 是否忽略字幕文件 (默認: false)\n" +
+			"* keep=BOOL: 混流完成是否保留文件 true, false (默認: false)\n\n" +
+			"例如: \n" +
+			"# 混流為mp4容器\n" +
+			"-M format=mp4\n" +
+			"# 使用mkvmerge, 自動尋找程序\n" +
+			"-M format=mkv:muxer=mkvmerge\n" +
+			"# 使用mkvmerge, 自訂程序路徑\n" +
+			"-M format=mkv:muxer=mkvmerge:bin_path=\"C\\:\\Program Files\\MKVToolNix\\mkvmerge.exe\"\n",
+		EnUS: "When all works is done, try to mux the downloaded streams. OPTIONS is a colon separated list of:\n\n" +
+			"* format=FORMAT: set container. mkv, mp4, ts\n" +
+			"* muxer=MUXER: set muxer. ffmpeg, mkvmerge (Default: ffmpeg)\n" +
+			"* bin_path=PATH: set binary file path. (Default: auto)\n" +
+			"* skip_sub=BOOL: set whether or not skip subtitle files (Default: false)\n" +
+			"* keep=BOOL: set whether or not keep files. true, false (Default: false)\n\n" +
+			"Examples: \n" +
+			"# mux to mp4\n" +
+			"-M format=mp4\n" +
+			"# use mkvmerge, auto detect bin path\n" +
+			"-M format=mkv:muxer=mkvmerge\n" +
+			"# use mkvmerge, set bin path\n" +
+			"-M format=mkv:muxer=mkvmerge:bin_path=\"C\\:\\Program Files\\MKVToolNix\\mkvmerge.exe\"\n",
+	},
+	"cmd_muxImport_more": {
+		ZhCN: "混流时引入外部媒体文件. 你能够以:分隔形式指定如下参数:\n\n" +
+			"* path=PATH: 指定媒体文件路径\n" +
+			"* lang=CODE: 指定媒体文件语言代码 (非必须)\n" +
+			"* name=NAME: 指定媒体文件描述信息 (非必须)\n\n" +
+			"例如: \n" +
+			"# 引入外部字幕\n" +
+			"--mux-import path=zh-Hans.srt:lang=chi:name=\"中文 (简体)\"\n" +
+			"# 引入外部音轨+字幕\n" +
+			"--mux-import path=\"D\\:\\media\\atmos.m4a\":lang=eng:name=\"English Description Audio\" --mux-import path=\"D\\:\\media\\eng.vtt\":lang=eng:name=\"English (Description)\"",
+		ZhTW: "混流時引入外部媒體檔案. 你能夠以:分隔形式指定如下參數:\n\n" +
+			"* path=PATH: 指定媒體檔案路徑\n" +
+			"* lang=CODE: 指定媒體檔案語言代碼 (非必須)\n" +
+			"* name=NAME: 指定媒體檔案描述訊息 (非必須)\n\n" +
+			"例如: \n" +
+			"# 引入外部字幕\n" +
+			"--mux-import path=zh-Hant.srt:lang=chi:name=\"中文 (繁體)\"\n" +
+			"# 引入外部音軌+字幕\n" +
+			"--mux-import path=\"D\\:\\media\\atmos.m4a\":lang=eng:name=\"English Description Audio\" --mux-import path=\"D\\:\\media\\eng.vtt\":lang=eng:name=\"English (Description)\"",
+		EnUS: "When MuxAfterDone enabled, allow to import local media files. OPTIONS is a colon separated list of:\n\n" +
+			"* path=PATH: set file path\n" +
+			"* lang=CODE: set media language code (not required)\n" +
+			"* name=NAME: set description (not required)\n\n" +
+			"Examples: \n" +
+			"# import subtitle\n" +
+			"--mux-import path=en-US.srt:lang=eng:name=\"English (Original)\"\n" +
+			"# import audio and subtitle\n" +
+			"--mux-import path=\"D\\:\\media\\atmos.m4a\":lang=eng:name=\"English Description Audio\" --mux-import path=\"D\\:\\media\\eng.vtt\":lang=eng:name=\"English (Description)\"",
+	},
+	"cmd_custom_range": {
+		ZhCN: "下载点播内容时, 仅下载部分分片.\n\n" +
+			"例如: \n" +
+			"# 下载[0,10]共11个分片\n" +
+			"--custom-range 0-10\n" +
+			"# 下载从序号10开始的后续分片\n" +
+			"--custom-range 10-\n" +
+			"# 下载前100个分片\n" +
+			"--custom-range -99\n" +
+			"# 下载第5分钟到20分钟的内容\n" +
+			"--custom-range 05:00-20:00\n",
+		ZhTW: "下載點播內容時, 僅下載部分分片.\n\n" +
+			"例如: \n" +
+			"# 下載[0,10]共11個分片\n" +
+			"--custom-range 0-10\n" +
+			"# 下載從序號10開始的後續分片\n" +
+			"--custom-range 10-\n" +
+			"# 下載前100個分片\n" +
+			"--custom-range -99\n" +
+			"# 下載第5分鐘到20分鐘的內容\n" +
+			"--custom-range 05:00-20:00\n",
+		EnUS: "Download only part of the segments when downloading vod content.\n\n" +
+			"Examples: \n" +
+			"# Download [0,10], a total of 11 segments\n" +
+			"--custom-range 0-10\n" +
+			"# Download subsequent segments starting from index 10\n" +
+			"--custom-range 10-\n" +
+			"# Download the first 100 segments\n" +
+			"--custom-range -99\n" +
+			"# Download content from the 05:00 to 20:00\n" +
+			"--custom-range 05:00-20:00\n",
+	},
+	"cmd_selectVideo_more": {
+		ZhCN: "通过正则表达式选择符合要求的视频流. 你能够以:分隔形式指定如下参数:\n\n" +
+			"id=REGEX:lang=REGEX:name=REGEX:codecs=REGEX:res=REGEX:frame=REGEX\n" +
+			"segsMin=number:segsMax=number:ch=REGEX:range=REGEX:url=REGEX\n" +
+			"plistDurMin=hms:plistDurMax=hms:bwMin=int:bwMax=int:role=string:for=FOR\n\n" +
+			"* for=FOR: 选择方式. best[number], worst[number], all (默认: best)\n\n" +
+			"例如: \n" +
+			"# 选择最佳视频\n" +
+			"-sv best\n" +
+			"# 选择4K+HEVC视频\n" +
+			"-sv res=\"3840*\":codecs=hvc1:for=best\n" +
+			"# 选择长度大于1小时20分钟30秒的视频\n" +
+			"-sv plistDurMin=\"1h20m30s\":for=best\n" +
+			"-sv role=\"main\":for=best\n" +
+			"# 选择码率在800Kbps至1Mbps之间的视频\n" +
+			"-sv bwMin=800:bwMax=1000\n",
+		ZhTW: "通過正則表達式選擇符合要求的影片軌. 你能夠以:分隔形式指定如下參數:\n\n" +
+			"id=REGEX:lang=REGEX:name=REGEX:codecs=REGEX:res=REGEX:frame=REGEX\n" +
+			"segsMin=number:segsMax=number:ch=REGEX:range=REGEX:url=REGEX\n" +
+			"plistDurMin=hms:plistDurMax=hms:bwMin=int:bwMax=int:role=string:for=FOR\n\n" +
+			"* for=FOR: 選擇方式. best[number], worst[number], all (默認: best)\n\n" +
+			"例如: \n" +
+			"# 選擇最佳影片\n" +
+			"-sv best\n" +
+			"# 選擇4K+HEVC影片\n" +
+			"-sv res=\"3840*\":codecs=hvc1:for=best\n" +
+			"# 選擇長度大於1小時20分鐘30秒的影片\n" +
+			"-sv plistDurMin=\"1h20m30s\":for=best\n" +
+			"-sv role=\"main\":for=best\n" +
+			"# 選擇碼率在800Kbps至1Mbps之間的影片\n" +
+			"-sv bwMin=800:bwMax=1000\n",
+		EnUS: "Select video streams by regular expressions. OPTIONS is a colon separated list of:\n\n" +
+			"id=REGEX:lang=REGEX:name=REGEX:codecs=REGEX:res=REGEX:frame=REGEX\n" +
+			"segsMin=number:segsMax=number:ch=REGEX:range=REGEX:url=REGEX\n" +
+			"plistDurMin=hms:plistDurMax=hms:bwMin=int:bwMax=int:role=string:for=FOR\n\n" +
+			"* for=FOR: Select type. best[number], worst[number], all (Default: best)\n\n" +
+			"Examples: \n" +
+			"# select best video\n" +
+			"-sv best\n" +
+			"# select 4K+HEVC video\n" +
+			"-sv res=\"3840*\":codecs=hvc1:for=best\n" +
+			"# Select best video with duration longer than 1 hour 20 minutes 30 seconds\n" +
+			"-sv plistDurMin=\"1h20m30s\":for=best\n" +
+			"-sv role=\"main\":for=best\n" +
+			"# Select video with bandwidth between 800Kbps and 1Mbps\n" +
+			"-sv bwMin=800:bwMax=1000\n",
+	},
+	"cmd_selectAudio_more": {
+		ZhCN: "通过正则表达式选择符合要求的音频流. 参考 --select-video\n\n" +
+			"例如: \n" +
+			"# 选择所有音频\n" +
+			"-sa all\n" +
+			"# 选择最佳英语音轨\n" +
+			"-sa lang=en:for=best\n" +
+			"# 选择最佳的2条英语(或日语)音轨\n" +
+			"-sa lang=\"ja|en\":for=best2\n" +
+			"-sa role=\"main\":for=best\n",
+		ZhTW: "通過正則表達式選擇符合要求的音軌. 參考 --select-video\n\n" +
+			"例如: \n" +
+			"# 選擇所有音訊\n" +
+			"-sa all\n" +
+			"# 選擇最佳英語音軌\n" +
+			"-sa lang=en:for=best\n" +
+			"# 選擇最佳的2條英語(或日語)音軌\n" +
+			"-sa lang=\"ja|en\":for=best2\n" +
+			"-sa role=\"main\":for=best\n",
+		EnUS: "Select audio streams by regular expressions. ref --select-video\n\n" +
+			"Examples: \n" +
+			"# select all\n" +
+			"-sa all\n" +
+			"# select best eng audio\n" +
+			"-sa lang=en:for=best\n" +
+			"# select best 2, and language is ja or en\n" +
+			"-sa lang=\"ja|en\":for=best2\n" +
+			"-sa role=\"main\":for=best\n",
+	},
+	"cmd_selectSubtitle_more": {
+		ZhCN: "通过正则表达式选择符合要求的字幕流. 参考 --select-video\n\n" +
+			"例如: \n" +
+			"# 选择所有字幕\n" +
+			"-ss all\n" +
+			"# 选择所有带有\"中文\"的字幕\n" +
+			"-ss name=\"中文\":for=all\n",
+		ZhTW: "通過正則表達式選擇符合要求的字幕流. 參考 --select-video\n\n" +
+			"例如: \n" +
+			"# 選擇所有字幕\n" +
+			"-ss all\n" +
+			"# 選擇所有帶有\"中文\"的字幕\n" +
+			"-ss name=\"中文\":for=all\n",
+		EnUS: "Select subtitle streams by regular expressions. ref --select-video\n\n" +
+			"Examples: \n" +
+			"# select all subs\n" +
+			"-ss all\n" +
+			"# select all subs containing \"English\"\n" +
+			"-ss name=\"English\":for=all\n",
+	},
 	"customAdKeywordsFound": {
 		ZhCN: "用户自定义广告分片URL关键字：",
 		ZhTW: "用戶自定義廣告分片URL關鍵字：",

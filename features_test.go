@@ -962,6 +962,42 @@ func TestMoreHelpMatchesUpstreamDetailedTopics(t *testing.T) {
 	}
 }
 
+func TestMoreHelpUsesUpstreamLocalizedResources(t *testing.T) {
+	englishMux := moreHelpWithOptions("mux-after-done", Options{UILanguage: "en-US"})
+	for _, want := range []string{
+		"When all works is done, try to mux the downloaded streams",
+		"set container. mkv, mp4, ts",
+		"# use mkvmerge, set bin path",
+	} {
+		if !strings.Contains(englishMux, want) {
+			t.Fatalf("english mux morehelp missing %q:\n%s", want, englishMux)
+		}
+	}
+	englishSub := moreHelpWithOptions("select-subtitle", Options{UILanguage: "en-US"})
+	for _, want := range []string{
+		"Select subtitle streams by regular expressions. ref --select-video",
+		`-ss name="English":for=all`,
+	} {
+		if !strings.Contains(englishSub, want) {
+			t.Fatalf("english subtitle morehelp missing %q:\n%s", want, englishSub)
+		}
+	}
+	traditionalImport := moreHelpWithOptions("mux-import", Options{UILanguage: "zh-TW"})
+	for _, want := range []string{
+		"混流時引入外部媒體檔案",
+		`--mux-import path=zh-Hant.srt:lang=chi:name="中文 (繁體)"`,
+		"指定媒體檔案語言代碼",
+	} {
+		if !strings.Contains(traditionalImport, want) {
+			t.Fatalf("traditional mux-import morehelp missing %q:\n%s", want, traditionalImport)
+		}
+	}
+	traditionalVideo := moreHelpWithOptions("select-video", Options{UILanguage: "zh-TW"})
+	if !strings.Contains(traditionalVideo, "選擇碼率在800Kbps至1Mbps之間的影片") {
+		t.Fatalf("traditional select-video morehelp should come from upstream resource:\n%s", traditionalVideo)
+	}
+}
+
 func TestMoreHelpUnknownTopicMatchesUpstream(t *testing.T) {
 	help := moreHelp("no-such-option")
 	if !strings.Contains(help, "More Help:\n\n  --no-such-option\n\nnot found") {

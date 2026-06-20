@@ -1096,89 +1096,23 @@ func usageWithOptions(opt Options) string {
 }
 
 func moreHelp(topic string) string {
-	// long: --morehelp 是原版公开 CLI 体验的一部分；这里保留原版标题结构和 zh-CN 详细文本，避免用户查复杂参数时看到简化版说明。
-	msg, ok := map[string]string{
-		"mux-after-done": `所有工作完成时尝试混流分离的音视频. 你能够以:分隔形式指定如下参数:
+	return moreHelpWithOptions(topic, Options{UILanguage: "zh-CN"})
+}
 
-* format=FORMAT: 指定混流容器 mkv, mp4, ts
-* muxer=MUXER: 指定混流程序 ffmpeg, mkvmerge (默认: ffmpeg)
-* bin_path=PATH: 指定程序路径 (默认: 自动寻找)
-* skip_sub=BOOL: 是否忽略字幕文件 (默认: false)
-* keep=BOOL: 混流完成是否保留文件 true, false (默认: false)
-
-例如:
-# 混流为mp4容器
--M format=mp4
-# 使用mkvmerge, 自动寻找程序
--M format=mkv:muxer=mkvmerge
-# 使用mkvmerge, 自定义程序路径
--M format=mkv:muxer=mkvmerge:bin_path="C\:\Program Files\MKVToolNix\mkvmerge.exe"
-`,
-		"mux-import": `混流时引入外部媒体文件. 你能够以:分隔形式指定如下参数:
-
-* path=PATH: 指定媒体文件路径
-* lang=CODE: 指定媒体文件语言代码 (非必须)
-* name=NAME: 指定媒体文件描述信息 (非必须)
-
-例如:
-# 引入外部字幕
---mux-import path=zh-Hans.srt:lang=chi:name="中文 (简体)"
-# 引入外部音轨+字幕
---mux-import path="D\:\media\atmos.m4a":lang=eng:name="English Description Audio" --mux-import path="D\:\media\eng.vtt":lang=eng:name="English (Description)"
-`,
-		"custom-range": `下载点播内容时, 仅下载部分分片.
-
-例如:
-# 下载[0,10]共11个分片
---custom-range 0-10
-# 下载从序号10开始的后续分片
---custom-range 10-
-# 下载前100个分片
---custom-range -99
-# 下载第5分钟到20分钟的内容
---custom-range 05:00-20:00
-`,
-		"select-video": `通过正则表达式选择符合要求的视频流. 你能够以:分隔形式指定如下参数:
-
-id=REGEX:lang=REGEX:name=REGEX:codecs=REGEX:res=REGEX:frame=REGEX
-segsMin=number:segsMax=number:ch=REGEX:range=REGEX:url=REGEX
-plistDurMin=hms:plistDurMax=hms:bwMin=int:bwMax=int:role=string:for=FOR
-
-* for=FOR: 选择方式. best[number], worst[number], all (默认: best)
-
-例如:
-# 选择最佳视频
--sv best
-# 选择4K+HEVC视频
--sv res="3840*":codecs=hvc1:for=best
-# 选择长度大于1小时20分钟30秒的视频
--sv plistDurMin="1h20m30s":for=best
--sv role="main":for=best
-# 选择码率在800Kbps至1Mbps之间的视频
--sv bwMin=800:bwMax=1000
-`,
-		"select-audio": `通过正则表达式选择符合要求的音频流. 参考 --select-video
-
-例如:
-# 选择所有音频
--sa all
-# 选择最佳英语音轨
--sa lang=en:for=best
-# 选择最佳的2条英语(或日语)音轨
--sa lang="ja|en":for=best2
--sa role="main":for=best
-`,
-		"select-subtitle": `通过正则表达式选择符合要求的字幕流. 参考 --select-video
-
-例如:
-# 选择所有字幕
--ss all
-# 选择所有带有"中文"的字幕
--ss name="中文":for=all
-`,
+func moreHelpWithOptions(topic string, opt Options) string {
+	resourceKey, ok := map[string]string{
+		"mux-after-done":  "cmd_muxAfterDone_more",
+		"mux-import":      "cmd_muxImport_more",
+		"custom-range":    "cmd_custom_range",
+		"select-video":    "cmd_selectVideo_more",
+		"select-audio":    "cmd_selectAudio_more",
+		"select-subtitle": "cmd_selectSubtitle_more",
 	}[topic]
+	msg := "not found"
 	if !ok {
-		msg = "not found"
+		return fmt.Sprintf("More Help:\n\n  --%s\n\n%s", topic, msg)
 	}
+	// long: --morehelp 承载复杂参数的业务说明，统一走原版 ResString key 后，筛选/混流语义的帮助文本能随语言资源一起演进。
+	msg = tr(opt, resourceKey)
 	return fmt.Sprintf("More Help:\n\n  --%s\n\n%s", topic, msg)
 }
