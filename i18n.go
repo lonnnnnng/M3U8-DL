@@ -304,6 +304,16 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "內容匹配: [white on green3]HTTP Live MPEG2-TS[/]",
 		EnUS: "Content Matched: [white on green3]HTTP Live MPEG2-TS[/]",
 	},
+	"matchDASH": {
+		ZhCN: "内容匹配: [white on mediumorchid1]Dynamic Adaptive Streaming over HTTP[/]",
+		ZhTW: "內容匹配: [white on mediumorchid1]Dynamic Adaptive Streaming over HTTP[/]",
+		EnUS: "Content Matched: [white on mediumorchid1]Dynamic Adaptive Streaming over HTTP[/]",
+	},
+	"matchMSS": {
+		ZhCN: "内容匹配: [white on steelblue1]Microsoft Smooth Streaming[/]",
+		ZhTW: "內容匹配: [white on steelblue1]Microsoft Smooth Streaming[/]",
+		EnUS: "Content Matched: [white on steelblue1]Microsoft Smooth Streaming[/]",
+	},
 	"matchBinaryData": {
 		ZhCN: "内容匹配: [white on deepskyblue1]Binary Data[/]",
 		ZhTW: "內容匹配: [white on deepskyblue1]Binary Data[/]",

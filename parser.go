@@ -57,7 +57,22 @@ func (p *parser) extract(ctx context.Context, raw string) ([]StreamSpec, *parser
 	p.rawFiles["raw.m3u8"] = raw
 	raw = preProcessHLSContent(raw, p.currentURL)
 	if !strings.HasPrefix(raw, "#EXTM3U") {
-		return nil, p, fmt.Errorf("%s", tr(p.opt, "badM3u8"))
+		switch {
+		case strings.Contains(raw, "</MPD>") && strings.Contains(raw, "<MPD"):
+			fmt.Println(tr(p.opt, "matchDASH"))
+			p.rawFiles = map[string]string{"raw.mpd": raw}
+		case strings.Contains(raw, "</SmoothStreamingMedia>") && strings.Contains(raw, "<SmoothStreamingMedia"):
+			fmt.Println(tr(p.opt, "matchMSS"))
+			p.rawFiles = map[string]string{"raw.ism": raw}
+		case raw == "<RE_LIVE_TS>":
+			fmt.Println(tr(p.opt, "matchTS"))
+			p.rawFiles = map[string]string{"raw.txt": raw}
+		case raw == "<RE_BINARY_DATA>":
+			fmt.Println(tr(p.opt, "matchBinaryData"))
+			p.rawFiles = map[string]string{"raw.txt": raw}
+		}
+		// long: 原项目入口会先识别 DASH/MSS/TS/Binary 等输入类型；Go 复刻范围限定 HLS 时，也应保留同样的识别提示，再明确返回不支持。
+		return nil, p, fmt.Errorf("%s", tr(p.opt, "notSupported"))
 	}
 	fmt.Println(hlsMatchMessage(p.opt))
 	fmt.Println(parsingStreamMessage(p.opt))

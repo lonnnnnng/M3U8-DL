@@ -1,6 +1,6 @@
 # N_m3u8DL-RE 功能清单与 Go HLS 复刻进度对比
 
-更新时间：2026-06-20 14:39:54（北京时间）
+更新时间：2026-06-20 14:51:23（北京时间）
 
 ## 代码目录
 
@@ -136,14 +136,14 @@
 - 基本追平：核心行为已实现，但 UI、边缘平台或复杂场景仍弱于原版。
 - 部分追平：只覆盖常见或基础路径，仍缺重要分支。
 - 未追平：当前 Go 版没有等价实现。
-- 不在范围：用户明确要求本复刻只做 HLS，不做 DASH/MSS。
+- 不在范围：用户明确要求本复刻只做 HLS，不做 DASH/MSS；非 HLS 输入只保留上游式识别提示和不支持错误。
 
 | 功能域 | 原版能力 | Go HLS 复刻进度 | 状态 |
 | --- | --- | --- | --- |
 | 目录隔离 | 原项目独立源码树 | 已整理为 `N_m3u8DL-RE/` 与 `N_m3u8DL-GO-HLS/` 两个目录 | 已追平 |
 | HLS 输入 | URL、`file:`、本地 m3u8 | 支持 HTTP、本地文件、`file:` 及本地相对路径规范化 | 已追平 |
-| DASH/MSS | 完整支持 DASH/MSS | 不实现 | 不在范围 |
-| Live TS | 原版支持 Live TS extractor | Go 版只围绕 HLS | 不在范围 |
+| DASH/MSS | 完整支持 DASH/MSS | 不实现解析；入口会按上游识别 DASH/MSS 并返回不支持提示 | 不在范围 |
+| Live TS | 原版支持 Live TS extractor | 不实现解析；入口会按上游识别 Live TS 标记并返回不支持提示 | 不在范围 |
 | HLS Master | 视频、音频、字幕、多属性解析 | 已解析基础流、音频、字幕、码率、分辨率、帧率、语言、声道、HDR/DV 等，并兼容长签名 URL | 已追平 |
 | HLS Media | EXTINF、MAP、BYTERANGE、DISCONTINUITY、PDT、ENDLIST | 已实现并覆盖空直播窗口、多 MAP、fMP4 init 保留、PDT 容错、长签名分片 URL | 已追平 |
 | HLS 内容预处理 | 孤立 `\r` 换行、YSP、Youku、Disney+、AppleTV、KEY 顺序修正 | 已实现，并新增站点级预处理回归测试；普通内容首尾空白也按上游保留；master 子 playlist 和直播刷新 playlist 也会按上游在加载后进入同一套预处理 | 已追平 |

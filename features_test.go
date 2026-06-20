@@ -5204,9 +5204,6 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	if got := tr(opt, "cmd_skipMerge"); got != "跳過合併分片" {
 		t.Fatalf("traditional cmd_skipMerge wrong: %q", got)
 	}
-	if got := tr(opt, "matchTS"); got != "內容匹配: [white on green3]HTTP Live MPEG2-TS[/]" {
-		t.Fatalf("traditional matchTS wrong: %q", got)
-	}
 	if got := tr(opt, "notSupported"); got != "當前輸入不受支援 " {
 		t.Fatalf("traditional notSupported wrong: %q", got)
 	}
@@ -5275,6 +5272,12 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	if got := tr(opt, "matchBinaryData"); got != "Content Matched: [white on deepskyblue1]Binary Data[/]" {
 		t.Fatalf("english matchBinaryData wrong: %q", got)
 	}
+	if got := tr(opt, "matchDASH"); got != "Content Matched: [white on mediumorchid1]Dynamic Adaptive Streaming over HTTP[/]" {
+		t.Fatalf("english matchDASH wrong: %q", got)
+	}
+	if got := tr(opt, "matchMSS"); got != "Content Matched: [white on steelblue1]Microsoft Smooth Streaming[/]" {
+		t.Fatalf("english matchMSS wrong: %q", got)
+	}
 	if got := tr(opt, "matchHLS"); got != "Content Matched: [white on deepskyblue1]HTTP Live Streaming[/]" {
 		t.Fatalf("english matchHLS wrong: %q", got)
 	}
@@ -5314,6 +5317,9 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	}
 	if got := tr(opt, "badM3u8"); got != "錯誤的m3u8" {
 		t.Fatalf("traditional badM3u8 wrong: %q", got)
+	}
+	if got := tr(opt, "matchTS"); got != "內容匹配: [white on green3]HTTP Live MPEG2-TS[/]" {
+		t.Fatalf("traditional matchTS wrong: %q", got)
 	}
 	if got := tr(opt, "fixingVTT"); got != "正在提取VTT(raw)字幕..." {
 		t.Fatalf("traditional fixingVTT wrong: %q", got)
@@ -5427,13 +5433,67 @@ func TestParseSourceEmptyInputUsesLoadURLFailedResource(t *testing.T) {
 	}
 }
 
-func TestExtractBadM3U8UsesUpstreamResource(t *testing.T) {
+func TestExtractUnsupportedInputUsesUpstreamResource(t *testing.T) {
 	opt := defaultOptions()
 	opt.UILanguage = "en-US"
 	p := &parser{opt: opt, rawFiles: map[string]string{}}
 	_, _, err := p.extract(context.Background(), "not an m3u8")
-	if err == nil || err.Error() != "Bad m3u8" {
-		t.Fatalf("bad m3u8 should use upstream resource, got %v", err)
+	if err == nil || err.Error() != "Input not supported " {
+		t.Fatalf("unsupported input should use upstream resource, got %v", err)
+	}
+}
+
+func TestExtractUnsupportedProtocolsEmitUpstreamMatchMessages(t *testing.T) {
+	tests := []struct {
+		name    string
+		raw     string
+		wantLog string
+		rawName string
+	}{
+		{
+			name:    "dash",
+			raw:     "<MPD></MPD>",
+			wantLog: "Content Matched: [white on mediumorchid1]Dynamic Adaptive Streaming over HTTP[/]",
+			rawName: "raw.mpd",
+		},
+		{
+			name:    "mss",
+			raw:     "<SmoothStreamingMedia></SmoothStreamingMedia>",
+			wantLog: "Content Matched: [white on steelblue1]Microsoft Smooth Streaming[/]",
+			rawName: "raw.ism",
+		},
+		{
+			name:    "live ts",
+			raw:     "<RE_LIVE_TS>",
+			wantLog: "Content Matched: [white on green3]HTTP Live MPEG2-TS[/]",
+			rawName: "raw.txt",
+		},
+		{
+			name:    "binary",
+			raw:     "<RE_BINARY_DATA>",
+			wantLog: "Content Matched: [white on deepskyblue1]Binary Data[/]",
+			rawName: "raw.txt",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			opt := defaultOptions()
+			opt.UILanguage = "en-US"
+			p := &parser{opt: opt, rawFiles: map[string]string{}}
+			var err error
+			output := captureStdout(t, func() {
+				_, _, err = p.extract(context.Background(), tc.raw)
+			})
+			if err == nil || err.Error() != "Input not supported " {
+				t.Fatalf("unsupported protocol should return upstream notSupported text, got %v", err)
+			}
+			if !strings.Contains(output, tc.wantLog) {
+				t.Fatalf("unsupported protocol should print upstream match message %q, got %q", tc.wantLog, output)
+			}
+			if _, ok := p.rawFiles[tc.rawName]; !ok {
+				t.Fatalf("unsupported protocol should keep upstream raw file name %s, got %#v", tc.rawName, p.rawFiles)
+			}
+		})
 	}
 }
 
