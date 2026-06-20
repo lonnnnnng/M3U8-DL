@@ -2052,6 +2052,71 @@ func TestFinalExternalDecryptUsesKeyTextFileAfterReadingKID(t *testing.T) {
 	}
 }
 
+func TestSampleAESCTRFinalExternalDecryptUsesRawKey(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell helper is unix-only")
+	}
+	key := "00112233445566778899aabbccddeeff"
+	var base string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/main.m3u8":
+			_, _ = w.Write([]byte("#EXTM3U\n#EXT-X-KEY:METHOD=SAMPLE-AES-CTR,URI=\"data:;base64,AA==\"\n#EXT-X-MAP:URI=\"" + base + "/init.mp4\"\n#EXTINF:1,\n" + base + "/seg.m4s\n#EXT-X-ENDLIST\n"))
+		case "/init.mp4":
+			_, _ = w.Write([]byte("init-"))
+		case "/seg.m4s":
+			_, _ = w.Write([]byte("sample-aes-ctr-fragment"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+	base = srv.URL
+
+	tmp := t.TempDir()
+	argsLog := filepath.Join(tmp, "sample-aes-ctr-mp4decrypt-args.txt")
+	tool := filepath.Join(tmp, "mp4decrypt")
+	script := "#!/bin/sh\nprintf '%s\\n' \"$*\" > " + strconv.Quote(argsLog) + "\nlast=\"\"\nfor arg in \"$@\"; do last=\"$arg\"; done\nprintf 'sample-aes-ctr-final-decrypted' > \"$last\"\n"
+	if err := os.WriteFile(tool, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	opt := defaultOptions()
+	opt.Input = srv.URL + "/main.m3u8"
+	opt.AutoSelect = true
+	opt.SaveDir = tmp
+	opt.TmpDir = filepath.Join(tmp, "tmp")
+	opt.SaveName = "sample-aes-ctr"
+	opt.DecryptionBinaryPath = tool
+	opt.Keys = []string{key}
+
+	client, err := newHTTPClient(opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	streams, _, err := parseSource(context.Background(), client, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	outs, err := downloadAll(context.Background(), client, streams, opt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(outs[0].Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "sample-aes-ctr-final-decrypted" {
+		t.Fatalf("SAMPLE-AES-CTR should be passed to final external decrypt, got %q", got)
+	}
+	args, err := os.ReadFile(argsLog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(args), "--key 1:"+key) {
+		t.Fatalf("SAMPLE-AES-CTR raw key should use mp4decrypt track id 1, args:\n%s", args)
+	}
+}
+
 func TestRealtimeShakaDecryptExcludesStandaloneInitFromMerge(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("shell helper is unix-only")
