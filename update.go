@@ -12,8 +12,8 @@ import (
 	"time"
 )
 
-const latestReleaseURL = "https://github.com/nilaoda/N_m3u8DL-RE/releases/latest"
-const releaseTagURLPrefix = "https://github.com/nilaoda/N_m3u8DL-RE/releases/tag/"
+const latestReleaseURL = "https://github.com/lonnnnnng/m3u8dl-go/releases/latest"
+const releaseTagURLPrefix = "https://github.com/lonnnnnng/m3u8dl-go/releases/tag/"
 
 var versionNumberRE = regexp.MustCompile(`\d+(?:\.\d+){0,3}`)
 

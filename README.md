@@ -1,6 +1,6 @@
-# N_m3u8DL-GO-HLS
+# m3u8dl-go
 
-`N_m3u8DL-GO-HLS` 是基于上游 [`nilaoda/N_m3u8DL-RE`](https://github.com/nilaoda/N_m3u8DL-RE) 源码行为复刻的 Go 版 HLS 下载器。
+`m3u8dl-go` 是基于上游 [`nilaoda/N_m3u8DL-RE`](https://github.com/nilaoda/N_m3u8DL-RE) 源码行为复刻的 Go 版 HLS 下载器。
 
 当前目标：
 
@@ -90,8 +90,8 @@ go run . --morehelp custom-range
 ```zsh
 git diff --check
 go test -count=1 ./...
-go build -o /tmp/n-m3u8dl-go-hls-check .
-GOOS=windows GOARCH=amd64 go test -c -o /tmp/n-m3u8dl-go-hls-windows.test.exe .
+go build -o /tmp/m3u8dl-go-check .
+GOOS=windows GOARCH=amd64 go test -c -o /tmp/m3u8dl-go-windows.test.exe .
 ```
 
 这些验证只能证明当前测试覆盖的 HLS 行为通过，不能证明已与原版完整等价。

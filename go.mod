@@ -1,4 +1,4 @@
-module n-m3u8dl-go-hls
+module m3u8dl-go
 
 go 1.25.0
 

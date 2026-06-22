@@ -1,8 +1,8 @@
-# N_m3u8DL-GO-HLS 功能、用法与参数参考
+# m3u8dl-go 功能、用法与参数参考
 
 更新时间：2026-06-23（北京时间）
 
-`N_m3u8DL-GO-HLS` 是基于 `nilaoda/N_m3u8DL-RE` 源码行为复刻的 Go 版 HLS 下载器。本项目只实现 HLS/m3u8；DASH、MSS 和 Live TS 只做输入类型识别并返回不支持。
+`m3u8dl-go` 是基于 `nilaoda/N_m3u8DL-RE` 源码行为复刻的 Go 版 HLS 下载器。本项目只实现 HLS/m3u8；DASH、MSS 和 Live TS 只做输入类型识别并返回不支持。
 
 ## 快速开始
 

@@ -61,8 +61,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          target="N_m3u8DL-GO-HLS_${{ matrix.goos }}_${{ matrix.goarch }}"
-          bin="N_m3u8DL-GO-HLS"
+          target="m3u8dl-go_${{ matrix.goos }}_${{ matrix.goarch }}"
+          bin="m3u8dl-go"
           if [ "${{ matrix.goos }}" = "windows" ]; then
             bin="${bin}.exe"
           fi
@@ -85,7 +85,7 @@ jobs:
       - name: Upload archive
         uses: actions/upload-artifact@v4
         with:
-          name: N_m3u8DL-GO-HLS_${{ matrix.goos }}_${{ matrix.goarch }}
+          name: m3u8dl-go_${{ matrix.goos }}_${{ matrix.goarch }}
           path: dist/*
           if-no-files-found: error
 

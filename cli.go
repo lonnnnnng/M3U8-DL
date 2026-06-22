@@ -1197,7 +1197,7 @@ func usageWithOptions(opt Options) string {
 		},
 	}
 	var b strings.Builder
-	b.WriteString("N_m3u8DL-GO-HLS <input> [options]\n\n")
+	b.WriteString("m3u8dl-go <input> [options]\n\n")
 	for _, section := range sections {
 		b.WriteString(tr(opt, section.titleKey))
 		b.WriteByte('\n')

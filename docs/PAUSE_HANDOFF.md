@@ -9,9 +9,9 @@
 ## 当前仓库状态
 
 - 原版源码目录：`../N_m3u8DL-RE`
-- Go 复刻目录：`../N_m3u8DL-GO-HLS`
+- Go 复刻目录：`../m3u8dl-go`
 - 父目录 `/Users/long/Documents/CodexProjects/m3u8` 保持非 git 仓库。
-- Go 复刻仓库远端：`https://github.com/lonnnnnng/N_m3u8DL-GO-HLS.git`
+- Go 复刻仓库远端：`https://github.com/lonnnnnng/m3u8dl-go.git`
 - 原版仓库远端：`https://github.com/nilaoda/N_m3u8DL-RE.git`
 
 ## 已完成的主要进度
@@ -45,7 +45,7 @@
 ## 下次恢复建议命令
 
 ```bash
-cd /Users/long/Documents/CodexProjects/m3u8/N_m3u8DL-GO-HLS
+cd /Users/long/Documents/CodexProjects/m3u8/m3u8dl-go
 git status --short --branch
 git log --oneline -5
 go test -count=1 ./...
@@ -56,6 +56,6 @@ go test -count=1 ./...
 ```bash
 git diff --check
 go test -count=1 ./...
-go build -o /tmp/n-m3u8dl-go-hls-check .
-GOOS=windows GOARCH=amd64 go test -c -o /tmp/n-m3u8dl-go-hls-windows.test.exe .
+go build -o /tmp/m3u8dl-go-check .
+GOOS=windows GOARCH=amd64 go test -c -o /tmp/m3u8dl-go-windows.test.exe .
 ```

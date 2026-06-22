@@ -967,7 +967,7 @@ func TestUsageUsesUpstreamCommandDescriptionResources(t *testing.T) {
 func TestMainHelpUsesParsedUILanguage(t *testing.T) {
 	oldArgs := os.Args
 	defer func() { os.Args = oldArgs }()
-	os.Args = []string{"n-m3u8dl-go-hls", "--ui-language", "en-US", "--help"}
+	os.Args = []string{"m3u8dl-go", "--ui-language", "en-US", "--help"}
 	output := captureStdout(t, main)
 	if !strings.Contains(output, "Basics:") || !strings.Contains(output, "Show help information") {
 		t.Fatalf("main help should use parsed English UI language:\n%s", output)
@@ -976,7 +976,7 @@ func TestMainHelpUsesParsedUILanguage(t *testing.T) {
 		t.Fatalf("main help should not fall back to default Chinese usage after --ui-language en-US:\n%s", output)
 	}
 
-	os.Args = []string{"n-m3u8dl-go-hls", "--ui-language", "en-US", "--morehelp", "mux-import"}
+	os.Args = []string{"m3u8dl-go", "--ui-language", "en-US", "--morehelp", "mux-import"}
 	output = captureStdout(t, main)
 	if !strings.Contains(output, "When MuxAfterDone enabled") || !strings.Contains(output, "English Description Audio") {
 		t.Fatalf("main morehelp should use parsed English UI language:\n%s", output)
@@ -4616,7 +4616,7 @@ func concatBytes(parts ...[]byte) []byte {
 func TestSetupLoggingWritesFile(t *testing.T) {
 	tmp := t.TempDir()
 	logPath := filepath.Join(tmp, "run.log")
-	cleanup, actual, err := setupLogging(Options{LogFilePath: logPath}, []string{"n-m3u8dl-go-hls", "--version"})
+	cleanup, actual, err := setupLogging(Options{LogFilePath: logPath}, []string{"m3u8dl-go", "--version"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -4632,7 +4632,7 @@ func TestSetupLoggingWritesFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(b)
-	if !strings.Contains(text, "Task CommandLine: n-m3u8dl-go-hls --version") || !strings.Contains(text, "日志探针") {
+	if !strings.Contains(text, "Task CommandLine: m3u8dl-go --version") || !strings.Contains(text, "日志探针") {
 		t.Fatalf("log content missing:\n%s", text)
 	}
 }
@@ -4640,7 +4640,7 @@ func TestSetupLoggingWritesFile(t *testing.T) {
 func TestSetupLoggingHonorsLogLevel(t *testing.T) {
 	tmp := t.TempDir()
 	logPath := filepath.Join(tmp, "filtered.log")
-	cleanup, _, err := setupLogging(Options{LogFilePath: logPath, LogLevel: "WARN"}, []string{"n-m3u8dl-go-hls"})
+	cleanup, _, err := setupLogging(Options{LogFilePath: logPath, LogLevel: "WARN"}, []string{"m3u8dl-go"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -4672,7 +4672,7 @@ func TestSetupLoggingHonorsLogLevel(t *testing.T) {
 func TestSetupLoggingNoLog(t *testing.T) {
 	tmp := t.TempDir()
 	logPath := filepath.Join(tmp, "disabled.log")
-	cleanup, actual, err := setupLogging(Options{NoLog: true, LogFilePath: logPath}, []string{"n-m3u8dl-go-hls"})
+	cleanup, actual, err := setupLogging(Options{NoLog: true, LogFilePath: logPath}, []string{"m3u8dl-go"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -4778,7 +4778,7 @@ func TestUpdateFoundMessageMatchesUpstreamResourceText(t *testing.T) {
 }
 
 func TestCurrentVersionTag(t *testing.T) {
-	if currentVersionTag("N_m3u8DL-GO-HLS 0.1.0") != "v0.1.0" {
+	if currentVersionTag("m3u8dl-go 0.1.0") != "v0.1.0" {
 		t.Fatal("current version tag extraction failed")
 	}
 }
@@ -5319,7 +5319,7 @@ func TestMainHelpDefaultsToChinese(t *testing.T) {
 	t.Setenv("LANG", "en_US.UTF-8")
 	oldArgs := os.Args
 	defer func() { os.Args = oldArgs }()
-	os.Args = []string{"n-m3u8dl-go-hls", "--help"}
+	os.Args = []string{"m3u8dl-go", "--help"}
 	output := captureStdout(t, main)
 	if !strings.Contains(output, "基础:") || !strings.Contains(output, "显示帮助信息") {
 		t.Fatalf("main help should default to simplified Chinese:\n%s", output)

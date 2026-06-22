@@ -5,7 +5,7 @@
 ## 代码目录
 
 - 原版代码：`../N_m3u8DL-RE`
-- Go HLS 复刻版：`../N_m3u8DL-GO-HLS`
+- Go HLS 复刻版：`../m3u8dl-go`
 
 本次整理后，原版 C# 项目和 Go 复刻项目是两个独立目录；Go 复刻目录内不再依赖原版源码路径。
 
@@ -16,7 +16,7 @@
 - 原版 HLS 解析：`../N_m3u8DL-RE/src/N_m3u8DL-RE.Parser/Extractor/HLSExtractor.cs`
 - 原版 HLS 预处理与 key：`../N_m3u8DL-RE/src/N_m3u8DL-RE.Parser/Processor/HLS/DefaultHLSContentProcessor.cs`、`DefaultHLSKeyProcessor.cs`
 - 原版下载、合并、直播：`SimpleDownloader.cs`、`SimpleDownloadManager.cs`、`SimpleLiveRecordManager2.cs`、`MergeUtil.cs`、`MP4DecryptUtil.cs`
-- 复刻进度：`../N_m3u8DL-GO-HLS/README.md`、`docs/CLI_REFERENCE.md`、`docs/FUNCTIONS.md`、当前 Go 源码与测试
+- 复刻进度：`../m3u8dl-go/README.md`、`docs/CLI_REFERENCE.md`、`docs/FUNCTIONS.md`、当前 Go 源码与测试
 
 ## 原版 N_m3u8DL-RE 功能清单
 
@@ -140,7 +140,7 @@
 
 | 功能域 | 原版能力 | Go HLS 复刻进度 | 状态 |
 | --- | --- | --- | --- |
-| 目录隔离 | 原项目独立源码树 | 已整理为 `N_m3u8DL-RE/` 与 `N_m3u8DL-GO-HLS/` 两个目录 | 已追平 |
+| 目录隔离 | 原项目独立源码树 | 已整理为 `N_m3u8DL-RE/` 与 `m3u8dl-go/` 两个目录 | 已追平 |
 | HLS 输入 | URL、`file:`、本地 m3u8 | 支持 HTTP、本地文件、`file:` 及本地相对路径规范化 | 已追平 |
 | DASH/MSS | 完整支持 DASH/MSS | 不实现解析；入口会按上游识别 DASH/MSS 并返回不支持提示 | 不在范围 |
 | Live TS | 原版支持 Live TS extractor | 不实现解析；入口会按上游识别 Live TS 标记并返回不支持提示 | 不在范围 |
@@ -217,8 +217,8 @@
 
 ```zsh
 go test -count=1 ./...
-go build -o /tmp/n-m3u8dl-go-hls-check .
-GOOS=windows GOARCH=amd64 go test -c -o /tmp/n-m3u8dl-go-hls-windows.test.exe .
+go build -o /tmp/m3u8dl-go-check .
+GOOS=windows GOARCH=amd64 go test -c -o /tmp/m3u8dl-go-windows.test.exe .
 ```
 
 这些验证只能证明当前测试覆盖的 HLS 行为通过，不能证明已与原版完整等价。

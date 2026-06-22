@@ -32,8 +32,8 @@
 go run . 'https://play.jisuzyv.com/play/bYE7AEMb/index.m3u8' \
   --auto-select true \
   --skip-download true \
-  --save-dir /tmp/n-m3u8dl-go-real-jisu/out \
-  --tmp-dir /tmp/n-m3u8dl-go-real-jisu/tmp \
+  --save-dir /tmp/m3u8dl-go-real-jisu/out \
+  --tmp-dir /tmp/m3u8dl-go-real-jisu/tmp \
   --save-name jisuzyv-real \
   --disable-update-check true \
   --ui-language zh-CN
@@ -57,8 +57,8 @@ go run . 'https://play.jisuzyv.com/play/bYE7AEMb/index.m3u8' \
   --custom-range 0-2 \
   --binary-merge true \
   --thread-count 3 \
-  --save-dir /tmp/n-m3u8dl-go-real-jisu-download/out \
-  --tmp-dir /tmp/n-m3u8dl-go-real-jisu-download/tmp \
+  --save-dir /tmp/m3u8dl-go-real-jisu-download/out \
+  --tmp-dir /tmp/m3u8dl-go-real-jisu-download/tmp \
   --save-name jisuzyv-real-range \
   --disable-update-check true \
   --ui-language zh-CN \
@@ -69,7 +69,7 @@ go run . 'https://play.jisuzyv.com/play/bYE7AEMb/index.m3u8' \
 
 - 成功按 `0-2` 裁剪为 3 个分片，日志显示约 `00m16s`。
 - 成功下载 3/3 个分片。
-- 成功输出：`/tmp/n-m3u8dl-go-real-jisu-download/out/jisuzyv-real-range.ts`。
+- 成功输出：`/tmp/m3u8dl-go-real-jisu-download/out/jisuzyv-real-range.ts`。
 - 输出文件大小：`1,652,708` 字节。
 - 前 5 个 TS packet 同步字均为 `0x47`。
 - `ffprobe` 可识别输出为 `mpegts`，包含：
@@ -89,7 +89,7 @@ go run . 'https://play.jisuzyv.com/play/bYE7AEMb/index.m3u8' \
 
 结果：
 
-- 输出：`/tmp/n-m3u8dl-go-compare-binary/out/jisuzyv-binary.ts`
+- 输出：`/tmp/m3u8dl-go-compare-binary/out/jisuzyv-binary.ts`
 - 容器：`mpegts`
 - 文件大小：`1,652,708` 字节
 - 视频：H.264，1920x1080，24 fps，约 16.58 秒
@@ -101,7 +101,7 @@ go run . 'https://play.jisuzyv.com/play/bYE7AEMb/index.m3u8' \
 
 结果：
 
-- 输出：`/tmp/n-m3u8dl-go-compare-ffmpeg/out/jisuzyv-ffmpeg.mp4`
+- 输出：`/tmp/m3u8dl-go-compare-ffmpeg/out/jisuzyv-ffmpeg.mp4`
 - 容器：`mov,mp4,m4a,3gp,3g2,mj2`
 - 文件大小：`1,570,491` 字节
 - 视频：H.264，1920x1080，24 fps，约 16.58 秒

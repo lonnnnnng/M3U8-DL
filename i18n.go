@@ -76,41 +76,41 @@ var localizedTexts = map[string]localizedText{
 	},
 	"usage_examples": {
 		ZhCN: "  # 自动选择并用 ffmpeg 输出 mp4\n" +
-			"  N_m3u8DL-GO-HLS \"https://example.com/index.m3u8\" --auto-select true --save-dir ./downloads\n" +
+			"  m3u8dl-go \"https://example.com/index.m3u8\" --auto-select true --save-dir ./downloads\n" +
 			"  # 只解析并写出 raw/meta json\n" +
-			"  N_m3u8DL-GO-HLS \"https://example.com/index.m3u8\" --skip-download true --save-name probe\n" +
+			"  m3u8dl-go \"https://example.com/index.m3u8\" --skip-download true --save-name probe\n" +
 			"  # 下载前 3 个分片并二进制直拼为 TS\n" +
-			"  N_m3u8DL-GO-HLS \"https://example.com/index.m3u8\" --auto-select true --custom-range 0-2 --binary-merge true\n" +
+			"  m3u8dl-go \"https://example.com/index.m3u8\" --auto-select true --custom-range 0-2 --binary-merge true\n" +
 			"  # 带 Cookie/Referer 下载并限制速度\n" +
-			"  N_m3u8DL-GO-HLS \"https://example.com/index.m3u8\" -H \"Cookie: xxx\" -H \"Referer: https://example.com\" -R 2M\n" +
+			"  m3u8dl-go \"https://example.com/index.m3u8\" -H \"Cookie: xxx\" -H \"Referer: https://example.com\" -R 2M\n" +
 			"  # 下载完成后最终混流为 mp4\n" +
-			"  N_m3u8DL-GO-HLS \"https://example.com/index.m3u8\" --auto-select true -M format=mp4:muxer=ffmpeg\n" +
+			"  m3u8dl-go \"https://example.com/index.m3u8\" --auto-select true -M format=mp4:muxer=ffmpeg\n" +
 			"  # 录制直播 5 分钟并实时追加输出\n" +
-			"  N_m3u8DL-GO-HLS \"https://example.com/live.m3u8\" --live-real-time-merge true --live-record-limit 00:05:00",
+			"  m3u8dl-go \"https://example.com/live.m3u8\" --live-real-time-merge true --live-record-limit 00:05:00",
 		ZhTW: "  # 自動選擇並用 ffmpeg 輸出 mp4\n" +
-			"  N_m3u8DL-GO-HLS \"https://example.com/index.m3u8\" --auto-select true --save-dir ./downloads\n" +
+			"  m3u8dl-go \"https://example.com/index.m3u8\" --auto-select true --save-dir ./downloads\n" +
 			"  # 只解析並寫出 raw/meta json\n" +
-			"  N_m3u8DL-GO-HLS \"https://example.com/index.m3u8\" --skip-download true --save-name probe\n" +
+			"  m3u8dl-go \"https://example.com/index.m3u8\" --skip-download true --save-name probe\n" +
 			"  # 下載前 3 個分片並二進位直拼為 TS\n" +
-			"  N_m3u8DL-GO-HLS \"https://example.com/index.m3u8\" --auto-select true --custom-range 0-2 --binary-merge true\n" +
+			"  m3u8dl-go \"https://example.com/index.m3u8\" --auto-select true --custom-range 0-2 --binary-merge true\n" +
 			"  # 帶 Cookie/Referer 下載並限制速度\n" +
-			"  N_m3u8DL-GO-HLS \"https://example.com/index.m3u8\" -H \"Cookie: xxx\" -H \"Referer: https://example.com\" -R 2M\n" +
+			"  m3u8dl-go \"https://example.com/index.m3u8\" -H \"Cookie: xxx\" -H \"Referer: https://example.com\" -R 2M\n" +
 			"  # 下載完成後最終混流為 mp4\n" +
-			"  N_m3u8DL-GO-HLS \"https://example.com/index.m3u8\" --auto-select true -M format=mp4:muxer=ffmpeg\n" +
+			"  m3u8dl-go \"https://example.com/index.m3u8\" --auto-select true -M format=mp4:muxer=ffmpeg\n" +
 			"  # 錄製直播 5 分鐘並即時追加輸出\n" +
-			"  N_m3u8DL-GO-HLS \"https://example.com/live.m3u8\" --live-real-time-merge true --live-record-limit 00:05:00",
+			"  m3u8dl-go \"https://example.com/live.m3u8\" --live-real-time-merge true --live-record-limit 00:05:00",
 		EnUS: "  # Auto select and output mp4 through ffmpeg\n" +
-			"  N_m3u8DL-GO-HLS \"https://example.com/index.m3u8\" --auto-select true --save-dir ./downloads\n" +
+			"  m3u8dl-go \"https://example.com/index.m3u8\" --auto-select true --save-dir ./downloads\n" +
 			"  # Parse only and write raw/meta json\n" +
-			"  N_m3u8DL-GO-HLS \"https://example.com/index.m3u8\" --skip-download true --save-name probe\n" +
+			"  m3u8dl-go \"https://example.com/index.m3u8\" --skip-download true --save-name probe\n" +
 			"  # Download the first 3 segments and binary merge to TS\n" +
-			"  N_m3u8DL-GO-HLS \"https://example.com/index.m3u8\" --auto-select true --custom-range 0-2 --binary-merge true\n" +
+			"  m3u8dl-go \"https://example.com/index.m3u8\" --auto-select true --custom-range 0-2 --binary-merge true\n" +
 			"  # Download with Cookie/Referer and speed limit\n" +
-			"  N_m3u8DL-GO-HLS \"https://example.com/index.m3u8\" -H \"Cookie: xxx\" -H \"Referer: https://example.com\" -R 2M\n" +
+			"  m3u8dl-go \"https://example.com/index.m3u8\" -H \"Cookie: xxx\" -H \"Referer: https://example.com\" -R 2M\n" +
 			"  # Final mux to mp4 after download\n" +
-			"  N_m3u8DL-GO-HLS \"https://example.com/index.m3u8\" --auto-select true -M format=mp4:muxer=ffmpeg\n" +
+			"  m3u8dl-go \"https://example.com/index.m3u8\" --auto-select true -M format=mp4:muxer=ffmpeg\n" +
 			"  # Record live for 5 minutes with real-time append output\n" +
-			"  N_m3u8DL-GO-HLS \"https://example.com/live.m3u8\" --live-real-time-merge true --live-record-limit 00:05:00",
+			"  m3u8dl-go \"https://example.com/live.m3u8\" --live-real-time-merge true --live-record-limit 00:05:00",
 	},
 	"usage_section_moreHelpTopics": {
 		ZhCN: "更多帮助主题:",
