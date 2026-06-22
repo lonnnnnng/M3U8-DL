@@ -29,6 +29,41 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "輸出被重定向, 將清除ANSI顏色",
 		EnUS: "Output is redirected, ANSI colors are cleared.",
 	},
+	"usage_section_inputNetwork": {
+		ZhCN: "输入与网络:",
+		ZhTW: "輸入與網路:",
+		EnUS: "Input and network:",
+	},
+	"usage_section_downloadControl": {
+		ZhCN: "下载控制:",
+		ZhTW: "下載控制:",
+		EnUS: "Download control:",
+	},
+	"usage_section_outputLogs": {
+		ZhCN: "输出与日志:",
+		ZhTW: "輸出與日誌:",
+		EnUS: "Output and logs:",
+	},
+	"usage_section_subtitleStreams": {
+		ZhCN: "字幕与选流:",
+		ZhTW: "字幕與選流:",
+		EnUS: "Subtitle and stream selection:",
+	},
+	"usage_section_decryption": {
+		ZhCN: "解密:",
+		ZhTW: "解密:",
+		EnUS: "Decryption:",
+	},
+	"usage_section_live": {
+		ZhCN: "直播:",
+		ZhTW: "直播:",
+		EnUS: "Live:",
+	},
+	"usage_section_muxingHelp": {
+		ZhCN: "混流与更多帮助:",
+		ZhTW: "混流與更多幫助:",
+		EnUS: "Muxing and more help:",
+	},
 	"cmd_forceAnsiConsole": {
 		ZhCN: "强制认定终端为支持ANSI且可交互的终端",
 		ZhTW: "強制認定終端為支援ANSI且可交往的終端",

@@ -905,6 +905,19 @@ func TestMoreHelpIncludesMuxImportLikeUpstream(t *testing.T) {
 func TestUsageUsesUpstreamCommandDescriptionResources(t *testing.T) {
 	english := usageWithOptions(Options{UILanguage: "en-US"})
 	for _, want := range []string{
+		"Input and network:",
+		"Download control:",
+		"Output and logs:",
+		"Subtitle and stream selection:",
+		"Decryption:",
+		"Live:",
+		"Muxing and more help:",
+		"--base-url",
+		"--save-pattern",
+		"--key-text-file",
+		"--live-pipe-mux",
+		"--mux-import",
+		"-dv, --drop-video",
 		"--auto-select",
 		"Automatically selects the best tracks of all types",
 		"Set output directory",
@@ -916,6 +929,9 @@ func TestUsageUsesUpstreamCommandDescriptionResources(t *testing.T) {
 		if !strings.Contains(english, want) {
 			t.Fatalf("english usage missing %q:\n%s", want, english)
 		}
+	}
+	if strings.Contains(english, "--mkvmerge-binary-path") {
+		t.Fatalf("usage should not advertise unsupported global mkvmerge path option:\n%s", english)
 	}
 	traditional := usageWithOptions(Options{UILanguage: "zh-TW"})
 	for _, want := range []string{

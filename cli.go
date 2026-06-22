@@ -1066,33 +1066,139 @@ func usage() string {
 }
 
 func usageWithOptions(opt Options) string {
-	lines := []struct {
+	type usageLine struct {
 		option string
 		key    string
+	}
+	sections := []struct {
+		titleKey string
+		lines    []usageLine
 	}{
-		{"--auto-select", "cmd_autoSelect"},
-		{"--save-dir <dir>", "cmd_saveDir"},
-		{"--save-name <name>", "cmd_saveName"},
-		{"-H \"Cookie: xxx\" -H \"User-Agent: xxx\"", "cmd_header"},
-		{"--thread-count <n>", "cmd_threadCount"},
-		{"--custom-hls-key <file|hex|base64>", "cmd_customHLSKey"},
-		{"--custom-hls-iv <file|hex|base64>", "cmd_customHLSIv"},
-		{"--mp4-real-time-decryption", "cmd_MP4RealTimeDecryption"},
-		{"--custom-range <0-10|01:00-02:00>", "cmd_customRange"},
-		{"--skip-download", "cmd_skipDownload"},
-		{"--skip-merge", "cmd_skipMerge"},
-		{"--binary-merge", "cmd_binaryMerge"},
-		{"-M format=mp4", "cmd_muxAfterDone"},
-		{"--morehelp <mux-after-done|mux-import|custom-range|select-video|select-audio|select-subtitle>", "cmd_moreHelp"},
+		{
+			titleKey: "usage_section_inputNetwork",
+			lines: []usageLine{
+				{"<input>", "cmd_Input"},
+				{"--base-url <url>", "cmd_baseUrl"},
+				{"-H, --header <header>", "cmd_header"},
+				{"--urlprocessor-args <args>", "cmd_urlProcessorArgs"},
+				{"--use-system-proxy [true|false]", "cmd_useSystemProxy"},
+				{"--custom-proxy <url>", "cmd_customProxy"},
+				{"--append-url-params [true|false]", "cmd_appendUrlParams"},
+				{"--http-request-timeout <seconds>", "cmd_httpRequestTimeout"},
+			},
+		},
+		{
+			titleKey: "usage_section_downloadControl",
+			lines: []usageLine{
+				{"--auto-select [true|false]", "cmd_autoSelect"},
+				{"--thread-count <n>", "cmd_threadCount"},
+				{"--download-retry-count <n>", "cmd_downloadRetryCount"},
+				{"-R, --max-speed <15M|100K>", "cmd_maxSpeed"},
+				{"-mt, --concurrent-download [true|false]", "cmd_concurrentDownload"},
+				{"--check-segments-count [true|false]", "cmd_checkSegmentsCount"},
+				{"--skip-download [true|false]", "cmd_skipDownload"},
+				{"--skip-merge [true|false]", "cmd_skipMerge"},
+				{"--binary-merge [true|false]", "cmd_binaryMerge"},
+				{"--use-ffmpeg-concat-demuxer [true|false]", "cmd_useFFmpegConcatDemuxer"},
+				{"--del-after-done [true|false]", "cmd_delAfterDone"},
+				{"--allow-hls-multi-ext-map [true|false]", "cmd_allowHlsMultiExtMap"},
+				{"--disable-update-check [true|false]", "cmd_disableUpdateCheck"},
+			},
+		},
+		{
+			titleKey: "usage_section_outputLogs",
+			lines: []usageLine{
+				{"--save-dir <dir>", "cmd_saveDir"},
+				{"--save-name <name>", "cmd_saveName"},
+				{"--save-pattern <pattern>", "cmd_savePattern"},
+				{"--tmp-dir <dir>", "cmd_tmpDir"},
+				{"--write-meta-json [true|false]", "cmd_writeMetaJson"},
+				{"--log-level <level>", "cmd_logLevel"},
+				{"--log-file-path <path>", "cmd_logFilePath"},
+				{"--no-log [true|false]", "cmd_noLog"},
+				{"--force-ansi-console [true|false]", "cmd_forceAnsiConsole"},
+				{"--no-ansi-color [true|false]", "cmd_noAnsiColor"},
+				{"--no-date-info [true|false]", "cmd_noDateInfo"},
+			},
+		},
+		{
+			titleKey: "usage_section_subtitleStreams",
+			lines: []usageLine{
+				{"--sub-only [true|false]", "cmd_subOnly"},
+				{"--sub-format <SRT|VTT>", "cmd_subFormat"},
+				{"--auto-subtitle-fix [true|false]", "cmd_subtitleFix"},
+				{"-sv, --select-video <filter>", "cmd_selectVideo"},
+				{"-sa, --select-audio <filter>", "cmd_selectAudio"},
+				{"-ss, --select-subtitle <filter>", "cmd_selectSubtitle"},
+				{"-dv, --drop-video <filter>", "cmd_dropVideo"},
+				{"-da, --drop-audio <filter>", "cmd_dropAudio"},
+				{"-ds, --drop-subtitle <filter>", "cmd_dropSubtitle"},
+				{"--ad-keyword <regex>", "cmd_adKeyword"},
+				{"--custom-range <0-10|01:00-02:00>", "cmd_customRange"},
+			},
+		},
+		{
+			titleKey: "usage_section_decryption",
+			lines: []usageLine{
+				{"--key <KID:KEY|KEY>", "cmd_keys"},
+				{"--key-text-file <file>", "cmd_keyText"},
+				{"--decryption-engine <engine>", "cmd_decryptionEngine"},
+				{"--decryption-binary-path <path>", "cmd_decryptionBinaryPath"},
+				{"--mp4-real-time-decryption [true|false]", "cmd_MP4RealTimeDecryption"},
+				{"--use-shaka-packager [true|false]", "cmd_useShakaPackager"},
+				{"--custom-hls-method <method>", "cmd_customHLSMethod"},
+				{"--custom-hls-key <file|hex|base64>", "cmd_customHLSKey"},
+				{"--custom-hls-iv <file|hex|base64>", "cmd_customHLSIv"},
+			},
+		},
+		{
+			titleKey: "usage_section_live",
+			lines: []usageLine{
+				{"--live-perform-as-vod [true|false]", "cmd_livePerformAsVod"},
+				{"--live-real-time-merge [true|false]", "cmd_liveRealTimeMerge"},
+				{"--live-keep-segments [true|false]", "cmd_liveKeepSegments"},
+				{"--live-pipe-mux [true|false]", "cmd_livePipeMux"},
+				{"--live-record-limit <duration>", "cmd_liveRecordLimit"},
+				{"--live-wait-time <seconds>", "cmd_liveWaitTime"},
+				{"--live-take-count <n>", "cmd_liveTakeCount"},
+				{"--live-fix-vtt-by-audio [true|false]", "cmd_liveFixVttByAudio"},
+				{"--task-start-at <time>", "cmd_taskStartAt"},
+			},
+		},
+		{
+			titleKey: "usage_section_muxingHelp",
+			lines: []usageLine{
+				{"-M, --mux-after-done <options>", "cmd_muxAfterDone"},
+				{"--mux-import <options>", "cmd_muxImport"},
+				{"--ffmpeg-binary-path <path>", "cmd_ffmpegBinaryPath"},
+				{"--morehelp <topic>", "cmd_moreHelp"},
+			},
+		},
 	}
 	var b strings.Builder
 	b.WriteString("N_m3u8DL-GO-HLS <input> [options]\n\n")
-	b.WriteString("常用:\n")
-	for _, line := range lines {
-		// long: usage 属于用户直接看到的 CLI 表面；用原版 ResString key 生成说明，后续补齐语言资源时不会再遗留硬编码文案。
-		fmt.Fprintf(&b, "  %-92s %s\n", line.option, tr(opt, line.key))
+	for _, section := range sections {
+		b.WriteString(tr(opt, section.titleKey))
+		b.WriteByte('\n')
+		for _, line := range section.lines {
+			// long: usage 属于用户直接看到的 CLI 表面；每个已支持参数都绑定原版资源 key，避免新增参数时帮助文案和解析能力脱节。
+			writeUsageLine(&b, line.option, tr(opt, line.key))
+		}
+		b.WriteByte('\n')
 	}
 	return b.String()
+}
+
+func writeUsageLine(b *strings.Builder, option string, description string) {
+	const optionWidth = 44
+	descLines := strings.Split(strings.ReplaceAll(description, "\r\n", "\n"), "\n")
+	if len(descLines) == 0 {
+		descLines = []string{""}
+	}
+	fmt.Fprintf(b, "  %-*s %s\n", optionWidth, option, descLines[0])
+	for _, line := range descLines[1:] {
+		fmt.Fprintf(b, "  %-*s %s\n", optionWidth, "", line)
+	}
 }
 
 func moreHelp(topic string) string {
