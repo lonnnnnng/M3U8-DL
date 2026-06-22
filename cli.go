@@ -62,6 +62,19 @@ func defaultUILanguage() string {
 	}
 }
 
+type cliControlError struct {
+	kind  string
+	value string
+	opt   Options
+}
+
+func (e *cliControlError) Error() string {
+	if e.value != "" {
+		return e.kind + ":" + e.value
+	}
+	return e.kind
+}
+
 func parseArgs(args []string) (Options, error) {
 	opt := defaultOptions()
 	for i := 0; i < len(args); i++ {
@@ -90,15 +103,15 @@ func parseArgs(args []string) (Options, error) {
 		}
 		switch a {
 		case "-h", "--help", "-?":
-			return opt, errors.New("help")
+			return opt, &cliControlError{kind: "help", opt: opt}
 		case "--version":
-			return opt, errors.New("version")
+			return opt, &cliControlError{kind: "version", opt: opt}
 		case "--morehelp":
 			v, err := next()
 			if err != nil {
 				return opt, err
 			}
-			return opt, fmt.Errorf("morehelp:%s", v)
+			return opt, &cliControlError{kind: "morehelp", value: v, opt: opt}
 		case "--tmp-dir":
 			v, err := next()
 			if err != nil {
@@ -1074,6 +1087,14 @@ func usageWithOptions(opt Options) string {
 		titleKey string
 		lines    []usageLine
 	}{
+		{
+			titleKey: "usage_section_basic",
+			lines: []usageLine{
+				{"-h, --help, -?", "cmd_help"},
+				{"--version", "cmd_version"},
+				{"--ui-language <zh-CN|zh-TW|en-US>", "cmd_uiLanguage"},
+			},
+		},
 		{
 			titleKey: "usage_section_inputNetwork",
 			lines: []usageLine{

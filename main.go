@@ -19,17 +19,19 @@ const version = "N_m3u8DL-GO-HLS 0.1.0"
 
 func main() {
 	if err := run(); err != nil {
-		if err.Error() == "help" {
-			fmt.Print(usage())
-			return
-		}
-		if err.Error() == "version" {
-			fmt.Println(version)
-			return
-		}
-		if strings.HasPrefix(err.Error(), "morehelp:") {
-			fmt.Print(moreHelp(strings.TrimPrefix(err.Error(), "morehelp:")))
-			return
+		var controlErr *cliControlError
+		if errors.As(err, &controlErr) {
+			switch controlErr.kind {
+			case "help":
+				fmt.Print(usageWithOptions(controlErr.opt))
+				return
+			case "version":
+				fmt.Println(version)
+				return
+			case "morehelp":
+				fmt.Print(moreHelpWithOptions(controlErr.value, controlErr.opt))
+				return
+			}
 		}
 		fmt.Fprintln(os.Stderr, "错误:", err)
 		os.Exit(1)

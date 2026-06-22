@@ -29,6 +29,11 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "輸出被重定向, 將清除ANSI顏色",
 		EnUS: "Output is redirected, ANSI colors are cleared.",
 	},
+	"usage_section_basic": {
+		ZhCN: "基础:",
+		ZhTW: "基礎:",
+		EnUS: "Basics:",
+	},
 	"usage_section_inputNetwork": {
 		ZhCN: "输入与网络:",
 		ZhTW: "輸入與網路:",
@@ -63,6 +68,16 @@ var localizedTexts = map[string]localizedText{
 		ZhCN: "混流与更多帮助:",
 		ZhTW: "混流與更多幫助:",
 		EnUS: "Muxing and more help:",
+	},
+	"cmd_help": {
+		ZhCN: "显示帮助信息",
+		ZhTW: "顯示幫助訊息",
+		EnUS: "Show help information",
+	},
+	"cmd_version": {
+		ZhCN: "显示版本信息",
+		ZhTW: "顯示版本訊息",
+		EnUS: "Show version information",
 	},
 	"cmd_forceAnsiConsole": {
 		ZhCN: "强制认定终端为支持ANSI且可交互的终端",

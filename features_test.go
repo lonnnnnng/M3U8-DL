@@ -905,6 +905,7 @@ func TestMoreHelpIncludesMuxImportLikeUpstream(t *testing.T) {
 func TestUsageUsesUpstreamCommandDescriptionResources(t *testing.T) {
 	english := usageWithOptions(Options{UILanguage: "en-US"})
 	for _, want := range []string{
+		"Basics:",
 		"Input and network:",
 		"Download control:",
 		"Output and logs:",
@@ -918,8 +919,14 @@ func TestUsageUsesUpstreamCommandDescriptionResources(t *testing.T) {
 		"--live-pipe-mux",
 		"--mux-import",
 		"-dv, --drop-video",
+		"-h, --help, -?",
+		"--version",
+		"--ui-language <zh-CN|zh-TW|en-US>",
 		"--auto-select",
 		"Automatically selects the best tracks of all types",
+		"Show help information",
+		"Show version information",
+		"Set UI language",
 		"Set output directory",
 		"Pass custom header(s) to server",
 		"Set the HLS decryption key. Can be file, HEX or Base64",
@@ -949,6 +956,28 @@ func TestUsageUsesUpstreamCommandDescriptionResources(t *testing.T) {
 		if !strings.Contains(simplified, want) {
 			t.Fatalf("default usage missing %q:\n%s", want, simplified)
 		}
+	}
+}
+
+func TestMainHelpUsesParsedUILanguage(t *testing.T) {
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+	os.Args = []string{"n-m3u8dl-go-hls", "--ui-language", "en-US", "--help"}
+	output := captureStdout(t, main)
+	if !strings.Contains(output, "Basics:") || !strings.Contains(output, "Show help information") {
+		t.Fatalf("main help should use parsed English UI language:\n%s", output)
+	}
+	if strings.Contains(output, "基础:") {
+		t.Fatalf("main help should not fall back to default Chinese usage after --ui-language en-US:\n%s", output)
+	}
+
+	os.Args = []string{"n-m3u8dl-go-hls", "--ui-language", "en-US", "--morehelp", "mux-import"}
+	output = captureStdout(t, main)
+	if !strings.Contains(output, "When MuxAfterDone enabled") || !strings.Contains(output, "English Description Audio") {
+		t.Fatalf("main morehelp should use parsed English UI language:\n%s", output)
+	}
+	if strings.Contains(output, "混流时引入外部媒体文件") {
+		t.Fatalf("main morehelp should not fall back to default Chinese resource after --ui-language en-US:\n%s", output)
 	}
 }
 
