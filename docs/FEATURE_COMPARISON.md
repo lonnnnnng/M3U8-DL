@@ -16,7 +16,7 @@
 - 原版 HLS 解析：`../N_m3u8DL-RE/src/N_m3u8DL-RE.Parser/Extractor/HLSExtractor.cs`
 - 原版 HLS 预处理与 key：`../N_m3u8DL-RE/src/N_m3u8DL-RE.Parser/Processor/HLS/DefaultHLSContentProcessor.cs`、`DefaultHLSKeyProcessor.cs`
 - 原版下载、合并、直播：`SimpleDownloader.cs`、`SimpleDownloadManager.cs`、`SimpleLiveRecordManager2.cs`、`MergeUtil.cs`、`MP4DecryptUtil.cs`
-- 复刻进度：`../N_m3u8DL-GO-HLS/README.md`、`docs/FUNCTIONS.md`、当前 Go 源码与测试
+- 复刻进度：`../N_m3u8DL-GO-HLS/README.md`、`docs/CLI_REFERENCE.md`、`docs/FUNCTIONS.md`、当前 Go 源码与测试
 
 ## 原版 N_m3u8DL-RE 功能清单
 
@@ -223,4 +223,4 @@ GOOS=windows GOARCH=amd64 go test -c -o /tmp/n-m3u8dl-go-hls-windows.test.exe .
 
 这些验证只能证明当前测试覆盖的 HLS 行为通过，不能证明已与原版完整等价。
 
-真实样本验证记录见 `docs/REAL_SAMPLE_VALIDATION.md`。目前已验证 `https://play.jisuzyv.com/play/bYE7AEMb/index.m3u8` 的 master playlist、AES-128 key 加载、前 3 个 TS 分片下载、解密和二进制合并，`ffprobe` 可识别输出为含 H.264 1080p 视频和 AAC 音频的 MPEG-TS。
+真实样本验证记录见 `docs/REAL_SAMPLE_VALIDATION.md`。目前已验证 `https://play.jisuzyv.com/play/bYE7AEMb/index.m3u8` 的 master playlist、AES-128 key 加载、前 3 个 TS 分片下载、解密、二进制合并输出 MPEG-TS，以及默认 ffmpeg 合并输出 MP4；两种输出均可被 `ffprobe` 识别为含 H.264 1080p 视频和 AAC 音频的媒体文件。

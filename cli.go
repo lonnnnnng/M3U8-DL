@@ -45,20 +45,20 @@ func defaultOptions() Options {
 }
 
 func defaultUILanguage() string {
-	loc := "en-US"
 	curr := os.Getenv("LC_ALL")
 	if curr == "" {
 		curr = os.Getenv("LANG")
 	}
 	curr = strings.ReplaceAll(strings.Split(curr, ".")[0], "_", "-")
-	// long: 原版默认资源语言是英文，只把系统中文区域自动归到简中或繁中；其他语言环境不应被误映射成中文。
+	// long: 复刻版面向当前中文使用场景，未显式指定 --ui-language 时默认简中；繁中地区继续保留繁中展示。
 	switch {
-	case curr == "zh-CN" || curr == "zh-SG":
-		return "zh-CN"
 	case strings.HasPrefix(curr, "zh-"):
+		if curr == "zh-CN" || curr == "zh-SG" {
+			return "zh-CN"
+		}
 		return "zh-TW"
 	default:
-		return loc
+		return "zh-CN"
 	}
 }
 
@@ -1207,6 +1207,14 @@ func usageWithOptions(opt Options) string {
 		}
 		b.WriteByte('\n')
 	}
+	b.WriteString(tr(opt, "usage_section_examples"))
+	b.WriteByte('\n')
+	b.WriteString(tr(opt, "usage_examples"))
+	b.WriteString("\n\n")
+	b.WriteString(tr(opt, "usage_section_moreHelpTopics"))
+	b.WriteByte('\n')
+	b.WriteString(tr(opt, "usage_moreHelpTopics"))
+	b.WriteByte('\n')
 	return b.String()
 }
 

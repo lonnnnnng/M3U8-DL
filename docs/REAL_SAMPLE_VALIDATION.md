@@ -77,6 +77,37 @@ go run . 'https://play.jisuzyv.com/play/bYE7AEMb/index.m3u8' \
   - 音频：AAC LC，48000 Hz，stereo
   - 时长：约 16.6 秒
 
+### 合并方式对比验证
+
+同一 URL、同一范围 `--custom-range 0-2` 分别验证二进制直拼和默认 ffmpeg 合并。
+
+二进制直拼命令额外添加：
+
+```zsh
+--binary-merge true
+```
+
+结果：
+
+- 输出：`/tmp/n-m3u8dl-go-compare-binary/out/jisuzyv-binary.ts`
+- 容器：`mpegts`
+- 文件大小：`1,652,708` 字节
+- 视频：H.264，1920x1080，24 fps，约 16.58 秒
+- 音频：AAC，48000 Hz，stereo，约 16.51 秒
+- TS packet 同步字正常，前 5 个 packet 都是 `0x47`
+- `ffmpeg -v error -i ... -f null -` 无解码错误输出
+
+默认 ffmpeg 合并不添加 `--binary-merge true`。
+
+结果：
+
+- 输出：`/tmp/n-m3u8dl-go-compare-ffmpeg/out/jisuzyv-ffmpeg.mp4`
+- 容器：`mov,mp4,m4a,3gp,3g2,mj2`
+- 文件大小：`1,570,491` 字节
+- 视频：H.264，1920x1080，24 fps，约 16.58 秒
+- 音频：AAC，48000 Hz，stereo，约 16.53 秒
+- `ffmpeg -v error -i ... -f null -` 无解码错误输出
+
 ### 边界
 
 - 本次没有完整下载 165 个分片，只验证了前 3 个分片的真实下载、解密和合并。

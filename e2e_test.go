@@ -1566,6 +1566,7 @@ func TestDownloadSubtitleFixRemovesSourceSegmentsLikeUpstream(t *testing.T) {
 		Playlist:  &Playlist{Parts: []MediaPart{{Segments: []Segment{{Index: 0, URL: sourceURL, Duration: 1}}}}},
 	}
 	opt := defaultOptions()
+	opt.UILanguage = "en-US"
 	opt.SaveDir = filepath.Join(tmp, "out")
 	opt.TmpDir = filepath.Join(tmp, "tmp")
 	opt.SaveName = "sub-clean"
@@ -1609,6 +1610,7 @@ func TestDownloadTTMLFixHonorsKeepImageSegmentsEnv(t *testing.T) {
 		Playlist:  &Playlist{Parts: []MediaPart{{Segments: []Segment{{Index: 0, URL: sourceURL, Duration: 1}}}}},
 	}
 	opt := defaultOptions()
+	opt.UILanguage = "en-US"
 	opt.SaveDir = filepath.Join(tmp, "out")
 	opt.TmpDir = filepath.Join(tmp, "tmp")
 	opt.SaveName = "sub-keep"

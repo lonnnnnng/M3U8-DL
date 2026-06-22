@@ -1106,6 +1106,7 @@ func TestParseMediaCachesRepeatedKeyLine(t *testing.T) {
 	defer srv.Close()
 
 	opt := defaultOptions()
+	opt.UILanguage = "en-US"
 	p := &parser{
 		opt:         opt,
 		client:      srv.Client(),
@@ -1143,6 +1144,7 @@ func TestParseMediaKeyLoadFailureDowngradesToUnknown(t *testing.T) {
 	defer srv.Close()
 
 	opt := defaultOptions()
+	opt.UILanguage = "en-US"
 	p := &parser{
 		opt:         opt,
 		client:      srv.Client(),
@@ -1464,6 +1466,7 @@ func TestParseMediaKeyLoadFailureUsesUpstreamRetryCount(t *testing.T) {
 	defer srv.Close()
 
 	opt := defaultOptions()
+	opt.UILanguage = "en-US"
 	p := &parser{
 		opt:         opt,
 		client:      srv.Client(),

@@ -932,6 +932,10 @@ func TestUsageUsesUpstreamCommandDescriptionResources(t *testing.T) {
 		"Set the HLS decryption key. Can be file, HEX or Base64",
 		"When all works is done, try to mux the downloaded streams",
 		"Set more help info about one option",
+		"Examples:",
+		"Download the first 3 segments and binary merge to TS",
+		"More help topics:",
+		"--morehelp mux-after-done",
 	} {
 		if !strings.Contains(english, want) {
 			t.Fatalf("english usage missing %q:\n%s", want, english)
@@ -946,13 +950,14 @@ func TestUsageUsesUpstreamCommandDescriptionResources(t *testing.T) {
 		"設置輸出目錄",
 		"即時解密MP4分片",
 		"查看某個選項的詳細幫助訊息",
+		"更多幫助主題",
 	} {
 		if !strings.Contains(traditional, want) {
 			t.Fatalf("traditional usage missing %q:\n%s", want, traditional)
 		}
 	}
 	simplified := usage()
-	for _, want := range []string{"自动选择所有类型的最佳轨道", "查看某个选项的详细帮助信息"} {
+	for _, want := range []string{"自动选择所有类型的最佳轨道", "查看某个选项的详细帮助信息", "示例:", "更多帮助主题:"} {
 		if !strings.Contains(simplified, want) {
 			t.Fatalf("default usage missing %q:\n%s", want, simplified)
 		}
@@ -5284,7 +5289,7 @@ func TestValidateOptionsRejectsInvalidEnumValuesLikeUpstream(t *testing.T) {
 	}
 }
 
-func TestDefaultUILanguageFollowsUpstreamCultureMapping(t *testing.T) {
+func TestDefaultUILanguagePrefersChineseHelp(t *testing.T) {
 	tests := []struct {
 		name string
 		lc   string
@@ -5295,8 +5300,8 @@ func TestDefaultUILanguageFollowsUpstreamCultureMapping(t *testing.T) {
 		{name: "singapore chinese", lang: "zh_SG.UTF-8", want: "zh-CN"},
 		{name: "traditional chinese", lang: "zh_HK.UTF-8", want: "zh-TW"},
 		{name: "lc all wins", lc: "zh_TW.UTF-8", lang: "zh_CN.UTF-8", want: "zh-TW"},
-		{name: "non chinese falls back to english", lang: "fr_FR.UTF-8", want: "en-US"},
-		{name: "empty environment falls back to english", want: "en-US"},
+		{name: "non chinese defaults to simplified chinese", lang: "fr_FR.UTF-8", want: "zh-CN"},
+		{name: "empty environment defaults to simplified chinese", want: "zh-CN"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -5306,6 +5311,21 @@ func TestDefaultUILanguageFollowsUpstreamCultureMapping(t *testing.T) {
 				t.Fatalf("default UI language mismatch: want %s got %s", tc.want, got)
 			}
 		})
+	}
+}
+
+func TestMainHelpDefaultsToChinese(t *testing.T) {
+	t.Setenv("LC_ALL", "en_US.UTF-8")
+	t.Setenv("LANG", "en_US.UTF-8")
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+	os.Args = []string{"n-m3u8dl-go-hls", "--help"}
+	output := captureStdout(t, main)
+	if !strings.Contains(output, "基础:") || !strings.Contains(output, "显示帮助信息") {
+		t.Fatalf("main help should default to simplified Chinese:\n%s", output)
+	}
+	if strings.Contains(output, "Basics:") {
+		t.Fatalf("main help should not use English unless --ui-language en-US is set:\n%s", output)
 	}
 }
 
