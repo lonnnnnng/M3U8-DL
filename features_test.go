@@ -936,6 +936,74 @@ func TestUsageUsesUpstreamCommandDescriptionResources(t *testing.T) {
 	}
 }
 
+func TestUpstreamCommandDescriptionResourcesArePresent(t *testing.T) {
+	opt := defaultOptions()
+	opt.UILanguage = "en-US"
+	for _, key := range []string{
+		"cmd_Input",
+		"cmd_adKeyword",
+		"cmd_allowHlsMultiExtMap",
+		"cmd_baseUrl",
+		"cmd_checkSegmentsCount",
+		"cmd_concurrentDownload",
+		"cmd_customHLSMethod",
+		"cmd_customProxy",
+		"cmd_decryptionBinaryPath",
+		"cmd_decryptionEngine",
+		"cmd_delAfterDone",
+		"cmd_disableUpdateCheck",
+		"cmd_downloadRetryCount",
+		"cmd_dropAudio",
+		"cmd_dropSubtitle",
+		"cmd_dropVideo",
+		"cmd_ffmpegBinaryPath",
+		"cmd_httpRequestTimeout",
+		"cmd_keyText",
+		"cmd_keys",
+		"cmd_liveFixVttByAudio",
+		"cmd_liveKeepSegments",
+		"cmd_livePerformAsVod",
+		"cmd_livePipeMux",
+		"cmd_liveRealTimeMerge",
+		"cmd_liveRecordLimit",
+		"cmd_liveTakeCount",
+		"cmd_liveWaitTime",
+		"cmd_logFilePath",
+		"cmd_logLevel",
+		"cmd_maxSpeed",
+		"cmd_mkvmergeBinaryPath",
+		"cmd_muxImport",
+		"cmd_noLog",
+		"cmd_savePattern",
+		"cmd_selectAudio",
+		"cmd_selectSubtitle",
+		"cmd_selectVideo",
+		"cmd_subFormat",
+		"cmd_subOnly",
+		"cmd_taskStartAt",
+		"cmd_tmpDir",
+		"cmd_uiLanguage",
+		"cmd_urlProcessorArgs",
+		"cmd_useFFmpegConcatDemuxer",
+		"cmd_useShakaPackager",
+		"cmd_useSystemProxy",
+	} {
+		if got := tr(opt, key); got == key {
+			t.Fatalf("upstream command resource %s should be present", key)
+		}
+	}
+	if got := tr(opt, "cmd_ffmpegBinaryPath"); got != `Full path to the ffmpeg binary, like C:\Tools\ffmpeg.exe` {
+		t.Fatalf("ffmpeg path help should preserve upstream Windows example, got %q", got)
+	}
+	if got := tr(opt, "cmd_keys"); !strings.Contains(got, "--key KID1:KEY1 --key KID2:KEY2") {
+		t.Fatalf("key help should preserve upstream multi-key example, got %q", got)
+	}
+	opt.UILanguage = "zh-TW"
+	if got := tr(opt, "cmd_selectVideo"); got != `通過正則表達式選擇符合要求的影片軌. 輸入 "--morehelp select-video" 以查看詳細訊息` {
+		t.Fatalf("traditional select-video resource mismatch: %q", got)
+	}
+}
+
 func TestMoreHelpMatchesUpstreamDetailedTopics(t *testing.T) {
 	tests := []struct {
 		topic string

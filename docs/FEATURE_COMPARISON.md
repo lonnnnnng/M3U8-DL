@@ -1,6 +1,6 @@
 # N_m3u8DL-RE 功能清单与 Go HLS 复刻进度对比
 
-更新时间：2026-06-20 15:17:28（北京时间）
+更新时间：2026-06-22 22:58:25（北京时间）
 
 ## 代码目录
 
@@ -195,7 +195,7 @@
 | 直播实时合并 | 刷新过程中追加输出 | 非字幕输出已按批次实时追加；未设置 `--live-record-limit` 时已覆盖单轨、基础音视频多轨刷新到 `ENDLIST`，以及其中一轨先结束后继续刷新剩余轨道；系统信号取消会进入已下载内容收尾；字幕收尾会按上游在无音频时关闭 VTT 音频时间轴修正，并在可探测音频输出时复用 start_time | 部分追平 |
 | PipeMux | Unix FIFO、Windows named pipe、ffmpeg 参数 | 已实现 Unix FIFO/Windows 命名管道、参数构造和上游 date metadata 格式，Windows 仅交叉编译验证 | 部分追平 |
 | ANSI 进度 UI | Spectre Console 动态进度列 | Go 版已按上游在 stdout/stderr 重定向时清除 ANSI 颜色并强制 console 状态，但没有完整动态进度 UI | 部分追平 |
-| 多语言资源 | zh-CN/zh-TW/en-US 完整资源 | Go 版已接入默认环境语言映射、核心运行输出、任务延迟开始提示、加载 URL 和失败提示、HLS/DASH/MSS/TS/Binary 内容匹配、错误 m3u8 和不支持输入提示、解析媒体信息、Master 列表检出、直播流检出、直播录制上限和达到上限提示、PipeMux 命名管道创建/混流提示、字幕修复/抽取提示、图形字幕处理提示、HLS key 加载失败提示、key 文本搜索提示、自定义范围和广告关键字提示、分片数量校验和解密失败提示、解析后四项轨道统计、已选流列表、交互选轨提示、无流错误、保存文件名、meta json 写出、开始下载、读取媒体信息、二进制合并、ffmpeg 合并、分块合并、自动派生选项提示、单分片切片提示、多 EXT-X-MAP 风险提示、未知加密/CENC/fMP4/Dolby Vision/MuxAfterDone 自动二进制合并和 Dolby Vision 禁用混流提示、按上游固定资源文本追加版本号的更新检查提示、实时解密引擎建议、下载进度文本、外部工具缺失提示、fetch/checkingLast/keyProcessorNotFound，以及 usage 常用选项 CLI 描述资源和 `--morehelp` 六个详细主题的三语言资源；完整 `ResString` 资源表仍未复刻 | 部分追平 |
+| 多语言资源 | zh-CN/zh-TW/en-US 完整资源 | Go 版已接入默认环境语言映射、核心运行输出、任务延迟开始提示、加载 URL 和失败提示、HLS/DASH/MSS/TS/Binary 内容匹配、错误 m3u8 和不支持输入提示、解析媒体信息、Master 列表检出、直播流检出、直播录制上限和达到上限提示、PipeMux 命名管道创建/混流提示、字幕修复/抽取提示、图形字幕处理提示、HLS key 加载失败提示、key 文本搜索提示、自定义范围和广告关键字提示、分片数量校验和解密失败提示、解析后四项轨道统计、已选流列表、交互选轨提示、无流错误、保存文件名、meta json 写出、开始下载、读取媒体信息、二进制合并、ffmpeg 合并、分块合并、自动派生选项提示、单分片切片提示、多 EXT-X-MAP 风险提示、未知加密/CENC/fMP4/Dolby Vision/MuxAfterDone 自动二进制合并和 Dolby Vision 禁用混流提示、按上游固定资源文本追加版本号的更新检查提示、实时解密引擎建议、下载进度文本、外部工具缺失提示、fetch/checkingLast/keyProcessorNotFound，以及 usage 常用选项 CLI 描述资源和 `--morehelp` 六个详细主题的三语言资源；原版 `StaticText.cs` 资源 key 已全部在 Go 版登记，CLI 帮助的完整展示形态仍弱于原版 | 基本追平 |
 | 更新检查 | GitHub latest release，按 redirect tag 与当前 `vMajor.Minor.Build` 前缀判断是否提示 | 已支持，可 `--disable-update-check` 禁用；提示文案与 tag 判断语义已按上游对齐 | 已追平 |
 | 日志文件 | 日志路径、文件名校验、等级、禁用 | 已支持 `--log-file-path` 文件名清理和非法名拒绝、`--log-level`、`--no-log` | 已追平 |
 | 跨平台构建 | 原版 .NET 多平台发布 | Go 版可本地构建，Windows 测试二进制可交叉编译；已新增 GitHub Actions 测试、跨平台构建和 `v*` tag Release 产物流水线 | 基本追平 |
@@ -208,7 +208,7 @@
 4. 直播 producer/consumer 多轨状态机仍是简化实现；未设置 `--live-record-limit` 的普通和实时合并路径已补齐持续刷新到 `ENDLIST` 的行为，其中实时合并已有基础音视频多轨和单轨先结束后继续刷新剩余轨道的覆盖；系统信号中断已能触发基础收尾，但更完整的多轨收尾仍弱于原版，PipeMux 在 Windows 真实环境未实际运行验证。
    已核对原版源码，未发现键盘 `q` 停止机制；原版全局 `Console.CancelKeyPress` 是 Ctrl+C 强制退出。
 5. ANSI/Spectre 风格动态进度 UI 未复刻；当前只对齐了重定向时清除 ANSI 颜色的控制台初始化行为。
-6. 多语言资源系统已覆盖默认环境语言映射、核心运行输出、任务延迟开始提示、加载 URL 和失败提示、HLS/DASH/MSS/TS/Binary 内容匹配、错误 m3u8 和不支持输入提示、解析媒体信息、Master 列表检出、直播流检出、直播录制上限和达到上限提示、PipeMux 命名管道创建/混流提示、字幕修复/抽取提示、图形字幕处理提示、HLS key 加载失败提示、key 文本搜索提示、自定义范围和广告关键字提示、分片数量校验和解密失败提示、解析统计、已选流列表、交互选轨提示、无流错误、保存文件名、meta json 写出、开始下载、读取媒体信息、二进制合并、ffmpeg 合并、分块合并、多 EXT-X-MAP 风险提示、未知加密/CENC/fMP4/Dolby Vision/MuxAfterDone 自动二进制合并和 Dolby Vision 禁用混流提示、外部工具缺失提示、fetch/checkingLast/keyProcessorNotFound、usage 常用选项 CLI 描述资源和 `--morehelp` 六个详细主题的三语言资源，但完整 `ResString` 资源表和全部错误提示仍未复刻。
+6. 多语言资源系统已覆盖默认环境语言映射、核心运行输出、任务延迟开始提示、加载 URL 和失败提示、HLS/DASH/MSS/TS/Binary 内容匹配、错误 m3u8 和不支持输入提示、解析媒体信息、Master 列表检出、直播流检出、直播录制上限和达到上限提示、PipeMux 命名管道创建/混流提示、字幕修复/抽取提示、图形字幕处理提示、HLS key 加载失败提示、key 文本搜索提示、自定义范围和广告关键字提示、分片数量校验和解密失败提示、解析统计、已选流列表、交互选轨提示、无流错误、保存文件名、meta json 写出、开始下载、读取媒体信息、二进制合并、ffmpeg 合并、分块合并、多 EXT-X-MAP 风险提示、未知加密/CENC/fMP4/Dolby Vision/MuxAfterDone 自动二进制合并和 Dolby Vision 禁用混流提示、外部工具缺失提示、fetch/checkingLast/keyProcessorNotFound、usage 常用选项 CLI 描述资源和 `--morehelp` 六个详细主题的三语言资源；原版 `StaticText.cs` 资源 key 已全部在 Go 版登记，但 CLI 帮助的完整展示形态仍弱于原版。
 7. ffmpeg/mkvmerge 已覆盖 metadata、disposition、字幕编码、工具路径、清理范围、AAC bitstream filter、HDR bt2020、Dolby Vision 别名/side data 探测和空媒体探测 `Unknown` fallback 的多个上游边缘语义；剩余仍需要更多真实媒体样本补充媒体探测和封装器组合证据。
 
 ## 最近验证口径

@@ -38,7 +38,7 @@
    - SAMPLE-AES/SAMPLE-AES-CTR 真实样本覆盖。
    - MP4 实时解密在直播状态机里的完整边缘分支。
 3. 如果暂时没有真实媒体样本，则继续补可由源码证明的行为：
-   - 更完整的 `ResString` 资源表和错误提示。
+   - CLI 帮助的完整展示形态与原版仍有差距；`StaticText.cs` 资源 key 已全部登记到 Go 版资源表。
    - 直播 producer/consumer 多轨收尾细节。
    - PipeMux Windows 实机验证计划与可执行脚本。
 

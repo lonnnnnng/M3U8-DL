@@ -129,6 +129,241 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "所有工作完成時嘗試混流分離的影音. 輸入 \"--morehelp mux-after-done\" 以查看詳細訊息",
 		EnUS: "When all works is done, try to mux the downloaded streams. Use \"--morehelp mux-after-done\" for more details",
 	},
+	"cmd_baseUrl": {
+		ZhCN: "设置BaseURL",
+		ZhTW: "設置BaseURL",
+		EnUS: "Set BaseURL",
+	},
+	"cmd_maxSpeed": {
+		ZhCN: "设置限速，单位支持 Mbps 或 Kbps，如：15M 100K",
+		ZhTW: "設置限速，單位支持 Mbps 或 Kbps，如：15M 100K",
+		EnUS: "Set speed limit, Mbps or Kbps, for example: 15M 100K.",
+	},
+	"cmd_noLog": {
+		ZhCN: "关闭日志文件输出",
+		ZhTW: "關閉日誌文件輸出",
+		EnUS: "Disable log file output",
+	},
+	"cmd_allowHlsMultiExtMap": {
+		ZhCN: "允许HLS中的多个#EXT-X-MAP(实验性)",
+		ZhTW: "允許HLS中的多個#EXT-X-MAP(實驗性)",
+		EnUS: "Allow multiple #EXT-X-MAP in HLS (experimental)",
+	},
+	"cmd_disableUpdateCheck": {
+		ZhCN: "禁用版本更新检测",
+		ZhTW: "禁用版本更新檢測",
+		EnUS: "Disable version update check",
+	},
+	"cmd_useFFmpegConcatDemuxer": {
+		ZhCN: "使用 ffmpeg 合并时，使用 concat 分离器而非 concat 协议",
+		ZhTW: "使用 ffmpeg 合併時，使用 concat 分離器而非 concat 協議",
+		EnUS: "When merging with ffmpeg, use the concat demuxer instead of the concat protocol",
+	},
+	"cmd_checkSegmentsCount": {
+		ZhCN: "检测实际下载的分片数量和预期数量是否匹配",
+		ZhTW: "檢測實際下載的分片數量和預期數量是否匹配",
+		EnUS: "Check if the actual number of segments downloaded matches the expected number",
+	},
+	"cmd_downloadRetryCount": {
+		ZhCN: "每个分片下载异常时的重试次数",
+		ZhTW: "每個分片下載異常時的重試次數",
+		EnUS: "The number of retries when download segment error",
+	},
+	"cmd_httpRequestTimeout": {
+		ZhCN: "HTTP请求的超时时间(秒)",
+		ZhTW: "HTTP請求的超時時間(秒)",
+		EnUS: "Timeout duration for HTTP requests (in seconds)",
+	},
+	"cmd_decryptionBinaryPath": {
+		ZhCN: "MP4解密所用工具的全路径, 例如 C:\\Tools\\mp4decrypt.exe",
+		ZhTW: "MP4解密所用工具的全路徑, 例如 C:\\Tools\\mp4decrypt.exe",
+		EnUS: "Full path to the tool used for MP4 decryption, like C:\\Tools\\mp4decrypt.exe",
+	},
+	"cmd_delAfterDone": {
+		ZhCN: "完成后删除临时文件",
+		ZhTW: "完成後刪除臨時文件",
+		EnUS: "Delete temporary files when done",
+	},
+	"cmd_ffmpegBinaryPath": {
+		ZhCN: "ffmpeg可执行程序全路径, 例如 C:\\Tools\\ffmpeg.exe",
+		ZhTW: "ffmpeg可執行程序全路徑, 例如 C:\\Tools\\ffmpeg.exe",
+		EnUS: "Full path to the ffmpeg binary, like C:\\Tools\\ffmpeg.exe",
+	},
+	"cmd_mkvmergeBinaryPath": {
+		ZhCN: "mkvmerge可执行程序全路径, 例如 C:\\Tools\\mkvmerge.exe",
+		ZhTW: "mkvmerge可執行程序全路徑, 例如 C:\\Tools\\mkvmerge.exe",
+		EnUS: "Full path to the mkvmerge binary, like C:\\Tools\\mkvmerge.exe",
+	},
+	"cmd_liveFixVttByAudio": {
+		ZhCN: "通过读取音频文件的起始时间修正VTT字幕",
+		ZhTW: "透過讀取音訊檔案的起始時間修正VTT字幕",
+		EnUS: "Correct VTT sub by reading the start time of the audio file",
+	},
+	"cmd_Input": {
+		ZhCN: "链接或文件",
+		ZhTW: "連結或文件",
+		EnUS: "Input Url or File",
+	},
+	"cmd_keys": {
+		ZhCN: "设置解密密钥, 程序调用mp4decrpyt/shaka-packager/ffmpeg进行解密. 格式:\r\n--key KID1:KEY1 --key KID2:KEY2\r\n对于KEY相同的情况可以直接输入 --key KEY",
+		ZhTW: "設置解密密鑰, 程序調用mp4decrpyt/shaka-packager/ffmpeg進行解密. 格式:\r\n--key KID1:KEY1 --key KID2:KEY2\r\n對於KEY相同的情況可以直接輸入 --key KEY",
+		EnUS: "Set decryption key(s) to mp4decrypt/shaka-packager/ffmpeg. format:\r\n--key KID1:KEY1 --key KID2:KEY2\r\nor use --key KEY if all tracks share the same key.",
+	},
+	"cmd_keyText": {
+		ZhCN: "设置密钥文件,程序将从文件中按KID搜寻KEY以解密.(不建议使用特大文件)",
+		ZhTW: "設置密鑰文件,程序將從文件中按KID搜尋KEY以解密.(不建議使用特大文件)",
+		EnUS: "Set the kid-key file, the program will search the KEY with KID from the file.(Very large file are not recommended)",
+	},
+	"cmd_logLevel": {
+		ZhCN: "设置日志级别",
+		ZhTW: "設置日誌級別",
+		EnUS: "Set log level",
+	},
+	"cmd_savePattern": {
+		ZhCN: "设置保存文件命名模板, 支持使用变量: \n<SaveName>, <Id>, <Codecs>, <Language>, <Resolution>, \n<Bandwidth>, <MediaType>, <Channels>, <FrameRate>, \n<VideoRange>, <GroupId>, <Ext>\n示例: --save-pattern \"<SaveName>_<Resolution>_<Bandwidth>\"",
+		ZhTW: "設置保存檔案命名模板, 支持使用變數: \n<SaveName>, <Id>, <Codecs>, <Language>, <Resolution>, \n<Bandwidth>, <MediaType>, <Channels>, <FrameRate>, \n<VideoRange>, <GroupId>, <Ext>\n示例: --save-pattern \"<SaveName>_<Resolution>_<Bandwidth>\"",
+		EnUS: "Set output filename pattern with variables: \n<SaveName>, <Id>, <Codecs>, <Language>, <Resolution>, \n<Bandwidth>, <MediaType>, <Channels>, <FrameRate>, \n<VideoRange>, <GroupId>, <Ext>\nExample: --save-pattern \"<SaveName>_<Resolution>_<Bandwidth>\"",
+	},
+	"cmd_logFilePath": {
+		ZhCN: "设置日志文件路径, 例如 C:\\Logs\\log.txt",
+		ZhTW: "設定日誌檔案路徑, 例如 C:\\Logs\\log.txt",
+		EnUS: "Set log file path, Example: C:\\Logs\\log.txt",
+	},
+	"cmd_subFormat": {
+		ZhCN: "字幕输出类型",
+		ZhTW: "字幕輸出類型",
+		EnUS: "Subtitle output format",
+	},
+	"cmd_subOnly": {
+		ZhCN: "只选取字幕轨道",
+		ZhTW: "只選取字幕軌道",
+		EnUS: "Select only subtitle tracks",
+	},
+	"cmd_tmpDir": {
+		ZhCN: "设置临时文件存储目录",
+		ZhTW: "設置臨時文件儲存目錄",
+		EnUS: "Set temporary file directory",
+	},
+	"cmd_uiLanguage": {
+		ZhCN: "设置UI语言",
+		ZhTW: "設置UI語言",
+		EnUS: "Set UI language",
+	},
+	"cmd_urlProcessorArgs": {
+		ZhCN: "此字符串将直接传递给URL Processor",
+		ZhTW: "此字符串將直接傳遞給URL Processor",
+		EnUS: "Give these arguments to the URL Processors.",
+	},
+	"cmd_liveRealTimeMerge": {
+		ZhCN: "录制直播时实时合并",
+		ZhTW: "錄製直播時即時合併",
+		EnUS: "Real-time merge into file when recording live",
+	},
+	"cmd_customProxy": {
+		ZhCN: "设置请求代理, 如 http://127.0.0.1:8888",
+		ZhTW: "設置請求代理, 如 http://127.0.0.1:8888",
+		EnUS: "Set web request proxy, like http://127.0.0.1:8888",
+	},
+	"cmd_useSystemProxy": {
+		ZhCN: "使用系统默认代理",
+		ZhTW: "使用系統默認代理",
+		EnUS: "Use system default proxy",
+	},
+	"cmd_livePerformAsVod": {
+		ZhCN: "以点播方式下载直播流",
+		ZhTW: "以點播方式下載直播流",
+		EnUS: "Download live streams as vod",
+	},
+	"cmd_liveWaitTime": {
+		ZhCN: "手动设置直播列表刷新间隔",
+		ZhTW: "手動設置直播列表刷新間隔",
+		EnUS: "Manually set the live playlist refresh interval",
+	},
+	"cmd_adKeyword": {
+		ZhCN: "设置广告分片的URL关键字(正则表达式)",
+		ZhTW: "設置廣告分片的URL關鍵字(正則表達式)",
+		EnUS: "Set URL keywords (regular expressions) for AD segments",
+	},
+	"cmd_liveTakeCount": {
+		ZhCN: "手动设置录制直播时首次获取分片的数量",
+		ZhTW: "手動設置錄製直播時首次獲取分片的數量",
+		EnUS: "Manually set the number of segments downloaded for the first time when recording live",
+	},
+	"cmd_customHLSMethod": {
+		ZhCN: "指定HLS加密方式 (AES_128|AES_128_ECB|CENC|CHACHA20|NONE|SAMPLE_AES|SAMPLE_AES_CTR|UNKNOWN)",
+		ZhTW: "指定HLS加密方式 (AES_128|AES_128_ECB|CENC|CHACHA20|NONE|SAMPLE_AES|SAMPLE_AES_CTR|UNKNOWN)",
+		EnUS: "Set HLS encryption method (AES_128|AES_128_ECB|CENC|CHACHA20|NONE|SAMPLE_AES|SAMPLE_AES_CTR|UNKNOWN)",
+	},
+	"cmd_livePipeMux": {
+		ZhCN: "录制直播并开启实时合并时通过管道+ffmpeg实时混流到TS文件",
+		ZhTW: "錄製直播並開啟即時合併時通過管道+ffmpeg即時混流到TS文件",
+		EnUS: "Real-time muxing to TS file through pipeline + ffmpeg (liveRealTimeMerge enabled)",
+	},
+	"cmd_liveKeepSegments": {
+		ZhCN: "录制直播并开启实时合并时依然保留分片",
+		ZhTW: "錄製直播並開啟即時合併時依然保留分片",
+		EnUS: "Keep segments when recording a live (liveRealTimeMerge enabled)",
+	},
+	"cmd_liveRecordLimit": {
+		ZhCN: "录制直播时的录制时长限制",
+		ZhTW: "錄製直播時的錄製時長限制",
+		EnUS: "Recording time limit when recording live",
+	},
+	"cmd_taskStartAt": {
+		ZhCN: "在此时间之前不会开始执行任务",
+		ZhTW: "在此時間之前不會開始執行任務",
+		EnUS: "Task execution will not start before this time",
+	},
+	"cmd_useShakaPackager": {
+		ZhCN: "解密时使用shaka-packager替代mp4decrypt",
+		ZhTW: "解密時使用shaka-packager替代mp4decrypt",
+		EnUS: "Use shaka-packager instead of mp4decrypt to decrypt",
+	},
+	"cmd_decryptionEngine": {
+		ZhCN: "设置解密时使用的第三方程序",
+		ZhTW: "設置解密時使用的第三方程序",
+		EnUS: "Set the third-party program used for decryption",
+	},
+	"cmd_concurrentDownload": {
+		ZhCN: "并发下载已选择的音频、视频和字幕",
+		ZhTW: "並發下載已選擇的音訊、影片和字幕",
+		EnUS: "Concurrently download the selected audio, video and subtitles",
+	},
+	"cmd_selectVideo": {
+		ZhCN: "通过正则表达式选择符合要求的视频流. 输入 \"--morehelp select-video\" 以查看详细信息",
+		ZhTW: "通過正則表達式選擇符合要求的影片軌. 輸入 \"--morehelp select-video\" 以查看詳細訊息",
+		EnUS: "Select video streams by regular expressions. Use \"--morehelp select-video\" for more details",
+	},
+	"cmd_dropVideo": {
+		ZhCN: "通过正则表达式去除符合要求的视频流.",
+		ZhTW: "通過正則表達式去除符合要求的影片串流.",
+		EnUS: "Drop video streams by regular expressions.",
+	},
+	"cmd_selectAudio": {
+		ZhCN: "通过正则表达式选择符合要求的音频流. 输入 \"--morehelp select-audio\" 以查看详细信息",
+		ZhTW: "通過正則表達式選擇符合要求的音軌. 輸入 \"--morehelp select-audio\" 以查看詳細訊息",
+		EnUS: "Select audio streams by regular expressions. Use \"--morehelp select-audio\" for more details",
+	},
+	"cmd_dropAudio": {
+		ZhCN: "通过正则表达式去除符合要求的音频流.",
+		ZhTW: "通過正則表達式去除符合要求的音軌.",
+		EnUS: "Drop audio streams by regular expressions.",
+	},
+	"cmd_selectSubtitle": {
+		ZhCN: "通过正则表达式选择符合要求的字幕流. 输入 \"--morehelp select-subtitle\" 以查看详细信息",
+		ZhTW: "通過正則表達式選擇符合要求的字幕流. 輸入 \"--morehelp select-subtitle\" 以查看詳細訊息",
+		EnUS: "Select subtitle streams by regular expressions. Use \"--morehelp select-subtitle\" for more details",
+	},
+	"cmd_dropSubtitle": {
+		ZhCN: "通过正则表达式去除符合要求的字幕流.",
+		ZhTW: "通過正則表達式去除符合要求的字幕流.",
+		EnUS: "Drop subtitle streams by regular expressions.",
+	},
+	"cmd_muxImport": {
+		ZhCN: "混流时引入外部媒体文件. 输入 \"--morehelp mux-import\" 以查看详细信息",
+		ZhTW: "混流時引入外部媒體檔案. 輸入 \"--morehelp mux-import\" 以查看詳細訊息",
+		EnUS: "When MuxAfterDone enabled, allow to import local media files. Use \"--morehelp mux-import\" for more details",
+	},
 	"cmd_muxAfterDone_more": {
 		ZhCN: "所有工作完成时尝试混流分离的音视频. 你能够以:分隔形式指定如下参数:\n\n" +
 			"* format=FORMAT: 指定混流容器 mkv, mp4, ts\n" +
