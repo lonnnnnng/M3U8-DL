@@ -113,3 +113,101 @@ go run . 'https://play.jisuzyv.com/play/bYE7AEMb/index.m3u8' \
 - 本次没有完整下载 165 个分片，只验证了前 3 个分片的真实下载、解密和合并。
 - 本样本是 AES-128 TS 点播，不覆盖 CENC、SAMPLE-AES、fMP4、直播刷新、多音轨、多字幕或最终 `-M` 混流。
 - 本次没有在原版 .NET 项目本地运行对照；当前本机原版构建仍受 .NET SDK 版本限制。
+
+## 真实样本：ijycnd AES-128 HLS
+
+URL：
+
+```text
+https://hd.ijycnd.com/play/dL9Zywje/index.m3u8
+```
+
+### 解析验证
+
+命令：
+
+```zsh
+go run . 'https://hd.ijycnd.com/play/dL9Zywje/index.m3u8' \
+  --auto-select true \
+  --skip-download true \
+  --save-dir /tmp/m3u8dl-go-ijycnd-parse/out \
+  --tmp-dir /tmp/m3u8dl-go-ijycnd-parse/tmp \
+  --save-name ijycnd-parse \
+  --disable-update-check true \
+  --ui-language zh-CN
+```
+
+结果：
+
+- 识别为 HLS master playlist。
+- 共 1 条媒体流：`Vid *AES-128 1920x1080 | 4096 Kbps | 38 Segments | ~02m17s`。
+- parse-only 成功写出 meta。
+
+### 小范围下载与桌面后端验证
+
+命令：
+
+```zsh
+go run . 'https://hd.ijycnd.com/play/dL9Zywje/index.m3u8' \
+  --save-dir /tmp/m3u8dl-go-ijycnd-download/out \
+  --tmp-dir /tmp/m3u8dl-go-ijycnd-download/tmp \
+  --save-name ijycnd-range \
+  --auto-select true \
+  --ui-language zh-CN \
+  --disable-update-check true \
+  --thread-count 8 \
+  --download-retry-count 3 \
+  --use-system-proxy true \
+  --custom-range 0-2 \
+  -M format=mp4:muxer=ffmpeg
+```
+
+结果：
+
+- 成功裁剪为 3 个分片，约 17 秒。
+- 成功下载 3/3 个分片。
+- 成功输出：`/tmp/m3u8dl-go-ijycnd-download/out/ijycnd-range.MUX.mp4`。
+- `ffprobe` 可识别输出为 MP4，包含：
+  - 视频：H.264 High，1920x1080，24 fps，约 17.9 秒。
+  - 音频：AAC LC，44100 Hz，stereo，约 17.9 秒。
+
+桌面后端任务流也用同一 URL 通过：
+
+```zsh
+M3U8DL_GO_REAL_SAMPLE=1 \
+M3U8DL_GO_CLI=/tmp/m3u8dl-go-check \
+go test -count=1 -run TestDesktopRealSampleDownload ./...
+```
+
+验证范围：
+
+- `StartDownload` 创建任务并启动。
+- 任务状态进入完成。
+- 日志捕获下载进度。
+- 完成后扫描到 MP4 输出文件。
+
+### 桌面 App UI 验证
+
+打包并打开 macOS 桌面版：
+
+```zsh
+./scripts/build_desktop_macos.sh
+open desktop/build/bin/m3u8dl-go.app
+```
+
+表单参数：
+
+- m3u8 地址：`https://hd.ijycnd.com/play/dL9Zywje/index.m3u8`
+- 输出目录：`/tmp/m3u8dl-go-ijycnd-ui/out`
+- 保存名称：`ijycnd-ui-range`
+- 下载范围：`0-2`
+- 自动选轨：开启
+- MP4 混流：开启
+
+结果：
+
+- 桌面 UI 成功创建并启动下载任务。
+- 打包后的 `.app` 调用内置 `Contents/Resources/m3u8dl-go-cli`。
+- 任务状态从下载中更新为完成。
+- 完成文件列表显示 `ijycnd-ui-range.MUX.mp4`，大小约 5.3 MB。
+- 任务日志能显示解析、下载、二进制合并和混流输出过程。

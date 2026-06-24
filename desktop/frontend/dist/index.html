@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>m3u8dl-go</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="/wails/runtime.js"></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <h1>m3u8dl-go</h1>
+          <p>跨平台 HLS 下载器</p>
+        </div>
+        <div class="top-actions">
+          <button id="refresh-tasks" type="button">刷新任务</button>
+          <button id="clear-finished" type="button">清理完成项</button>
+        </div>
+      </header>
+
+      <section class="layout">
+        <aside class="panel create-panel">
+          <div class="panel-title">
+            <span>新建任务</span>
+          </div>
+
+          <form id="task-form" class="form-grid">
+            <label class="field field-wide">
+              <span>m3u8 地址</span>
+              <input id="url" type="url" placeholder="https://example.com/index.m3u8" required />
+            </label>
+
+            <label class="field field-wide">
+              <span>输出目录</span>
+              <div class="inline-input">
+                <input id="saveDir" type="text" />
+                <button id="choose-dir" type="button">选择</button>
+              </div>
+            </label>
+
+            <label class="field">
+              <span>保存名称</span>
+              <input id="saveName" type="text" placeholder="可选" />
+            </label>
+
+            <label class="field">
+              <span>下载范围</span>
+              <input id="customRange" type="text" placeholder="0-20" />
+            </label>
+
+            <label class="field field-wide">
+              <span>请求头</span>
+              <textarea id="headers" rows="4" placeholder="Cookie: xxx&#10;Referer: https://example.com"></textarea>
+            </label>
+
+            <div class="switches field-wide">
+              <label><input id="autoSelect" type="checkbox" /> 自动选轨</label>
+              <label><input id="muxMP4" type="checkbox" /> 混流 MP4</label>
+              <label><input id="binaryMerge" type="checkbox" /> 二进制直拼</label>
+              <label><input id="concurrentDownload" type="checkbox" /> 多轨并发</label>
+            </div>
+
+            <div class="actions field-wide">
+              <button id="create-start" type="submit">创建并下载</button>
+              <button id="create-only" type="button">仅创建</button>
+            </div>
+          </form>
+
+          <div class="panel-title settings-title">
+            <span>参数设置</span>
+            <button id="save-settings" type="button">保存</button>
+          </div>
+
+          <div class="settings-grid">
+            <label class="field field-wide">
+              <span>FFmpeg 路径</span>
+              <input id="ffmpegPath" type="text" placeholder="可选，例如 /opt/homebrew/bin/ffmpeg" />
+            </label>
+            <label class="field">
+              <span>线程数</span>
+              <input id="threadCount" type="number" min="1" step="1" />
+            </label>
+            <label class="field">
+              <span>重试次数</span>
+              <input id="retryCount" type="number" min="0" step="1" />
+            </label>
+            <label class="field">
+              <span>限速</span>
+              <input id="maxSpeed" type="text" placeholder="2M / 500K" />
+            </label>
+            <label class="field">
+              <span>代理</span>
+              <input id="customProxy" type="text" placeholder="http://127.0.0.1:7890" />
+            </label>
+            <div class="switches field-wide compact">
+              <label><input id="useSystemProxy" type="checkbox" /> 使用系统代理</label>
+            </div>
+          </div>
+        </aside>
+
+        <section class="panel task-panel">
+          <div class="panel-title">
+            <span>下载任务</span>
+            <span id="task-count">0 个任务</span>
+          </div>
+          <div id="task-list" class="task-list"></div>
+        </section>
+
+        <section class="panel detail-panel">
+          <div class="panel-title">
+            <span id="detail-title">任务详情</span>
+            <div class="detail-actions">
+              <button id="start-selected" type="button">开始</button>
+              <button id="stop-selected" type="button">停止</button>
+              <button id="retry-selected" type="button">重试</button>
+              <button id="remove-selected" type="button">移除</button>
+            </div>
+          </div>
+
+          <div id="task-summary" class="summary empty">请选择一个任务。</div>
+
+          <div class="files-head">
+            <span>完成文件</span>
+            <div>
+              <button id="refresh-files" type="button">刷新文件</button>
+              <button id="open-folder" type="button">打开目录</button>
+            </div>
+          </div>
+          <div id="file-list" class="file-list empty">暂无文件。</div>
+
+          <div class="log-head">
+            <span>任务日志</span>
+            <button id="clear-log" type="button">清空显示</button>
+          </div>
+          <pre id="log"></pre>
+        </section>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

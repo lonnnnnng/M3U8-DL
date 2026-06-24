@@ -47,9 +47,22 @@ go run . --morehelp custom-range
 ## 文档
 
 - [功能、用法与参数参考](docs/CLI_REFERENCE.md)
+- [桌面版说明](docs/DESKTOP.md)
 - [原版功能清单与 Go HLS 复刻进度对比](docs/FEATURE_COMPARISON.md)
 - [当前功能清单](docs/FUNCTIONS.md)
 - [真实样本验证记录](docs/REAL_SAMPLE_VALIDATION.md)
+
+## 桌面版
+
+macOS 桌面版基于 Wails 构建，界面负责填写 m3u8、输出目录、文件名、请求头和常用合并选项，实际下载仍复用同版本 `m3u8dl-go` 命令行核心。
+
+本地构建 macOS `.app`：
+
+```zsh
+./scripts/build_desktop_macos.sh
+```
+
+产物会写入 `dist/m3u8dl-go_desktop_macos_<arch>.zip`。
 
 ## 已实现主能力
 
