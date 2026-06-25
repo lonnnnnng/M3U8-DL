@@ -37,6 +37,28 @@
 - MP4 混流依赖 `ffmpeg`。通过 Homebrew 安装时通常在 `/opt/homebrew/bin/ffmpeg` 或 `/usr/local/bin/ffmpeg`。
 - 如果系统找不到 FFmpeg，可以在桌面版里填写 FFmpeg 路径。
 
+## macOS 提示 App 已损坏
+
+当前 macOS 桌面包是自签名应用，还没有接入 Apple Developer ID 公证。通过浏览器下载 zip 后，系统可能给 `.app` 加上隔离标记，启动时显示：
+
+```text
+“m3u8dl-go.app”已损坏，无法打开。你应该将它移到废纸篓。
+```
+
+这通常不是文件真的损坏。解压后在终端执行下面命令清除隔离标记，再重新打开：
+
+```zsh
+xattr -dr com.apple.quarantine ~/Downloads/m3u8dl-go.app
+```
+
+如果已经拖到“应用程序”，路径改成：
+
+```zsh
+xattr -dr com.apple.quarantine /Applications/m3u8dl-go.app
+```
+
+执行后建议第一次用右键菜单打开一次。后续正式消除这个提示，需要用 Apple Developer ID 签名并完成 notarization。
+
 ## 跨平台预留
 
 Wails v2 支持 macOS、Windows、Linux。当前发布流水线先构建 macOS 桌面版；Windows/Linux 桌面包可以沿用 `desktop/` 下同一套 Go 后端和静态前端继续接入。
