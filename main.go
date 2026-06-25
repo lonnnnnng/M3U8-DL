@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const version = "m3u8dl-go 0.3.1"
+const version = "m3u8dl-go 1.0.0"
 
 func main() {
 	if err := run(); err != nil {
