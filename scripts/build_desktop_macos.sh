@@ -8,11 +8,34 @@ WAILS_VERSION="${WAILS_VERSION:-v2.12.0}"
 WAILS_BIN="${WAILS_BIN:-$(go env GOPATH)/bin/wails}"
 ARCH_NAME="$(uname -m)"
 
+resolve_release_version() {
+  local raw_version
+
+  if [[ -n "${RELEASE_VERSION:-}" ]]; then
+    raw_version="${RELEASE_VERSION}"
+  else
+    # 产物名要和程序自己报出的版本保持一致，所以默认直接从主程序里取版本号。
+    raw_version="$(sed -nE 's/^const version = "m3u8dl-go ([^"]+)"$/\1/p' "${ROOT_DIR}/main.go" | head -n1)"
+  fi
+
+  if [[ -z "${raw_version}" ]]; then
+    raw_version="dev"
+  elif [[ "${raw_version}" != v* && "${raw_version}" != dev ]]; then
+    raw_version="v${raw_version}"
+  fi
+
+  printf '%s' "${raw_version}"
+}
+
+RELEASE_VERSION="$(resolve_release_version)"
+
 if [[ "${ARCH_NAME}" == "arm64" ]]; then
-  TARGET_NAME="m3u8dl-go_desktop_macos_arm64"
+  ARCH_SUFFIX="arm64"
 else
-  TARGET_NAME="m3u8dl-go_desktop_macos_amd64"
+  ARCH_SUFFIX="amd64"
 fi
+
+TARGET_NAME="m3u8dl-go_${RELEASE_VERSION}_desktop_macos_${ARCH_SUFFIX}"
 
 if [[ ! -x "${WAILS_BIN}" ]]; then
   go install "github.com/wailsapp/wails/v2/cmd/wails@${WAILS_VERSION}"
@@ -39,7 +62,9 @@ chmod +x "${APP_PATH}/Contents/Resources/m3u8dl-go-cli"
 
 mkdir -p "${DIST_DIR}"
 ARCHIVE="${DIST_DIR}/${TARGET_NAME}.zip"
-rm -f "${ARCHIVE}" "${ARCHIVE}.sha256"
+LEGACY_ARCHIVE="${DIST_DIR}/m3u8dl-go_desktop_macos_${ARCH_SUFFIX}.zip"
+# 旧版无版本号 zip 容易被误认成当前构建结果，重新打包同一架构时一并清掉。
+rm -f "${ARCHIVE}" "${ARCHIVE}.sha256" "${LEGACY_ARCHIVE}" "${LEGACY_ARCHIVE}.sha256"
 ditto -c -k --sequesterRsrc --keepParent "${APP_PATH}" "${ARCHIVE}"
 
 echo "${ARCHIVE}"

@@ -62,7 +62,7 @@ macOS 桌面版基于 Wails 构建，界面负责填写 m3u8、输出目录、�
 ./scripts/build_desktop_macos.sh
 ```
 
-产物会写入 `dist/m3u8dl-go_desktop_macos_<arch>.zip`。
+产物会写入 `dist/m3u8dl-go_<version>_desktop_macos_<arch>.zip`。
 
 ## 已实现主能力
 

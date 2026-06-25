@@ -61,7 +61,13 @@ jobs:
         run: |
           set -euo pipefail
 
-          target="m3u8dl-go_${{ matrix.goos }}_${{ matrix.goarch }}"
+          version="$(sed -nE 's/^const version = "m3u8dl-go ([^"]+)"$/v\1/p' main.go | head -n1)"
+          if [ -z "${version}" ]; then
+            echo "无法从 main.go 中解析版本号" >&2
+            exit 1
+          fi
+
+          target="m3u8dl-go_${version}_${{ matrix.goos }}_${{ matrix.goarch }}"
           bin="m3u8dl-go"
           if [ "${{ matrix.goos }}" = "windows" ]; then
             bin="${bin}.exe"
@@ -109,7 +115,7 @@ jobs:
         with:
           name: m3u8dl-go_desktop_macos
           path: |
-            dist/m3u8dl-go_desktop_macos_*.zip
+            dist/m3u8dl-go_*_desktop_macos_*.zip
           if-no-files-found: error
 
   release:

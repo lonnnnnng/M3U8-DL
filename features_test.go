@@ -4778,7 +4778,7 @@ func TestUpdateFoundMessageMatchesUpstreamResourceText(t *testing.T) {
 }
 
 func TestCurrentVersionTag(t *testing.T) {
-	if currentVersionTag("m3u8dl-go 0.2.0") != "v0.2.0" {
+	if currentVersionTag("m3u8dl-go 0.3.0") != "v0.3.0" {
 		t.Fatal("current version tag extraction failed")
 	}
 }
