@@ -29,7 +29,7 @@
           <form id="task-form" class="form-grid">
             <label class="field field-wide">
               <span>m3u8 地址</span>
-              <input id="url" type="url" placeholder="https://example.com/index.m3u8" required />
+              <textarea id="url" rows="5" placeholder="https://example.com/index.m3u8" required></textarea>
             </label>
 
             <label class="field field-wide">
@@ -43,6 +43,11 @@
             <label class="field">
               <span>保存名称</span>
               <input id="saveName" type="text" placeholder="可选" />
+            </label>
+
+            <label class="field">
+              <span>名称分隔符</span>
+              <input id="linkNameSeparator" type="text" value="|" placeholder="|" />
             </label>
 
             <label class="field">

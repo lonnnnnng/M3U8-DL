@@ -4,6 +4,7 @@ const el = {
   url: document.querySelector("#url"),
   saveDir: document.querySelector("#saveDir"),
   saveName: document.querySelector("#saveName"),
+  linkNameSeparator: document.querySelector("#linkNameSeparator"),
   customRange: document.querySelector("#customRange"),
   headers: document.querySelector("#headers"),
   autoSelect: document.querySelector("#autoSelect"),
@@ -38,6 +39,7 @@ function normalizeRequest(request = {}) {
     url: field(request, "url", "URL"),
     saveDir: field(request, "saveDir", "SaveDir"),
     saveName: field(request, "saveName", "SaveName"),
+    linkNameSeparator: field(request, "linkNameSeparator", "LinkNameSeparator"),
     headers: field(request, "headers", "Headers", []),
     customRange: field(request, "customRange", "CustomRange"),
     ffmpegPath: field(request, "ffmpegPath", "FFmpegPath"),
@@ -219,6 +221,7 @@ function collectRequest() {
     url: el.url.value.trim(),
     saveDir: el.saveDir.value.trim(),
     saveName: el.saveName.value.trim(),
+    linkNameSeparator: el.linkNameSeparator.value.trim(),
     customRange: el.customRange.value.trim(),
     ffmpegPath: el.ffmpegPath.value.trim(),
     headers: el.headers.value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean),
@@ -275,12 +278,11 @@ async function loadInitialState() {
 }
 
 async function createTask(startNow) {
-  const task = normalizeTask(await api().CreateTask(collectRequest()));
-  upsertTask(task);
-  selectedTaskId = task.id;
-  if (startNow) {
-    await api().StartTask(task.id);
-  }
+  const request = collectRequest();
+  const rawTasks = startNow ? await api().StartDownloads(request) : await api().CreateTasks(request);
+  const createdTasks = (Array.isArray(rawTasks) ? rawTasks : [rawTasks]).map(normalizeTask);
+  createdTasks.forEach((task) => upsertTask(task));
+  selectedTaskId = createdTasks[0]?.id || selectedTaskId;
   el.url.value = "";
 }
 
@@ -338,8 +340,13 @@ window.runtime?.EventsOn("task:files", (event) => {
 
 document.querySelector("#task-form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  await createTask(!createOnly);
-  createOnly = false;
+  try {
+    await createTask(!createOnly);
+  } catch (error) {
+    window.alert(String(error?.message || error));
+  } finally {
+    createOnly = false;
+  }
 });
 
 document.querySelector("#create-only").addEventListener("click", () => {

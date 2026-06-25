@@ -40,6 +40,89 @@ func TestTaskLifecycleWithFakeCLI(t *testing.T) {
 	}
 }
 
+func TestExpandDownloadRequestsSupportsBatchAndNamedLines(t *testing.T) {
+	requests, err := expandDownloadRequests(DownloadRequest{
+		URL:               "第一集=>https://example.com/one.m3u8\nhttps://example.com/two.m3u8\n第三集=>https://example.com/three.m3u8",
+		SaveName:          "global-name",
+		LinkNameSeparator: "=>",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(requests) != 3 {
+		t.Fatalf("expected 3 expanded requests, got %d", len(requests))
+	}
+	if requests[0].SaveName != "第一集" || requests[0].URL != "https://example.com/one.m3u8" {
+		t.Fatalf("first named line was not parsed correctly: %#v", requests[0])
+	}
+	if requests[1].SaveName != "" || requests[1].URL != "https://example.com/two.m3u8" {
+		t.Fatalf("unnamed batch line should not reuse global save name: %#v", requests[1])
+	}
+	if requests[2].SaveName != "第三集" || requests[2].URL != "https://example.com/three.m3u8" {
+		t.Fatalf("third named line was not parsed correctly: %#v", requests[2])
+	}
+
+	single, err := expandDownloadRequests(DownloadRequest{
+		URL:               "电影|https://example.com/movie.m3u8",
+		SaveName:          "global-name",
+		LinkNameSeparator: "|",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(single) != 1 || single[0].SaveName != "电影" || single[0].URL != "https://example.com/movie.m3u8" {
+		t.Fatalf("single named line should override global save name: %#v", single)
+	}
+
+	if _, err := expandDownloadRequests(DownloadRequest{
+		URL:               "缺少地址|",
+		LinkNameSeparator: "|",
+	}); err == nil {
+		t.Fatal("invalid named line should be rejected")
+	}
+}
+
+func TestStartDownloadsCreatesAndStartsBatch(t *testing.T) {
+	app := newTestApp(t)
+	fakeCLI := writeFakeCLI(t)
+	t.Setenv("M3U8DL_GO_CLI", fakeCLI)
+
+	out := filepath.Join(t.TempDir(), "out")
+	tasks, err := app.StartDownloads(DownloadRequest{
+		URL:               "第一集|https://example.com/one.m3u8\n第二集|https://example.com/two.m3u8",
+		SaveDir:           out,
+		LinkNameSeparator: "|",
+		AutoSelect:        true,
+		MuxMP4:            true,
+		ThreadCount:       4,
+		RetryCount:        2,
+		UseSystemProxy:    true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tasks) != 2 {
+		t.Fatalf("expected 2 created tasks, got %d", len(tasks))
+	}
+	if tasks[0].Title != "第一集" || tasks[1].Title != "第二集" {
+		t.Fatalf("batch tasks should keep line order and names: %#v", tasks)
+	}
+
+	for _, task := range tasks {
+		waitTaskStatus(t, app, task.ID, StatusCompleted, 5*time.Second)
+	}
+	for _, name := range []string{"第一集.mp4", "第二集.mp4"} {
+		if _, err := os.Stat(filepath.Join(out, name)); err != nil {
+			t.Fatalf("expected batch output %s: %v", name, err)
+		}
+	}
+
+	list := app.ListTasks()
+	if len(list) != 2 || list[0].Title != "第一集" || list[1].Title != "第二集" {
+		t.Fatalf("task list should preserve pasted line order, got %#v", list)
+	}
+}
+
 func TestDesktopRealSampleDownload(t *testing.T) {
 	if os.Getenv("M3U8DL_GO_REAL_SAMPLE") != "1" {
 		t.Skip("set M3U8DL_GO_REAL_SAMPLE=1 and M3U8DL_GO_CLI to run the real sample")

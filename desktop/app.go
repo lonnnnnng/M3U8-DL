@@ -65,6 +65,7 @@ type DownloadRequest struct {
 	URL                string   `json:"url"`
 	SaveDir            string   `json:"saveDir"`
 	SaveName           string   `json:"saveName"`
+	LinkNameSeparator  string   `json:"linkNameSeparator"`
 	Headers            []string `json:"headers"`
 	CustomRange        string   `json:"customRange"`
 	FFmpegPath         string   `json:"ffmpegPath"`
@@ -216,6 +217,33 @@ func (a *App) ListTasks() []Task {
 }
 
 func (a *App) CreateTask(req DownloadRequest) (Task, error) {
+	requests, err := expandDownloadRequests(req)
+	if err != nil {
+		return Task{}, err
+	}
+	if len(requests) != 1 {
+		return Task{}, errors.New("检测到多行地址，请使用批量创建任务")
+	}
+	return a.createTask(requests[0])
+}
+
+func (a *App) CreateTasks(req DownloadRequest) ([]Task, error) {
+	requests, err := expandDownloadRequests(req)
+	if err != nil {
+		return nil, err
+	}
+	tasks := make([]Task, len(requests))
+	for i := len(requests) - 1; i >= 0; i-- {
+		task, err := a.createTask(requests[i])
+		if err != nil {
+			return nil, err
+		}
+		tasks[i] = task
+	}
+	return tasks, nil
+}
+
+func (a *App) createTask(req DownloadRequest) (Task, error) {
 	req = a.applyRequestDefaults(req)
 	if strings.TrimSpace(req.URL) == "" {
 		return Task{}, errors.New("请先填写 m3u8 地址")
@@ -407,6 +435,71 @@ func (a *App) StartDownload(req DownloadRequest) (Task, error) {
 		return task, err
 	}
 	return task, a.StartTask(task.ID)
+}
+
+func (a *App) StartDownloads(req DownloadRequest) ([]Task, error) {
+	tasks, err := a.CreateTasks(req)
+	if err != nil {
+		return tasks, err
+	}
+	for _, task := range tasks {
+		if err := a.StartTask(task.ID); err != nil {
+			return tasks, err
+		}
+	}
+	return tasks, nil
+}
+
+func expandDownloadRequests(req DownloadRequest) ([]DownloadRequest, error) {
+	lines := splitDownloadLines(req.URL)
+	if len(lines) == 0 {
+		return nil, errors.New("请先填写 m3u8 地址")
+	}
+	separator := strings.TrimSpace(req.LinkNameSeparator)
+	requests := make([]DownloadRequest, 0, len(lines))
+	for index, line := range lines {
+		item := req
+		item.URL = line
+		// long: 批量创建时没有逐行资源名的任务不能复用同一个全局保存名，否则多个下载会写向同一文件名。
+		if len(lines) > 1 {
+			item.SaveName = ""
+		}
+		if separator != "" {
+			saveName, url, ok, err := splitNamedDownloadLine(line, separator)
+			if err != nil {
+				return nil, fmt.Errorf("第 %d 行地址格式无效: %w", index+1, err)
+			}
+			if ok {
+				item.URL = url
+				item.SaveName = saveName
+			}
+		}
+		requests = append(requests, item)
+	}
+	return requests, nil
+}
+
+func splitDownloadLines(raw string) []string {
+	var lines []string
+	for _, line := range strings.Split(strings.ReplaceAll(raw, "\r\n", "\n"), "\n") {
+		if value := strings.TrimSpace(line); value != "" {
+			lines = append(lines, value)
+		}
+	}
+	return lines
+}
+
+func splitNamedDownloadLine(line string, separator string) (string, string, bool, error) {
+	index := strings.Index(line, separator)
+	if index < 0 {
+		return "", "", false, nil
+	}
+	saveName := strings.TrimSpace(line[:index])
+	url := strings.TrimSpace(line[index+len(separator):])
+	if saveName == "" || url == "" {
+		return "", "", true, errors.New("名称和地址不能为空")
+	}
+	return saveName, url, true, nil
 }
 
 func (a *App) applyRequestDefaults(req DownloadRequest) DownloadRequest {

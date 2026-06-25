@@ -173,6 +173,10 @@ textarea {
   line-height: 1.45;
 }
 
+textarea#url {
+  min-height: 116px;
+}
+
 input:focus,
 textarea:focus {
   border-color: #2563eb;
