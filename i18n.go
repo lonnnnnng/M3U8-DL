@@ -1000,6 +1000,11 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "%s 下載進度 %d/%d",
 		EnUS: "%s download progress %d/%d",
 	},
+	"downloadProgressWithSpeed": {
+		ZhCN: "%s 下载进度 %d/%d，速度 %s",
+		ZhTW: "%s 下載進度 %d/%d，速度 %s",
+		EnUS: "%s download progress %d/%d, speed %s",
+	},
 }
 
 func tr(opt Options, key string, args ...any) string {

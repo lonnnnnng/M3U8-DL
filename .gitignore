@@ -1,4 +1,5 @@
 .DS_Store
+/build/
 /dist/
 /desktop/build/
 /desktop/frontend/wailsjs/

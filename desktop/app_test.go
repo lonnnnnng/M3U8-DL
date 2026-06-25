@@ -38,6 +38,24 @@ func TestTaskLifecycleWithFakeCLI(t *testing.T) {
 	if !strings.Contains(strings.Join(task.Logs, "\n"), "下载进度 2/2") {
 		t.Fatalf("task logs should capture downloader output: %#v", task.Logs)
 	}
+	if task.SpeedText != "2.0 MB/s" || task.ProgressText != "完成" {
+		t.Fatalf("task should parse progress speed, progress=%q speed=%q", task.ProgressText, task.SpeedText)
+	}
+	if !taskLogTimestampRE.MatchString(task.Logs[0]) {
+		t.Fatalf("task logs should include timestamps: %#v", task.Logs)
+	}
+}
+
+func TestParseProgressWithSpeed(t *testing.T) {
+	current, total, speed, ok := parseProgress("[2026-06-25 12:00:00] Vid 下载进度 3/7，速度 1.5 MB/s")
+	if !ok || current != 3 || total != 7 || speed != "1.5 MB/s" {
+		t.Fatalf("progress with speed parsed wrong: current=%d total=%d speed=%q ok=%t", current, total, speed, ok)
+	}
+
+	current, total, speed, ok = parseProgress("Vid download progress 4/9, speed 900 KB/s")
+	if !ok || current != 4 || total != 9 || speed != "900 KB/s" {
+		t.Fatalf("english progress with speed parsed wrong: current=%d total=%d speed=%q ok=%t", current, total, speed, ok)
+	}
 }
 
 func TestExpandDownloadRequestsSupportsBatchAndNamedLines(t *testing.T) {
@@ -191,8 +209,8 @@ while [ "$#" -gt 0 ]; do
 done
 mkdir -p "$out"
 echo "开始下载...Vid"
-echo "Vid 下载进度 1/2"
-echo "Vid 下载进度 2/2"
+echo "Vid 下载进度 1/2，速度 1.0 MB/s"
+echo "Vid 下载进度 2/2，速度 2.0 MB/s"
 printf "ok" > "$out/$name.mp4"
 echo "输出: $out/$name.mp4"
 `

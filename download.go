@@ -371,6 +371,7 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 		startAt = 1
 		atomic.AddInt64(&done, 1)
 	}
+	progress := newDownloadProgressReporter(opt, s.Short(), len(allSegs))
 	sem := make(chan struct{}, opt.ThreadCount)
 	errCh := make(chan error, len(allSegs))
 	var wg sync.WaitGroup
@@ -393,13 +394,14 @@ func downloadStream(ctx context.Context, client *http.Client, s StreamSpec, opt 
 				return
 			}
 			files[i] = actual
+			progress.addFile(actual)
 			v := atomic.AddInt64(&done, 1)
-			fmt.Print("\r" + tr(opt, "downloadProgress", s.Short(), v, len(allSegs)))
+			progress.print(v)
 		}()
 	}
 	wg.Wait()
 	close(errCh)
-	fmt.Println()
+	progress.finish()
 	var downloadErrs []error
 	for err := range errCh {
 		if err != nil {
@@ -729,6 +731,78 @@ func firstMediaProbeFile(files []string) string {
 		return files[0]
 	}
 	return ""
+}
+
+type downloadProgressReporter struct {
+	opt        Options
+	streamName string
+	total      int
+	startedAt  time.Time
+	bytes      int64
+}
+
+func newDownloadProgressReporter(opt Options, streamName string, total int) *downloadProgressReporter {
+	return &downloadProgressReporter{
+		opt:        opt,
+		streamName: streamName,
+		total:      total,
+		startedAt:  time.Now(),
+	}
+}
+
+func (p *downloadProgressReporter) addFile(path string) {
+	if p == nil || strings.TrimSpace(path) == "" {
+		return
+	}
+	info, err := os.Stat(path)
+	if err != nil || info.IsDir() {
+		return
+	}
+	atomic.AddInt64(&p.bytes, info.Size())
+}
+
+func (p *downloadProgressReporter) print(current int64) {
+	if p == nil {
+		return
+	}
+	speed := formatByteRate(atomic.LoadInt64(&p.bytes), time.Since(p.startedAt))
+	message := tr(p.opt, "downloadProgressWithSpeed", p.streamName, current, p.total, speed)
+	if p.opt.ForceANSIConsole {
+		// long: 桌面端通过管道按换行读取 CLI 输出；重定向场景必须逐行输出，否则 UI 只能在下载结束后才收到进度。
+		fmt.Println(message)
+		return
+	}
+	fmt.Print("\r" + message)
+}
+
+func (p *downloadProgressReporter) finish() {
+	if p == nil || p.opt.ForceANSIConsole {
+		return
+	}
+	fmt.Println()
+}
+
+func formatByteRate(bytes int64, elapsed time.Duration) string {
+	if bytes <= 0 || elapsed <= 0 {
+		return "0 B/s"
+	}
+	return formatByteSize(float64(bytes)/elapsed.Seconds()) + "/s"
+}
+
+func formatByteSize(value float64) string {
+	units := []string{"B", "KB", "MB", "GB", "TB"}
+	unit := 0
+	for value >= 1024 && unit < len(units)-1 {
+		value /= 1024
+		unit++
+	}
+	if unit == 0 {
+		return fmt.Sprintf("%.0f %s", value, units[unit])
+	}
+	if value >= 10 {
+		return fmt.Sprintf("%.1f %s", value, units[unit])
+	}
+	return fmt.Sprintf("%.2f %s", value, units[unit])
 }
 
 func downloadSegment(ctx context.Context, client *http.Client, seg Segment, path string, opt Options, limiter *rateLimiter, kid string, initPath string) (string, error) {

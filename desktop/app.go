@@ -30,7 +30,10 @@ const (
 
 const maxTaskLogs = 500
 
-var progressRegex = regexp.MustCompile(`(?i)(?:下载进度|download progress)\s+(\d+)\s*/\s*(\d+)`)
+var (
+	progressRegex      = regexp.MustCompile(`(?i)(?:下载进度|download progress)\s+(\d+)\s*/\s*(\d+)(?:[，,]\s*(?:速度|speed)\s+(.+))?`)
+	taskLogTimestampRE = regexp.MustCompile(`^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\]`)
+)
 
 type App struct {
 	ctx       context.Context
@@ -86,6 +89,7 @@ type Task struct {
 	Status       string          `json:"status"`
 	Progress     float64         `json:"progress"`
 	ProgressText string          `json:"progressText"`
+	SpeedText    string          `json:"speedText"`
 	LastMessage  string          `json:"lastMessage"`
 	ExitCode     int             `json:"exitCode"`
 	CreatedAt    time.Time       `json:"createdAt"`
@@ -289,11 +293,12 @@ func (a *App) StartTask(id string) error {
 	task.Status = StatusRunning
 	task.Progress = 0
 	task.ProgressText = ""
+	task.SpeedText = ""
 	task.LastMessage = "正在启动下载核心"
 	task.ExitCode = 0
 	task.Files = nil
-	task.Logs = appendLimited(task.Logs, "正在启动下载核心")
 	now := time.Now()
+	task.Logs = appendLimited(task.Logs, timestampTaskLogLine("正在启动下载核心", now))
 	task.StartedAt = &now
 	task.FinishedAt = nil
 	a.emitTaskLocked(task)
@@ -330,10 +335,11 @@ func (a *App) RetryTask(id string) error {
 	task.Status = StatusPending
 	task.Progress = 0
 	task.ProgressText = ""
+	task.SpeedText = ""
 	task.LastMessage = "等待重新开始"
 	task.ExitCode = 0
 	task.FinishedAt = nil
-	task.Logs = appendLimited(task.Logs, "任务已重新排队。")
+	task.Logs = appendLimited(task.Logs, timestampTaskLogLine("任务已重新排队。", time.Now()))
 	_ = a.saveStateLocked()
 	a.emitTaskLocked(task)
 	a.mu.Unlock()
@@ -633,48 +639,71 @@ func (a *App) finishTask(id string, status string, exitCode int, message string)
 		task.ProgressText = "完成"
 		task.Files = scanTaskFiles(task)
 	}
-	task.Logs = appendLimited(task.Logs, message)
+	logLine := timestampTaskLogLine(message, now)
+	task.Logs = appendLimited(task.Logs, logLine)
 	_ = a.saveStateLocked()
 	snapshot := taskSnapshot(task)
 	a.mu.Unlock()
 
-	a.emitLog(id, message)
+	a.emitLog(id, logLine)
 	a.emitTask(snapshot)
 }
 
 func (a *App) appendTaskLog(id string, line string) {
+	now := time.Now()
+	logLine := timestampTaskLogLine(line, now)
 	a.mu.Lock()
 	task := a.tasks[id]
 	if task == nil {
 		a.mu.Unlock()
 		return
 	}
-	task.Logs = appendLimited(task.Logs, line)
+	task.Logs = appendLimited(task.Logs, logLine)
 	task.LastMessage = line
-	if current, total, ok := parseProgress(line); ok {
+	if current, total, speed, ok := parseProgress(line); ok {
 		task.Progress = float64(current) / float64(total)
-		task.ProgressText = fmt.Sprintf("%d/%d", current, total)
+		task.SpeedText = speed
+		if speed != "" {
+			task.ProgressText = fmt.Sprintf("%d/%d · %s", current, total, speed)
+		} else {
+			task.ProgressText = fmt.Sprintf("%d/%d", current, total)
+		}
 	}
 	_ = a.saveStateLocked()
 	snapshot := taskSnapshot(task)
 	a.mu.Unlock()
 
-	a.emitLog(id, line)
+	a.emitLog(id, logLine)
 	a.emitTask(snapshot)
 }
 
-func parseProgress(line string) (int, int, bool) {
+func timestampTaskLogLine(line string, now time.Time) string {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return now.Format("[2006-01-02 15:04:05]")
+	}
+	if taskLogTimestampRE.MatchString(line) {
+		return line
+	}
+	return fmt.Sprintf("[%s] %s", now.Format("2006-01-02 15:04:05"), line)
+}
+
+func parseProgress(line string) (int, int, string, bool) {
 	matches := progressRegex.FindStringSubmatch(line)
-	if len(matches) != 3 {
-		return 0, 0, false
+	if len(matches) < 3 {
+		return 0, 0, "", false
 	}
 	var current, total int
 	_, err1 := fmt.Sscanf(matches[1], "%d", &current)
 	_, err2 := fmt.Sscanf(matches[2], "%d", &total)
 	if err1 != nil || err2 != nil || total <= 0 {
-		return 0, 0, false
+		return 0, 0, "", false
 	}
-	return current, total, true
+	speed := ""
+	if len(matches) >= 4 {
+		speed = strings.TrimSpace(matches[3])
+	}
+	return current, total, speed, true
 }
 
 func (a *App) emitLog(taskID string, line string) {

@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -4635,6 +4636,9 @@ func TestSetupLoggingWritesFile(t *testing.T) {
 	if !strings.Contains(text, "Task CommandLine: m3u8dl-go --version") || !strings.Contains(text, "日志探针") {
 		t.Fatalf("log content missing:\n%s", text)
 	}
+	if !regexp.MustCompile(`(?m)^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\] 日志探针$`).MatchString(text) {
+		t.Fatalf("log line should include timestamp:\n%s", text)
+	}
 }
 
 func TestSetupLoggingHonorsLogLevel(t *testing.T) {
@@ -4684,6 +4688,57 @@ func TestSetupLoggingNoLog(t *testing.T) {
 	}
 	if _, err := os.Stat(logPath); !os.IsNotExist(err) {
 		t.Fatalf("no-log should not create file, stat err=%v", err)
+	}
+}
+
+func TestSetupLoggingTimestampsConsoleOutput(t *testing.T) {
+	out := captureStdout(t, func() {
+		cleanup, actual, err := setupLogging(Options{NoLog: true}, []string{"m3u8dl-go"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if actual != "" {
+			t.Fatalf("no-log should not return a path: %s", actual)
+		}
+		fmt.Println("终端探针")
+		fmt.Print("\r进度探针")
+		fmt.Println()
+		if err := cleanup(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	for _, line := range []string{"终端探针", "进度探针"} {
+		pattern := fmt.Sprintf(`(?m)^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\] %s$`, line)
+		if !regexp.MustCompile(pattern).MatchString(out) {
+			t.Fatalf("console output should include timestamp for %q:\n%s", line, out)
+		}
+	}
+	if strings.Contains(out, "\r") {
+		t.Fatalf("console timestamp writer should convert carriage-return progress into log lines, got %q", out)
+	}
+}
+
+func TestTimestampConsoleMessage(t *testing.T) {
+	got := timestampConsoleMessage("错误: boom", time.Date(2026, 6, 25, 21, 30, 0, 0, time.Local))
+	if got != "[2026-06-25 21:30:00] 错误: boom" {
+		t.Fatalf("console error timestamp mismatch: %q", got)
+	}
+}
+
+func TestDownloadProgressReporterPrintsSpeedLineWhenRedirected(t *testing.T) {
+	reporter := newDownloadProgressReporter(Options{UILanguage: "zh-CN", ForceANSIConsole: true}, "Vid", 5)
+	reporter.startedAt = time.Now().Add(-time.Second)
+	reporter.bytes = 2 * 1024 * 1024
+
+	out := captureStdout(t, func() {
+		reporter.print(2)
+		reporter.finish()
+	})
+	if !strings.Contains(out, "Vid 下载进度 2/5，速度") || !strings.Contains(out, "MB/s") {
+		t.Fatalf("progress output should include speed:\n%s", out)
+	}
+	if strings.Contains(out, "\r") || !strings.HasSuffix(out, "\n") {
+		t.Fatalf("redirected progress should be newline based, got %q", out)
 	}
 }
 
@@ -5422,6 +5477,9 @@ func TestCoreMessagesFollowUILanguage(t *testing.T) {
 	opt.UILanguage = "zh-CN"
 	if got := tr(opt, "downloadProgress", "VIDEO", 1, 2); got != "VIDEO 下载进度 1/2" {
 		t.Fatalf("simplified downloadProgress wrong: %q", got)
+	}
+	if got := tr(opt, "downloadProgressWithSpeed", "VIDEO", 1, 2, "1.0 MB/s"); got != "VIDEO 下载进度 1/2，速度 1.0 MB/s" {
+		t.Fatalf("simplified downloadProgressWithSpeed wrong: %q", got)
 	}
 	if got := tr(opt, "saveName"); got != "保存文件名: " {
 		t.Fatalf("simplified saveName wrong: %q", got)

@@ -19,16 +19,30 @@ const el = {
   useSystemProxy: document.querySelector("#useSystemProxy"),
   taskList: document.querySelector("#task-list"),
   taskCount: document.querySelector("#task-count"),
+  runningCount: document.querySelector("#running-count"),
+  activeSpeed: document.querySelector("#active-speed"),
+  viewTitle: document.querySelector("#view-title"),
+  viewKicker: document.querySelector("#view-kicker"),
   detailTitle: document.querySelector("#detail-title"),
   taskSummary: document.querySelector("#task-summary"),
   fileList: document.querySelector("#file-list"),
-  log: document.querySelector("#log")
+  log: document.querySelector("#log"),
+  navItems: Array.from(document.querySelectorAll("[data-view]")),
+  views: Array.from(document.querySelectorAll(".view"))
 };
 
 let settings = {};
 let tasks = [];
 let selectedTaskId = "";
 let createOnly = false;
+let activeView = "dashboard";
+
+const viewMeta = {
+  dashboard: ["任务监控", "下载任务"],
+  create: ["新建任务", "创建下载"],
+  settings: ["参数设置", "下载参数"],
+  output: ["输出与日志", "文件日志"]
+};
 
 function field(source, camel, pascal, fallback = "") {
   return source?.[camel] ?? source?.[pascal] ?? fallback;
@@ -62,6 +76,7 @@ function normalizeTask(task = {}) {
     status: field(task, "status", "Status", "pending"),
     progress: Number(field(task, "progress", "Progress", 0)) || 0,
     progressText: field(task, "progressText", "ProgressText"),
+    speedText: field(task, "speedText", "SpeedText"),
     lastMessage: field(task, "lastMessage", "LastMessage"),
     exitCode: Number(field(task, "exitCode", "ExitCode", 0)) || 0,
     createdAt: field(task, "createdAt", "CreatedAt"),
@@ -105,10 +120,33 @@ function formatSize(bytes) {
   return `${value.toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
+function formatDate(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString("zh-CN", { hour12: false });
+}
+
+function switchView(name) {
+  activeView = viewMeta[name] ? name : "dashboard";
+  const [kicker, title] = viewMeta[activeView];
+  el.viewKicker.textContent = kicker;
+  el.viewTitle.textContent = title;
+  el.navItems.forEach((button) => {
+    button.classList.toggle("active", button.dataset.view === activeView);
+  });
+  el.views.forEach((view) => {
+    view.classList.toggle("active", view.id === `view-${activeView}`);
+  });
+}
+
 function renderTasks() {
-  el.taskCount.textContent = `${tasks.length} 个任务`;
+  const running = tasks.filter((task) => task.status === "running");
+  el.taskCount.textContent = `${tasks.length}`;
+  el.runningCount.textContent = `${running.length} 个运行中`;
+  el.activeSpeed.textContent = running.find((task) => task.speedText)?.speedText || "0 B/s";
   if (!tasks.length) {
-    el.taskList.innerHTML = `<div class="empty">还没有任务。输入 m3u8 地址创建第一个下载任务。</div>`;
+    el.taskList.innerHTML = `<div class="empty">暂无任务。</div>`;
     renderDetail();
     return;
   }
@@ -125,8 +163,9 @@ function renderTasks() {
       </div>
       <div class="task-meta">
         <span>${task.progressText || `${Math.round(task.progress * 100)}%`}</span>
-        <span>${escapeHTML(task.lastMessage || "")}</span>
+        <span>${escapeHTML(task.speedText || "")}</span>
       </div>
+      <div class="task-message">${escapeHTML(task.lastMessage || "")}</div>
     </button>
   `).join("");
 
@@ -157,9 +196,13 @@ function renderDetail() {
   el.taskSummary.className = "summary";
   el.taskSummary.innerHTML = `
     <div><span>状态</span><strong>${taskStatusText(task.status)}</strong></div>
+    <div><span>进度</span><strong>${task.progressText || `${Math.round(task.progress * 100)}%`}</strong></div>
+    <div><span>速度</span><strong>${escapeHTML(task.speedText || "0 B/s")}</strong></div>
     <div><span>输出目录</span><strong>${escapeHTML(task.request.saveDir)}</strong></div>
     <div><span>保存名</span><strong>${escapeHTML(task.request.saveName || "自动")}</strong></div>
     <div><span>参数</span><strong>${task.request.autoSelect ? "自动选轨" : "手动选轨"} / ${task.request.muxMP4 ? "MP4" : "原始输出"}</strong></div>
+    <div><span>开始时间</span><strong>${formatDate(task.startedAt || task.createdAt)}</strong></div>
+    <div><span>结束时间</span><strong>${formatDate(task.finishedAt)}</strong></div>
   `;
   renderFiles(task.files);
   el.log.textContent = (task.logs || []).join("\n");
@@ -284,6 +327,7 @@ async function createTask(startNow) {
   createdTasks.forEach((task) => upsertTask(task));
   selectedTaskId = createdTasks[0]?.id || selectedTaskId;
   el.url.value = "";
+  switchView("dashboard");
 }
 
 async function refreshTasks() {
@@ -318,12 +362,16 @@ window.runtime?.EventsOn("task:log", (event) => {
   const line = field(event, "line", "Line");
   const task = tasks.find((item) => item.id === taskId);
   if (task) {
-    task.logs = [...(task.logs || []), line].slice(-500);
+    const logs = task.logs || [];
+    task.logs = logs[logs.length - 1] === line ? logs : [...logs, line].slice(-500);
     task.lastMessage = line;
   }
   if (taskId === selectedTaskId) {
-    el.log.textContent += `${line}\n`;
-    el.log.scrollTop = el.log.scrollHeight;
+    const existing = el.log.textContent.trimEnd();
+    if (!existing.endsWith(line)) {
+      el.log.textContent += `${line}\n`;
+      el.log.scrollTop = el.log.scrollHeight;
+    }
   }
 });
 window.runtime?.EventsOn("task:files", (event) => {
@@ -391,6 +439,12 @@ document.querySelector("#open-folder").addEventListener("click", async () => {
 });
 document.querySelector("#clear-log").addEventListener("click", () => {
   el.log.textContent = "";
+});
+el.navItems.forEach((button) => {
+  button.addEventListener("click", () => switchView(button.dataset.view));
+});
+document.querySelectorAll("[data-view-shortcut]").forEach((button) => {
+  button.addEventListener("click", () => switchView(button.dataset.viewShortcut));
 });
 
 loadInitialState().catch((error) => {

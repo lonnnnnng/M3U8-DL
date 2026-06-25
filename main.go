@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const version = "m3u8dl-go 0.3.0"
+const version = "m3u8dl-go 0.3.1"
 
 func main() {
 	if err := run(); err != nil {
@@ -33,7 +33,7 @@ func main() {
 				return
 			}
 		}
-		fmt.Fprintln(os.Stderr, "错误:", err)
+		fmt.Fprintln(os.Stderr, timestampConsoleMessage("错误: "+err.Error(), time.Now()))
 		os.Exit(1)
 	}
 }

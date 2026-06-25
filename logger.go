@@ -22,58 +22,70 @@ const (
 )
 
 func setupLogging(opt Options, argv []string) (logCleanup, string, error) {
-	if opt.NoLog {
-		return func() error { return nil }, "", nil
-	}
-	path, err := resolveLogFilePath(opt.LogFilePath)
-	if err != nil {
-		return nil, "", err
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		return nil, "", err
-	}
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
-	if err != nil {
-		return nil, "", err
-	}
-	now := time.Now()
-	header := fmt.Sprintf("LOG %s\nSave Path: %s\nTask Start: %s\nTask CommandLine: %s\n\n",
-		now.Format("2006/01/02"),
-		filepath.Dir(path),
-		now.Format("2006/01/02 15:04:05"),
-		strings.Join(argv, " "),
-	)
-	if _, err := file.WriteString(header); err != nil {
-		_ = file.Close()
-		return nil, "", err
+	var file *os.File
+	var path string
+	var err error
+	if !opt.NoLog {
+		path, err = resolveLogFilePath(opt.LogFilePath)
+		if err != nil {
+			return nil, "", err
+		}
+		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+			return nil, "", err
+		}
+		file, err = os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+		if err != nil {
+			return nil, "", err
+		}
+		now := time.Now()
+		header := fmt.Sprintf("LOG %s\nSave Path: %s\nTask Start: %s\nTask CommandLine: %s\n\n",
+			now.Format("2006/01/02"),
+			filepath.Dir(path),
+			now.Format("2006/01/02 15:04:05"),
+			strings.Join(argv, " "),
+		)
+		if _, err := file.WriteString(header); err != nil {
+			_ = file.Close()
+			return nil, "", err
+		}
 	}
 
 	oldStdout, oldStderr := os.Stdout, os.Stderr
 	stdoutReader, stdoutWriter, err := os.Pipe()
 	if err != nil {
-		_ = file.Close()
+		if file != nil {
+			_ = file.Close()
+		}
 		return nil, "", err
 	}
 	stderrReader, stderrWriter, err := os.Pipe()
 	if err != nil {
 		_ = stdoutReader.Close()
 		_ = stdoutWriter.Close()
-		_ = file.Close()
+		if file != nil {
+			_ = file.Close()
+		}
 		return nil, "", err
 	}
 
 	var wg sync.WaitGroup
 	writeMu := &sync.Mutex{}
-	stdoutLog := &filteredLogWriter{dst: file, mu: writeMu, level: parseLogLevel(opt.LogLevel)}
-	stderrLog := &filteredLogWriter{dst: file, mu: writeMu, level: parseLogLevel(opt.LogLevel)}
+	consoleMu := &sync.Mutex{}
+	stdoutConsole := &timestampConsoleWriter{dst: oldStdout, mu: consoleMu, atLineStart: true}
+	stderrConsole := &timestampConsoleWriter{dst: oldStderr, mu: consoleMu, atLineStart: true}
+	var stdoutLog, stderrLog *filteredLogWriter
+	if file != nil {
+		stdoutLog = &filteredLogWriter{dst: file, mu: writeMu, level: parseLogLevel(opt.LogLevel)}
+		stderrLog = &filteredLogWriter{dst: file, mu: writeMu, level: parseLogLevel(opt.LogLevel)}
+	}
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		_, _ = io.Copy(io.MultiWriter(oldStdout, stdoutLog), stdoutReader)
+		_, _ = io.Copy(combinedLogWriter(stdoutConsole, stdoutLog), stdoutReader)
 	}()
 	go func() {
 		defer wg.Done()
-		_, _ = io.Copy(io.MultiWriter(oldStderr, stderrLog), stderrReader)
+		_, _ = io.Copy(combinedLogWriter(stderrConsole, stderrLog), stderrReader)
 	}()
 	os.Stdout = stdoutWriter
 	os.Stderr = stderrWriter
@@ -85,12 +97,26 @@ func setupLogging(opt Options, argv []string) (logCleanup, string, error) {
 		_ = stdoutWriter.Close()
 		_ = stderrWriter.Close()
 		wg.Wait()
-		_ = stdoutLog.Flush()
-		_ = stderrLog.Flush()
+		if stdoutLog != nil {
+			_ = stdoutLog.Flush()
+		}
+		if stderrLog != nil {
+			_ = stderrLog.Flush()
+		}
 		_ = stdoutReader.Close()
 		_ = stderrReader.Close()
-		return file.Close()
+		if file != nil {
+			return file.Close()
+		}
+		return nil
 	}, path, nil
+}
+
+func combinedLogWriter(console io.Writer, fileLog *filteredLogWriter) io.Writer {
+	if fileLog == nil {
+		return console
+	}
+	return io.MultiWriter(console, fileLog)
 }
 
 func resolveLogFilePath(input string) (string, error) {
@@ -124,6 +150,49 @@ type filteredLogWriter struct {
 	buf   []byte
 }
 
+type timestampConsoleWriter struct {
+	dst         io.Writer
+	mu          *sync.Mutex
+	atLineStart bool
+}
+
+func (w *timestampConsoleWriter) Write(p []byte) (int, error) {
+	if w == nil || w.dst == nil {
+		return len(p), nil
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	for _, b := range p {
+		if b == '\r' {
+			if !w.atLineStart {
+				if _, err := w.dst.Write([]byte("\n")); err != nil {
+					return 0, err
+				}
+			}
+			w.atLineStart = true
+			continue
+		}
+		if b == '\n' {
+			if _, err := w.dst.Write([]byte{b}); err != nil {
+				return 0, err
+			}
+			w.atLineStart = true
+			continue
+		}
+		if w.atLineStart {
+			// long: 终端看到的是实时运行日志，统一在转发层补时间戳，业务代码仍然保持原本的 fmt.Print/Println 调用方式。
+			if _, err := fmt.Fprintf(w.dst, "[%s] ", time.Now().Format("2006-01-02 15:04:05")); err != nil {
+				return 0, err
+			}
+			w.atLineStart = false
+		}
+		if _, err := w.dst.Write([]byte{b}); err != nil {
+			return 0, err
+		}
+	}
+	return len(p), nil
+}
+
 func (w *filteredLogWriter) Write(p []byte) (int, error) {
 	for _, b := range p {
 		w.buf = append(w.buf, b)
@@ -151,8 +220,40 @@ func (w *filteredLogWriter) flushLine() error {
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	_, err := w.dst.Write([]byte(line))
+	_, err := w.dst.Write(timestampLogPayload(line, time.Now()))
 	return err
+}
+
+func timestampLogPayload(line string, now time.Time) []byte {
+	text := strings.TrimRight(line, "\r\n")
+	if text == "" {
+		return []byte("\n")
+	}
+	parts := strings.Split(strings.ReplaceAll(text, "\r", "\n"), "\n")
+	var b strings.Builder
+	stamp := now.Format("2006-01-02 15:04:05")
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		// long: CLI 里很多业务输出仍走 fmt.Println，写日志时集中补时间戳，避免每个调用点重复拼接且漏掉桌面集成的输出。
+		b.WriteString("[")
+		b.WriteString(stamp)
+		b.WriteString("] ")
+		b.WriteString(part)
+		b.WriteByte('\n')
+	}
+	return []byte(b.String())
+}
+
+func timestampConsoleMessage(line string, now time.Time) string {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return now.Format("[2006-01-02 15:04:05]")
+	}
+	// long: main 的最终错误输出发生在 stdout/stderr 恢复之后，单独补一次时间戳，保证 CLI 终端日志出口一致。
+	return fmt.Sprintf("[%s] %s", now.Format("2006-01-02 15:04:05"), line)
 }
 
 func parseLogLevel(input string) logLevel {
