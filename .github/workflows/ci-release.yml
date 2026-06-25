@@ -80,8 +80,6 @@ jobs:
             tar -C build -czf "${archive}" "${target}"
           fi
 
-          sha256sum "${archive}" > "${archive}.sha256"
-
       - name: Upload archive
         uses: actions/upload-artifact@v4
         with:
@@ -112,7 +110,6 @@ jobs:
           name: m3u8dl-go_desktop_macos
           path: |
             dist/m3u8dl-go_desktop_macos_*.zip
-            dist/m3u8dl-go_desktop_macos_*.zip.sha256
           if-no-files-found: error
 
   release:

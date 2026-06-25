@@ -29,7 +29,7 @@
 - 构建当前仓库的 CLI helper：`m3u8dl-go-cli`。
 - 使用 Wails v2 构建 macOS `.app`。
 - 将 `m3u8dl-go-cli` 放入 `.app/Contents/Resources/`。
-- 生成 `dist/m3u8dl-go_desktop_macos_<arch>.zip` 和 `.sha256`。
+- 生成 `dist/m3u8dl-go_desktop_macos_<arch>.zip`。
 
 ## 运行要求
 

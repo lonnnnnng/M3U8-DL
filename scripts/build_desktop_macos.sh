@@ -41,6 +41,5 @@ mkdir -p "${DIST_DIR}"
 ARCHIVE="${DIST_DIR}/${TARGET_NAME}.zip"
 rm -f "${ARCHIVE}" "${ARCHIVE}.sha256"
 ditto -c -k --sequesterRsrc --keepParent "${APP_PATH}" "${ARCHIVE}"
-LC_ALL=C LANG=C shasum -a 256 "${ARCHIVE}" > "${ARCHIVE}.sha256"
 
 echo "${ARCHIVE}"
