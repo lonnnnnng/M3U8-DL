@@ -32,6 +32,7 @@ body {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -133,6 +134,7 @@ h1 {
 .toolbar-actions {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -251,6 +253,7 @@ h1 {
 .detail-actions,
 .file-actions,
 .files-head div,
+.log-head div,
 .actions {
   display: flex;
   gap: 8px;
@@ -266,6 +269,24 @@ h1 {
   height: 28px;
   border-color: #b8d7f6;
   color: var(--accent-strong);
+}
+
+.task-list-head {
+  align-items: flex-start;
+}
+
+.task-tools {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) 92px 54px;
+  gap: 8px;
+  align-items: center;
+  max-width: min(100%, 360px);
+}
+
+.task-tools input,
+.task-tools select {
+  height: 28px;
+  font-size: 12px;
 }
 
 .form-grid,
@@ -370,6 +391,7 @@ h1 {
 }
 
 input,
+select,
 textarea {
   width: 100%;
   border: 1px solid #c8c8d0;
@@ -382,6 +404,13 @@ textarea {
 input {
   height: 34px;
   padding: 0 10px;
+}
+
+select {
+  height: 30px;
+  padding: 0 28px 0 9px;
+  background: #ffffff;
+  color: var(--text);
 }
 
 input[type="checkbox"] {
@@ -404,6 +433,7 @@ textarea#url {
 }
 
 input:focus,
+select:focus,
 textarea:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.18);
@@ -674,6 +704,7 @@ textarea:focus {
 }
 
 .task-url,
+.task-time,
 .task-message {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -688,6 +719,12 @@ textarea:focus {
 
 .task-message {
   margin-top: 7px;
+}
+
+.task-time {
+  margin-top: 6px;
+  color: #4c4c50;
+  font-weight: 600;
 }
 
 .task-meta {
@@ -710,6 +747,11 @@ textarea:focus {
 .badge.running {
   background: #e6f2ff;
   color: var(--accent-strong);
+}
+
+.badge.queued {
+  background: #eef1f6;
+  color: #5856d6;
 }
 
 .badge.completed {
@@ -847,4 +889,101 @@ textarea:focus {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 12px;
   line-height: 1.55;
+}
+
+@media (max-width: 900px) {
+  body {
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .app-shell {
+    min-height: 100vh;
+    height: auto;
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+
+  .toolbar {
+    padding: 10px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .segmented-nav {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .toolbar-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .status-strip {
+    padding: 8px 10px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .status-strip div:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .workspace {
+    padding: 10px;
+  }
+
+  .dashboard-grid,
+  .output-grid,
+  .form-grid,
+  .settings-grid {
+    height: auto;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .task-panel,
+  .detail-panel,
+  .files-panel,
+  .log-panel,
+  .create-panel,
+  .settings-panel {
+    min-height: 260px;
+  }
+
+  .panel-title,
+  .files-head,
+  .log-head {
+    min-height: 0;
+    padding: 10px 12px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .detail-actions,
+  .files-head div,
+  .log-head div,
+  .switches {
+    flex-wrap: wrap;
+  }
+
+  .task-tools {
+    width: 100%;
+    max-width: none;
+    grid-template-columns: minmax(0, 1fr) 92px 54px;
+  }
+
+  .core-grid,
+  .preflight-list,
+  .summary,
+  .switches {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .switches,
+  .switches.compact {
+    display: grid;
+  }
+
+  .file-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

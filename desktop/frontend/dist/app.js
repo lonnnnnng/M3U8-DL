@@ -16,6 +16,7 @@ const el = {
   ffmpegCheck: document.querySelector("#ffmpeg-check"),
   checkTools: document.querySelector("#check-tools"),
   toolList: document.querySelector("#tool-list"),
+  maxActiveTasks: document.querySelector("#maxActiveTasks"),
   threadCount: document.querySelector("#threadCount"),
   retryCount: document.querySelector("#retryCount"),
   maxSpeed: document.querySelector("#maxSpeed"),
@@ -27,6 +28,9 @@ const el = {
   refreshCore: document.querySelector("#refresh-core"),
   copyCommand: document.querySelector("#copy-command"),
   copyLog: document.querySelector("#copy-log"),
+  exportLog: document.querySelector("#export-log"),
+  taskSearch: document.querySelector("#task-search"),
+  taskStatusFilter: document.querySelector("#task-status-filter"),
   preflightResult: document.querySelector("#preflight-result"),
   taskList: document.querySelector("#task-list"),
   taskCount: document.querySelector("#task-count"),
@@ -47,6 +51,8 @@ let tasks = [];
 let selectedTaskId = "";
 let createOnly = false;
 let activeView = "dashboard";
+let taskSearchText = "";
+let taskStatusFilter = "all";
 
 const defaultTools = [
   { name: "ffmpeg", label: "FFmpeg" },
@@ -93,9 +99,12 @@ function normalizeTask(task = {}) {
     id: field(task, "id", "ID"),
     title: field(task, "title", "Title", "未命名任务"),
     status: field(task, "status", "Status", "pending"),
+    queued: Boolean(field(task, "queued", "Queued", false)),
     progress: Number(field(task, "progress", "Progress", 0)) || 0,
     progressText: field(task, "progressText", "ProgressText"),
     speedText: field(task, "speedText", "SpeedText"),
+    elapsedText: field(task, "elapsedText", "ElapsedText"),
+    remainingText: field(task, "remainingText", "RemainingText"),
     lastMessage: field(task, "lastMessage", "LastMessage"),
     exitCode: Number(field(task, "exitCode", "ExitCode", 0)) || 0,
     createdAt: field(task, "createdAt", "CreatedAt"),
@@ -152,6 +161,24 @@ function taskStatusText(status) {
   }[status] || status;
 }
 
+function taskDisplayStatusText(task) {
+  if (task?.status === "pending" && task?.queued) {
+    return "排队中";
+  }
+  return taskStatusText(task?.status);
+}
+
+function taskTimingText(task) {
+  const parts = [];
+  if (task?.elapsedText) {
+    parts.push(`耗时 ${task.elapsedText}`);
+  }
+  if (task?.remainingText) {
+    parts.push(`剩余 ${task.remainingText}`);
+  }
+  return parts.join(" · ");
+}
+
 function formatSize(bytes) {
   if (!bytes) return "0 B";
   const units = ["B", "KB", "MB", "GB"];
@@ -186,7 +213,8 @@ function switchView(name) {
 
 function renderTasks() {
   const running = tasks.filter((task) => task.status === "running");
-  el.taskCount.textContent = `${tasks.length}`;
+  const visibleTasks = tasks.filter(taskMatchesCurrentFilter);
+  el.taskCount.textContent = visibleTasks.length === tasks.length ? `${tasks.length}` : `${visibleTasks.length}/${tasks.length}`;
   el.runningCount.textContent = `${running.length} 个运行中`;
   el.activeSpeed.textContent = running.find((task) => task.speedText)?.speedText || "0 B/s";
   if (!tasks.length) {
@@ -194,12 +222,17 @@ function renderTasks() {
     renderDetail();
     return;
   }
+  if (!visibleTasks.length) {
+    el.taskList.innerHTML = `<div class="empty">没有匹配的任务。</div>`;
+    renderDetail();
+    return;
+  }
 
-  el.taskList.innerHTML = tasks.map((task) => `
+  el.taskList.innerHTML = visibleTasks.map((task) => `
     <button class="task-card ${task.id === selectedTaskId ? "selected" : ""}" data-task-id="${task.id}" type="button">
       <div class="task-row">
         <strong>${escapeHTML(task.title)}</strong>
-        <span class="badge ${task.status}">${taskStatusText(task.status)}</span>
+        <span class="badge ${task.status} ${task.queued ? "queued" : ""}">${taskDisplayStatusText(task)}</span>
       </div>
       <div class="task-url">${escapeHTML(task.request.url)}</div>
       <div class="progress">
@@ -209,6 +242,7 @@ function renderTasks() {
         <span>${task.progressText || `${Math.round(task.progress * 100)}%`}</span>
         <span>${escapeHTML(task.speedText || "")}</span>
       </div>
+      ${taskTimingText(task) ? `<div class="task-time">${escapeHTML(taskTimingText(task))}</div>` : ""}
       <div class="task-message">${escapeHTML(task.lastMessage || "")}</div>
     </button>
   `).join("");
@@ -222,6 +256,29 @@ function renderTasks() {
   });
 
   renderDetail();
+}
+
+function taskMatchesCurrentFilter(task) {
+  if (taskStatusFilter !== "all" && task.status !== taskStatusFilter) {
+    return false;
+  }
+  if (!taskSearchText) {
+    return true;
+  }
+  const request = task.request || {};
+  const text = [
+    task.title,
+    taskDisplayStatusText(task),
+    task.lastMessage,
+    task.progressText,
+    task.speedText,
+    task.elapsedText,
+    task.remainingText,
+    request.url,
+    request.saveName,
+    request.saveDir
+  ].join("\n").toLowerCase();
+  return text.includes(taskSearchText);
 }
 
 function renderDetail() {
@@ -240,9 +297,11 @@ function renderDetail() {
   const commandLine = task.commandLine || "任务开始后生成";
   el.taskSummary.className = "summary";
   el.taskSummary.innerHTML = `
-    <div><span>状态</span><strong>${taskStatusText(task.status)}</strong></div>
+    <div><span>状态</span><strong>${taskDisplayStatusText(task)}</strong></div>
     <div><span>进度</span><strong>${task.progressText || `${Math.round(task.progress * 100)}%`}</strong></div>
     <div><span>速度</span><strong>${escapeHTML(task.speedText || "0 B/s")}</strong></div>
+    <div><span>耗时</span><strong>${escapeHTML(task.elapsedText || "-")}</strong></div>
+    <div><span>预计剩余</span><strong>${escapeHTML(task.remainingText || "-")}</strong></div>
     <div><span>输出目录</span><strong>${escapeHTML(task.request.saveDir)}</strong></div>
     <div><span>保存名</span><strong>${escapeHTML(task.request.saveName || "自动")}</strong></div>
     <div><span>参数</span><strong>${task.request.autoSelect ? "自动选轨" : "手动选轨"} / ${task.request.muxMP4 ? "MP4" : "原始输出"}</strong></div>
@@ -330,6 +389,7 @@ function collectSettings() {
   return {
     defaultSaveDir: el.saveDir.value.trim(),
     ffmpegPath: el.ffmpegPath.value.trim(),
+    maxActiveTasks: Number(el.maxActiveTasks.value) || 2,
     threadCount: Number(el.threadCount.value) || 8,
     retryCount: Number(el.retryCount.value) || 3,
     maxSpeed: el.maxSpeed.value.trim(),
@@ -346,6 +406,7 @@ function applySettings(nextSettings) {
   settings = nextSettings || {};
   el.saveDir.value = field(settings, "defaultSaveDir", "DefaultSaveDir", "");
   el.ffmpegPath.value = field(settings, "ffmpegPath", "FFmpegPath", "");
+  el.maxActiveTasks.value = field(settings, "maxActiveTasks", "MaxActiveTasks", 2);
   el.threadCount.value = field(settings, "threadCount", "ThreadCount", 8);
   el.retryCount.value = field(settings, "retryCount", "RetryCount", 3);
   el.maxSpeed.value = field(settings, "maxSpeed", "MaxSpeed", "");
@@ -614,8 +675,44 @@ el.refreshCore.addEventListener("click", () => {
     applyCoreInfo({ status: "error", error: String(error?.message || error) });
   });
 });
+el.taskSearch.addEventListener("input", () => {
+  taskSearchText = el.taskSearch.value.trim().toLowerCase();
+  renderTasks();
+});
+el.taskStatusFilter.addEventListener("change", () => {
+  taskStatusFilter = el.taskStatusFilter.value || "all";
+  renderTasks();
+});
 
 document.querySelector("#refresh-tasks").addEventListener("click", refreshTasks);
+document.querySelector("#start-pending").addEventListener("click", async () => {
+  try {
+    const count = await api().StartPendingTasks();
+    await refreshTasks();
+    window.alert(count ? `已开始 ${count} 个等待任务。` : "没有等待中的任务。");
+  } catch (error) {
+    window.alert(String(error?.message || error));
+  }
+});
+document.querySelector("#stop-running").addEventListener("click", async () => {
+  if (!window.confirm("确认停止所有运行中的任务？")) return;
+  try {
+    const count = await api().StopRunningTasks();
+    await refreshTasks();
+    window.alert(count ? `已请求停止 ${count} 个运行中任务。` : "没有运行中的任务。");
+  } catch (error) {
+    window.alert(String(error?.message || error));
+  }
+});
+document.querySelector("#retry-failed").addEventListener("click", async () => {
+  try {
+    const count = await api().RetryFailedTasks();
+    await refreshTasks();
+    window.alert(count ? `已重试 ${count} 个失败任务。` : "没有失败任务。");
+  } catch (error) {
+    window.alert(String(error?.message || error));
+  }
+});
 document.querySelector("#clear-finished").addEventListener("click", async () => {
   await api().ClearFinishedTasks();
   await refreshTasks();
@@ -643,6 +740,16 @@ el.copyLog.addEventListener("click", async () => {
   if (!task) return;
   try {
     await copyText((task.logs || []).join("\n"), "任务日志已复制。");
+  } catch (error) {
+    window.alert(String(error?.message || error));
+  }
+});
+el.exportLog.addEventListener("click", async () => {
+  if (!selectedTaskId) return;
+  try {
+    const file = normalizeFiles([await api().ExportTaskLog(selectedTaskId)])[0];
+    await refreshFiles();
+    window.alert(`日志已导出：${file?.name || "完成"}`);
   } catch (error) {
     window.alert(String(error?.message || error));
   }

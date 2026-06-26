@@ -24,6 +24,9 @@
 
         <div class="toolbar-actions">
           <button id="refresh-tasks" type="button">刷新</button>
+          <button id="start-pending" type="button">开始等待</button>
+          <button id="stop-running" type="button">停止运行</button>
+          <button id="retry-failed" type="button">重试失败</button>
           <button id="clear-finished" type="button">清理完成</button>
         </div>
       </header>
@@ -47,9 +50,20 @@
         <section id="view-dashboard" class="view active">
           <div class="dashboard-grid">
             <section class="panel task-panel">
-              <div class="panel-title">
+              <div class="panel-title task-list-head">
                 <span>任务队列</span>
-                <button class="small-link" type="button" data-view-shortcut="create">新增</button>
+                <div class="task-tools">
+                  <input id="task-search" type="search" placeholder="搜索任务" aria-label="搜索任务" />
+                  <select id="task-status-filter" aria-label="筛选任务状态">
+                    <option value="all">全部</option>
+                    <option value="running">下载中</option>
+                    <option value="pending">等待</option>
+                    <option value="completed">完成</option>
+                    <option value="failed">失败</option>
+                    <option value="stopped">已停止</option>
+                  </select>
+                  <button class="small-link" type="button" data-view-shortcut="create">新增</button>
+                </div>
               </div>
               <div id="task-list" class="task-list"></div>
             </section>
@@ -181,6 +195,10 @@
               </section>
 
               <label class="field">
+                <span>同时运行任务数</span>
+                <input id="maxActiveTasks" type="number" min="1" step="1" />
+              </label>
+              <label class="field">
                 <span>线程数</span>
                 <input id="threadCount" type="number" min="1" step="1" />
               </label>
@@ -215,7 +233,10 @@
             <section class="panel log-panel">
               <div class="log-head">
                 <span>任务日志</span>
-                <button id="clear-log" type="button">清空显示</button>
+                <div>
+                  <button id="export-log" type="button">导出日志</button>
+                  <button id="clear-log" type="button">清空显示</button>
+                </div>
               </div>
               <pre id="log"></pre>
             </section>

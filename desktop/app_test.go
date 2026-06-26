@@ -75,6 +75,74 @@ func TestCreateTaskCommandPreviewDoesNotPersistSensitiveHeaders(t *testing.T) {
 	}
 }
 
+func TestExportTaskLogWritesRedactedLogFile(t *testing.T) {
+	app := newTestApp(t)
+	out := filepath.Join(t.TempDir(), "out")
+	task, err := app.CreateTask(DownloadRequest{
+		URL:            "https://example.com/index.m3u8",
+		SaveDir:        out,
+		SaveName:       "Movie:01",
+		Headers:        []string{"Cookie: session=secret", "Authorization: Bearer secret-token"},
+		CustomProxy:    "http://user:secret@127.0.0.1:8888",
+		AutoSelect:     true,
+		ThreadCount:    4,
+		RetryCount:     2,
+		UseSystemProxy: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.appendTaskLog(task.ID, "$ m3u8dl-go-cli -H 'Cookie: session=secret' -H 'Authorization: Bearer secret-token' --custom-proxy http://user:secret@127.0.0.1:8888 https://example.com/index.m3u8")
+	app.appendTaskLog(task.ID, "下载进度 1/1，速度 1 MB/s")
+
+	file, err := app.ExportTaskLog(task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if file.Extension != ".log" || !strings.HasPrefix(file.Name, "m3u8dl-go_Movie_01_") {
+		t.Fatalf("exported log file metadata mismatch: %#v", file)
+	}
+	contentBytes, err := os.ReadFile(file.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(contentBytes)
+	for _, secret := range []string{"session=secret", "secret-token", "user:secret"} {
+		if strings.Contains(content, secret) {
+			t.Fatalf("exported log should redact %q:\n%s", secret, content)
+		}
+	}
+	for _, want := range []string{"Cookie: <redacted>", "Authorization: <redacted>", "http://user:redacted@127.0.0.1:8888", "下载进度 1/1"} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("exported log missing %q:\n%s", want, content)
+		}
+	}
+
+	files, err := app.ListTaskFiles(task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var found bool
+	for _, item := range files {
+		if item.Path == file.Path && item.Extension == ".log" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("exported log should appear in task files, got %#v", files)
+	}
+
+	state, err := os.ReadFile(app.statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, secret := range []string{"session=secret", "secret-token", "user:secret", "commandLine"} {
+		if strings.Contains(string(state), secret) {
+			t.Fatalf("persisted state should not contain sensitive exported log data %q:\n%s", secret, state)
+		}
+	}
+}
+
 func TestPreviewCommandsExpandsBatchWithoutCreatingTasks(t *testing.T) {
 	app := newTestApp(t)
 	commands, err := app.PreviewCommands(DownloadRequest{
@@ -194,6 +262,44 @@ func TestParseProgressWithSpeed(t *testing.T) {
 	current, total, speed, ok = parseProgress("Vid download progress 4/9, speed 900 KB/s")
 	if !ok || current != 4 || total != 9 || speed != "900 KB/s" {
 		t.Fatalf("english progress with speed parsed wrong: current=%d total=%d speed=%q ok=%t", current, total, speed, ok)
+	}
+}
+
+func TestTaskTimingEstimatesRemaining(t *testing.T) {
+	started := time.Date(2026, 6, 27, 4, 0, 0, 0, time.Local)
+	task := &Task{
+		Status:    StatusRunning,
+		Progress:  0.25,
+		StartedAt: &started,
+	}
+	updateTaskTiming(task, started.Add(30*time.Second))
+	if task.ElapsedText != "30秒" || task.RemainingText != "1分30秒" {
+		t.Fatalf("running task timing mismatch elapsed=%q remaining=%q", task.ElapsedText, task.RemainingText)
+	}
+
+	finished := started.Add(2*time.Minute + 5*time.Second)
+	task.Status = StatusCompleted
+	task.Progress = 1
+	task.FinishedAt = &finished
+	updateTaskTiming(task, finished.Add(time.Minute))
+	if task.ElapsedText != "2分05秒" || task.RemainingText != "0秒" {
+		t.Fatalf("completed task timing mismatch elapsed=%q remaining=%q", task.ElapsedText, task.RemainingText)
+	}
+}
+
+func TestFormatTaskDuration(t *testing.T) {
+	cases := map[time.Duration]string{
+		0:                             "0秒",
+		59 * time.Second:              "59秒",
+		60 * time.Second:              "1分",
+		90 * time.Second:              "1分30秒",
+		2*time.Hour + 5*time.Minute:   "2小时05分",
+		25*time.Hour + 10*time.Second: "1天1小时",
+	}
+	for input, want := range cases {
+		if got := formatTaskDuration(input); got != want {
+			t.Fatalf("formatTaskDuration(%s)=%q want %q", input, got, want)
+		}
 	}
 }
 
@@ -343,6 +449,111 @@ func TestStartDownloadsCreatesAndStartsBatch(t *testing.T) {
 	}
 }
 
+func TestBulkTaskActions(t *testing.T) {
+	app := newTestApp(t)
+	fakeCLI := writeFakeCLI(t)
+	t.Setenv("M3U8DL_GO_CLI", fakeCLI)
+
+	out := filepath.Join(t.TempDir(), "out")
+	tasks, err := app.CreateTasks(DownloadRequest{
+		URL:               "第一集|https://example.com/one.m3u8\n第二集|https://example.com/two.m3u8",
+		SaveDir:           out,
+		LinkNameSeparator: "|",
+		AutoSelect:        true,
+		MuxMP4:            true,
+		ThreadCount:       4,
+		RetryCount:        2,
+		UseSystemProxy:    true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count, err := app.StartPendingTasks(); err != nil || count != 2 {
+		t.Fatalf("start pending mismatch count=%d err=%v", count, err)
+	}
+	for _, task := range tasks {
+		waitTaskStatus(t, app, task.ID, StatusCompleted, 5*time.Second)
+	}
+
+	app.mu.Lock()
+	app.tasks[tasks[0].ID].Status = StatusFailed
+	app.tasks[tasks[0].ID].LastMessage = "人为标记失败"
+	app.mu.Unlock()
+	if count, err := app.RetryFailedTasks(); err != nil || count != 1 {
+		t.Fatalf("retry failed mismatch count=%d err=%v", count, err)
+	}
+	waitTaskStatus(t, app, tasks[0].ID, StatusCompleted, 5*time.Second)
+}
+
+func TestStopRunningTasks(t *testing.T) {
+	app := newTestApp(t)
+	fakeCLI := writeSlowFakeCLI(t)
+	t.Setenv("M3U8DL_GO_CLI", fakeCLI)
+
+	task, err := app.StartDownload(DownloadRequest{
+		URL:            "https://example.com/slow.m3u8",
+		SaveDir:        filepath.Join(t.TempDir(), "out"),
+		SaveName:       "slow",
+		AutoSelect:     true,
+		ThreadCount:    4,
+		RetryCount:     2,
+		UseSystemProxy: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitUntilTaskRunning(t, app, task.ID)
+	count, err := app.StopRunningTasks()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("expected one running task to stop, got %d", count)
+	}
+	stopped := waitTaskStatus(t, app, task.ID, StatusStopped, 5*time.Second)
+	if !strings.Contains(strings.Join(stopped.Logs, "\n"), "已请求停止当前任务") {
+		t.Fatalf("stop request should be logged, logs=%#v", stopped.Logs)
+	}
+}
+
+func TestMaxActiveTasksQueuesAndSchedulesNextTask(t *testing.T) {
+	app := newTestApp(t)
+	app.settings.MaxActiveTasks = 1
+	fakeCLI := writeSlowFakeCLI(t)
+	t.Setenv("M3U8DL_GO_CLI", fakeCLI)
+
+	tasks, err := app.StartDownloads(DownloadRequest{
+		URL:               "第一集|https://example.com/one.m3u8\n第二集|https://example.com/two.m3u8",
+		SaveDir:           filepath.Join(t.TempDir(), "out"),
+		LinkNameSeparator: "|",
+		AutoSelect:        true,
+		ThreadCount:       4,
+		RetryCount:        2,
+		UseSystemProxy:    true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tasks) != 2 {
+		t.Fatalf("expected two tasks, got %d", len(tasks))
+	}
+	waitUntilTaskRunning(t, app, tasks[0].ID)
+	queued := waitTaskQueued(t, app, tasks[1].ID)
+	if queued.LastMessage != "已加入队列，等待空闲任务槽" {
+		t.Fatalf("queued task message mismatch: %#v", queued)
+	}
+
+	if err := app.StopTask(tasks[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	waitTaskStatus(t, app, tasks[0].ID, StatusStopped, 5*time.Second)
+	waitUntilTaskRunning(t, app, tasks[1].ID)
+	if err := app.StopTask(tasks[1].ID); err != nil {
+		t.Fatal(err)
+	}
+	waitTaskStatus(t, app, tasks[1].ID, StatusStopped, 5*time.Second)
+}
+
 func TestDesktopRealSampleDownload(t *testing.T) {
 	if os.Getenv("M3U8DL_GO_REAL_SAMPLE") != "1" {
 		t.Skip("set M3U8DL_GO_REAL_SAMPLE=1 and M3U8DL_GO_CLI to run the real sample")
@@ -429,6 +640,38 @@ echo "Vid 下载进度 1/2，速度 1.0 MB/s"
 echo "Vid 下载进度 2/2，速度 2.0 MB/s"
 printf "ok" > "$out/$name.mp4"
 echo "输出: $out/$name.mp4"
+`
+	if err := os.WriteFile(path, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func writeSlowFakeCLI(t *testing.T) string {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("fake shell CLI test is only used on Unix-like CI runners")
+	}
+	path := filepath.Join(t.TempDir(), "m3u8dl-go-cli")
+	script := `#!/bin/sh
+set -eu
+if [ "${1:-}" = "--version-json" ]; then
+  echo '{"name":"m3u8dl-go","version":"9.9.9","fullVersion":"m3u8dl-go 9.9.9"}'
+  exit 0
+fi
+if [ "${1:-}" = "--version" ]; then
+  echo "m3u8dl-go 9.9.9"
+  exit 0
+fi
+for arg in "$@"; do
+  if [ "$arg" = "--print-effective-options" ]; then
+    echo '{"version":{"name":"m3u8dl-go","version":"9.9.9","fullVersion":"m3u8dl-go 9.9.9"}}'
+    exit 0
+  fi
+done
+echo "开始下载...Slow"
+echo "Slow 下载进度 1/10，速度 1.0 MB/s"
+sleep 30
 `
 	if err := os.WriteFile(path, []byte(script), 0755); err != nil {
 		t.Fatal(err)
@@ -546,5 +789,37 @@ func waitTaskStatus(t *testing.T, app *App, id string, want string, timeout time
 		time.Sleep(50 * time.Millisecond)
 	}
 	t.Fatalf("task did not reach %s before timeout", want)
+	return Task{}
+}
+
+func waitUntilTaskRunning(t *testing.T, app *App, id string) {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		app.mu.Lock()
+		task := app.tasks[id]
+		_, hasRunningProcess := app.running[id]
+		ready := task != nil && task.Status == StatusRunning && hasRunningProcess
+		app.mu.Unlock()
+		if ready {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("task did not enter cancellable running status")
+}
+
+func waitTaskQueued(t *testing.T, app *App, id string) Task {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		for _, task := range app.ListTasks() {
+			if task.ID == id && task.Status == StatusPending && task.Queued {
+				return task
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("task did not enter queued status")
 	return Task{}
 }

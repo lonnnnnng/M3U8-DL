@@ -53,6 +53,7 @@ type runningTask struct {
 type Settings struct {
 	DefaultSaveDir     string `json:"defaultSaveDir"`
 	FFmpegPath         string `json:"ffmpegPath"`
+	MaxActiveTasks     int    `json:"maxActiveTasks"`
 	ThreadCount        int    `json:"threadCount"`
 	RetryCount         int    `json:"retryCount"`
 	MaxSpeed           string `json:"maxSpeed"`
@@ -84,23 +85,26 @@ type DownloadRequest struct {
 }
 
 type Task struct {
-	ID           string          `json:"id"`
-	Title        string          `json:"title"`
-	Status       string          `json:"status"`
-	Progress     float64         `json:"progress"`
-	ProgressText string          `json:"progressText"`
-	SpeedText    string          `json:"speedText"`
-	LastMessage  string          `json:"lastMessage"`
-	ExitCode     int             `json:"exitCode"`
-	CreatedAt    time.Time       `json:"createdAt"`
-	StartedAt    *time.Time      `json:"startedAt,omitempty"`
-	FinishedAt   *time.Time      `json:"finishedAt,omitempty"`
-	Request      DownloadRequest `json:"request"`
-	Args         []string        `json:"args"`
-	Command      string          `json:"command"`
-	CommandLine  string          `json:"commandLine,omitempty"`
-	Logs         []string        `json:"logs"`
-	Files        []TaskFile      `json:"files"`
+	ID            string          `json:"id"`
+	Title         string          `json:"title"`
+	Status        string          `json:"status"`
+	Queued        bool            `json:"queued"`
+	Progress      float64         `json:"progress"`
+	ProgressText  string          `json:"progressText"`
+	SpeedText     string          `json:"speedText"`
+	ElapsedText   string          `json:"elapsedText,omitempty"`
+	RemainingText string          `json:"remainingText,omitempty"`
+	LastMessage   string          `json:"lastMessage"`
+	ExitCode      int             `json:"exitCode"`
+	CreatedAt     time.Time       `json:"createdAt"`
+	StartedAt     *time.Time      `json:"startedAt,omitempty"`
+	FinishedAt    *time.Time      `json:"finishedAt,omitempty"`
+	Request       DownloadRequest `json:"request"`
+	Args          []string        `json:"args"`
+	Command       string          `json:"command"`
+	CommandLine   string          `json:"commandLine,omitempty"`
+	Logs          []string        `json:"logs"`
+	Files         []TaskFile      `json:"files"`
 }
 
 type TaskFile struct {
@@ -187,6 +191,7 @@ func (a *App) startup(ctx context.Context) {
 func defaultSettings() Settings {
 	return Settings{
 		DefaultSaveDir:     defaultSaveDir(),
+		MaxActiveTasks:     2,
 		ThreadCount:        8,
 		RetryCount:         3,
 		AutoSelect:         true,
@@ -219,9 +224,7 @@ func (a *App) DefaultSaveDir() string {
 func (a *App) GetSettings() Settings {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if strings.TrimSpace(a.settings.DefaultSaveDir) == "" {
-		a.settings.DefaultSaveDir = defaultSaveDir()
-	}
+	a.settings = normalizeSettings(a.settings)
 	return a.settings
 }
 
@@ -291,6 +294,9 @@ func normalizeSettings(settings Settings) Settings {
 	}
 	if settings.ThreadCount <= 0 {
 		settings.ThreadCount = 8
+	}
+	if settings.MaxActiveTasks <= 0 {
+		settings.MaxActiveTasks = 2
 	}
 	if settings.RetryCount < 0 {
 		settings.RetryCount = 3
@@ -483,10 +489,28 @@ func (a *App) StartTask(id string) error {
 		a.mu.Unlock()
 		return nil
 	}
+	if !a.hasTaskSlotLocked() {
+		task.Status = StatusPending
+		task.Queued = true
+		task.ElapsedText = ""
+		task.RemainingText = ""
+		task.LastMessage = "已加入队列，等待空闲任务槽"
+		task.ExitCode = 0
+		now := time.Now()
+		task.Logs = appendLimited(task.Logs, timestampTaskLogLine("已加入队列，等待空闲任务槽。", now))
+		task.FinishedAt = nil
+		a.emitTaskLocked(task)
+		_ = a.saveStateLocked()
+		a.mu.Unlock()
+		return nil
+	}
 	task.Status = StatusRunning
+	task.Queued = false
 	task.Progress = 0
 	task.ProgressText = ""
 	task.SpeedText = ""
+	task.ElapsedText = "0秒"
+	task.RemainingText = ""
 	task.LastMessage = "正在启动下载核心"
 	task.ExitCode = 0
 	task.Files = nil
@@ -505,6 +529,18 @@ func (a *App) StartTask(id string) error {
 func (a *App) StopTask(id string) error {
 	a.mu.Lock()
 	running := a.running[id]
+	task := a.tasks[id]
+	if running == nil && task != nil && task.Status == StatusPending && task.Queued {
+		task.Queued = false
+		task.ElapsedText = ""
+		task.RemainingText = ""
+		task.LastMessage = "已取消排队"
+		task.Logs = appendLimited(task.Logs, timestampTaskLogLine("已取消排队。", time.Now()))
+		_ = a.saveStateLocked()
+		a.emitTaskLocked(task)
+		a.mu.Unlock()
+		return nil
+	}
 	a.mu.Unlock()
 	if running == nil {
 		return nil
@@ -526,9 +562,12 @@ func (a *App) RetryTask(id string) error {
 		return errors.New("任务正在运行")
 	}
 	task.Status = StatusPending
+	task.Queued = true
 	task.Progress = 0
 	task.ProgressText = ""
 	task.SpeedText = ""
+	task.ElapsedText = ""
+	task.RemainingText = ""
 	task.LastMessage = "等待重新开始"
 	task.ExitCode = 0
 	task.FinishedAt = nil
@@ -537,6 +576,33 @@ func (a *App) RetryTask(id string) error {
 	a.emitTaskLocked(task)
 	a.mu.Unlock()
 	return a.StartTask(id)
+}
+
+func (a *App) StartPendingTasks() (int, error) {
+	ids := a.taskIDsByStatus(StatusPending)
+	return a.startTasksByID(ids)
+}
+
+func (a *App) StopRunningTasks() (int, error) {
+	ids := a.runningTaskIDs()
+	for _, id := range ids {
+		if err := a.StopTask(id); err != nil {
+			return len(ids), err
+		}
+	}
+	return len(ids), nil
+}
+
+func (a *App) RetryFailedTasks() (int, error) {
+	ids := a.taskIDsByStatus(StatusFailed)
+	count := 0
+	for _, id := range ids {
+		if err := a.RetryTask(id); err != nil {
+			return count, err
+		}
+		count++
+	}
+	return count, nil
 }
 
 func (a *App) RemoveTask(id string) error {
@@ -551,6 +617,113 @@ func (a *App) RemoveTask(id string) error {
 	delete(a.tasks, id)
 	a.order = removeID(a.order, id)
 	return a.saveStateLocked()
+}
+
+func (a *App) startTasksByID(ids []string) (int, error) {
+	count := 0
+	for _, id := range ids {
+		if err := a.StartTask(id); err != nil {
+			return count, err
+		}
+		count++
+	}
+	return count, nil
+}
+
+func (a *App) taskIDsByStatus(statuses ...string) []string {
+	wanted := map[string]bool{}
+	for _, status := range statuses {
+		wanted[status] = true
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	ids := make([]string, 0, len(a.order))
+	for i := len(a.order) - 1; i >= 0; i-- {
+		id := a.order[i]
+		task := a.tasks[id]
+		if task != nil && wanted[task.Status] {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+func (a *App) runningTaskIDs() []string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	ids := make([]string, 0, len(a.order))
+	for i := len(a.order) - 1; i >= 0; i-- {
+		id := a.order[i]
+		if _, ok := a.running[id]; ok {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
+func (a *App) hasTaskSlotLocked() bool {
+	return a.activeTaskCountLocked() < a.maxActiveTasksLocked()
+}
+
+func (a *App) activeTaskCountLocked() int {
+	count := 0
+	for _, task := range a.tasks {
+		if task != nil && task.Status == StatusRunning {
+			count++
+		}
+	}
+	return count
+}
+
+func (a *App) maxActiveTasksLocked() int {
+	if a.settings.MaxActiveTasks <= 0 {
+		return 2
+	}
+	return a.settings.MaxActiveTasks
+}
+
+func (a *App) scheduleQueuedTasks() {
+	for {
+		a.mu.Lock()
+		if !a.hasTaskSlotLocked() {
+			a.mu.Unlock()
+			return
+		}
+		task := a.nextQueuedTaskLocked()
+		if task == nil {
+			a.mu.Unlock()
+			return
+		}
+		id := task.ID
+		task.Status = StatusRunning
+		task.Queued = false
+		task.Progress = 0
+		task.ProgressText = ""
+		task.SpeedText = ""
+		task.ElapsedText = "0秒"
+		task.RemainingText = ""
+		task.LastMessage = "正在启动下载核心"
+		task.ExitCode = 0
+		task.Files = nil
+		now := time.Now()
+		task.Logs = appendLimited(task.Logs, timestampTaskLogLine("正在启动下载核心", now))
+		task.StartedAt = &now
+		task.FinishedAt = nil
+		a.emitTaskLocked(task)
+		_ = a.saveStateLocked()
+		a.mu.Unlock()
+		go a.runTask(id)
+	}
+}
+
+func (a *App) nextQueuedTaskLocked() *Task {
+	for i := len(a.order) - 1; i >= 0; i-- {
+		task := a.tasks[a.order[i]]
+		if task != nil && task.Status == StatusPending && task.Queued {
+			return task
+		}
+	}
+	return nil
 }
 
 func (a *App) ClearFinishedTasks() error {
@@ -579,6 +752,56 @@ func (a *App) ListTaskFiles(id string) ([]TaskFile, error) {
 	_ = a.saveStateLocked()
 	a.mu.Unlock()
 	return files, nil
+}
+
+func (a *App) ExportTaskLog(id string) (TaskFile, error) {
+	a.mu.Lock()
+	task := a.tasks[id]
+	if task == nil {
+		a.mu.Unlock()
+		return TaskFile{}, errors.New("任务不存在")
+	}
+	snapshot := taskSnapshot(task)
+	a.mu.Unlock()
+
+	saveDir := strings.TrimSpace(snapshot.Request.SaveDir)
+	if saveDir == "" {
+		return TaskFile{}, errors.New("任务输出目录为空")
+	}
+	if err := os.MkdirAll(saveDir, 0755); err != nil {
+		return TaskFile{}, err
+	}
+
+	now := time.Now()
+	fileName := fmt.Sprintf("m3u8dl-go_%s_%s.log", safeLogFileComponent(snapshot.Title), now.Format("20060102_150405"))
+	path := uniqueDesktopOutputPath(filepath.Join(saveDir, fileName))
+	content := buildTaskLogExport(snapshot, now)
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		return TaskFile{}, err
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return TaskFile{}, err
+	}
+	exported := taskFileFromInfo(path, info)
+	a.appendTaskLog(id, "已导出日志: "+filepath.Base(path))
+
+	a.mu.Lock()
+	task = a.tasks[id]
+	if task != nil {
+		task.Files = scanTaskFiles(task)
+		files := append([]TaskFile(nil), task.Files...)
+		_ = a.saveStateLocked()
+		a.emitTaskLocked(task)
+		a.mu.Unlock()
+		if a.ctx != nil {
+			wailsRuntime.EventsEmit(a.ctx, "task:files", map[string]interface{}{"taskId": id, "files": files})
+		}
+		return exported, nil
+	}
+	a.mu.Unlock()
+	return exported, nil
 }
 
 func (a *App) OpenTaskFolder(id string) error {
@@ -825,6 +1048,7 @@ func (a *App) finishTask(id string, status string, exitCode int, message string)
 	}
 	now := time.Now()
 	task.Status = status
+	task.Queued = false
 	task.ExitCode = exitCode
 	task.LastMessage = message
 	task.FinishedAt = &now
@@ -833,6 +1057,7 @@ func (a *App) finishTask(id string, status string, exitCode int, message string)
 		task.ProgressText = "完成"
 		task.Files = scanTaskFiles(task)
 	}
+	updateTaskTiming(task, now)
 	logLine := timestampTaskLogLine(message, now)
 	task.Logs = appendLimited(task.Logs, logLine)
 	_ = a.saveStateLocked()
@@ -841,6 +1066,7 @@ func (a *App) finishTask(id string, status string, exitCode int, message string)
 
 	a.emitLog(id, logLine)
 	a.emitTask(snapshot)
+	a.scheduleQueuedTasks()
 }
 
 func (a *App) appendTaskLog(id string, line string) {
@@ -863,6 +1089,7 @@ func (a *App) appendTaskLog(id string, line string) {
 			task.ProgressText = fmt.Sprintf("%d/%d", current, total)
 		}
 	}
+	updateTaskTiming(task, now)
 	_ = a.saveStateLocked()
 	snapshot := taskSnapshot(task)
 	a.mu.Unlock()
@@ -898,6 +1125,70 @@ func parseProgress(line string) (int, int, string, bool) {
 		speed = strings.TrimSpace(matches[3])
 	}
 	return current, total, speed, true
+}
+
+func updateTaskTiming(task *Task, now time.Time) {
+	if task == nil || task.StartedAt == nil {
+		if task != nil {
+			task.ElapsedText = ""
+			task.RemainingText = ""
+		}
+		return
+	}
+	end := now
+	if task.FinishedAt != nil {
+		end = *task.FinishedAt
+	}
+	elapsed := end.Sub(*task.StartedAt)
+	if elapsed < 0 {
+		elapsed = 0
+	}
+	task.ElapsedText = formatTaskDuration(elapsed)
+	task.RemainingText = ""
+	if task.Status == StatusCompleted || (task.Status == StatusRunning && task.Progress >= 1) {
+		task.RemainingText = "0秒"
+		return
+	}
+	if task.Status != StatusRunning || task.Progress <= 0 || task.Progress >= 1 {
+		return
+	}
+	remaining := time.Duration(float64(elapsed) * (1 - task.Progress) / task.Progress)
+	if remaining < 0 {
+		remaining = 0
+	}
+	task.RemainingText = formatTaskDuration(remaining)
+}
+
+func formatTaskDuration(duration time.Duration) string {
+	if duration < 0 {
+		duration = 0
+	}
+	seconds := int(duration.Round(time.Second) / time.Second)
+	if seconds < 60 {
+		return fmt.Sprintf("%d秒", seconds)
+	}
+	minutes := seconds / 60
+	seconds = seconds % 60
+	if minutes < 60 {
+		if seconds == 0 {
+			return fmt.Sprintf("%d分", minutes)
+		}
+		return fmt.Sprintf("%d分%02d秒", minutes, seconds)
+	}
+	hours := minutes / 60
+	minutes = minutes % 60
+	if hours < 24 {
+		if minutes == 0 {
+			return fmt.Sprintf("%d小时", hours)
+		}
+		return fmt.Sprintf("%d小时%02d分", hours, minutes)
+	}
+	days := hours / 24
+	hours = hours % 24
+	if hours == 0 {
+		return fmt.Sprintf("%d天", days)
+	}
+	return fmt.Sprintf("%d天%d小时", days, hours)
 }
 
 func (a *App) emitLog(taskID string, line string) {
@@ -1059,13 +1350,7 @@ func scanTaskFiles(task *Task) []TaskFile {
 		if !isManagedOutputExt(ext) {
 			return nil
 		}
-		files = append(files, TaskFile{
-			Path:      path,
-			Name:      filepath.Base(path),
-			Size:      info.Size(),
-			Modified:  info.ModTime(),
-			Extension: ext,
-		})
+		files = append(files, taskFileFromInfo(path, info))
 		return nil
 	})
 	sort.Slice(files, func(i, j int) bool {
@@ -1074,12 +1359,148 @@ func scanTaskFiles(task *Task) []TaskFile {
 	return files
 }
 
+func taskFileFromInfo(path string, info fs.FileInfo) TaskFile {
+	return TaskFile{
+		Path:      path,
+		Name:      filepath.Base(path),
+		Size:      info.Size(),
+		Modified:  info.ModTime(),
+		Extension: strings.ToLower(filepath.Ext(path)),
+	}
+}
+
 func isManagedOutputExt(ext string) bool {
 	switch ext {
-	case ".mp4", ".mkv", ".ts", ".m4a", ".aac", ".ac3", ".eac3", ".vtt", ".srt", ".ttml", ".ass", ".m3u8", ".json":
+	case ".mp4", ".mkv", ".ts", ".m4a", ".aac", ".ac3", ".eac3", ".vtt", ".srt", ".ttml", ".ass", ".m3u8", ".json", ".log":
 		return true
 	default:
 		return false
+	}
+}
+
+func buildTaskLogExport(task Task, exportedAt time.Time) string {
+	var builder strings.Builder
+	writeExportLine := func(label string, value string) {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			value = "-"
+		}
+		builder.WriteString(label)
+		builder.WriteString(": ")
+		builder.WriteString(value)
+		builder.WriteByte('\n')
+	}
+
+	builder.WriteString("# m3u8dl-go 任务日志\n\n")
+	writeExportLine("导出时间", exportedAt.Format("2006-01-02 15:04:05"))
+	writeExportLine("任务ID", task.ID)
+	writeExportLine("任务名称", task.Title)
+	writeExportLine("状态", taskStatusForExport(task.Status))
+	writeExportLine("进度", task.ProgressText)
+	writeExportLine("耗时", task.ElapsedText)
+	writeExportLine("预计剩余", task.RemainingText)
+	writeExportLine("输出目录", task.Request.SaveDir)
+	writeExportLine("保存名", task.Request.SaveName)
+	writeExportLine("地址", task.Request.URL)
+	writeExportLine("创建时间", formatExportTime(task.CreatedAt))
+	writeExportLine("开始时间", formatExportTimePtr(task.StartedAt))
+	writeExportLine("结束时间", formatExportTimePtr(task.FinishedAt))
+	if task.CommandLine != "" {
+		writeExportLine("命令", redactTaskLogLine(task.CommandLine, task.Request))
+	}
+	if len(task.Request.Headers) > 0 {
+		writeExportLine("请求头", "已脱敏，不在日志文件中保留原文")
+	}
+	if proxy := strings.TrimSpace(task.Request.CustomProxy); proxy != "" {
+		writeExportLine("代理", redactProxyForDisplay(proxy))
+	}
+	builder.WriteString("\n## 日志\n")
+	for _, line := range task.Logs {
+		builder.WriteString(redactTaskLogLine(line, task.Request))
+		builder.WriteByte('\n')
+	}
+	return builder.String()
+}
+
+func taskStatusForExport(status string) string {
+	switch status {
+	case StatusPending:
+		return "等待"
+	case StatusRunning:
+		return "下载中"
+	case StatusCompleted:
+		return "完成"
+	case StatusFailed:
+		return "失败"
+	case StatusStopped:
+		return "已停止"
+	default:
+		return status
+	}
+}
+
+func formatExportTime(value time.Time) string {
+	if value.IsZero() {
+		return ""
+	}
+	return value.Format("2006-01-02 15:04:05")
+}
+
+func formatExportTimePtr(value *time.Time) string {
+	if value == nil {
+		return ""
+	}
+	return formatExportTime(*value)
+}
+
+func redactTaskLogLine(text string, req DownloadRequest) string {
+	return redactPreflightError(text, req)
+}
+
+func redactTaskLogLines(lines []string, req DownloadRequest) []string {
+	if len(lines) == 0 {
+		return nil
+	}
+	redacted := make([]string, len(lines))
+	for i, line := range lines {
+		redacted[i] = redactTaskLogLine(line, req)
+	}
+	return redacted
+}
+
+func safeLogFileComponent(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		value = "task"
+	}
+	value = strings.Map(func(r rune) rune {
+		if r < 32 || strings.ContainsRune(`/\?%*:|"<>`, r) {
+			return '_'
+		}
+		return r
+	}, value)
+	value = strings.Trim(value, " ._")
+	if value == "" {
+		value = "task"
+	}
+	runes := []rune(value)
+	if len(runes) > 64 {
+		value = string(runes[:64])
+	}
+	return value
+}
+
+func uniqueDesktopOutputPath(path string) string {
+	if _, err := os.Stat(path); err != nil {
+		return path
+	}
+	ext := filepath.Ext(path)
+	base := strings.TrimSuffix(path, ext)
+	for index := 2; ; index++ {
+		next := fmt.Sprintf("%s_%d%s", base, index, ext)
+		if _, err := os.Stat(next); err != nil {
+			return next
+		}
 	}
 }
 
@@ -1219,8 +1640,11 @@ func (a *App) saveStateLocked() error {
 	for _, id := range a.order {
 		if task := a.tasks[id]; task != nil {
 			snapshot := taskSnapshot(task)
-			// long: 请求头经常包含 Cookie，历史任务只持久化任务参数和状态，不把敏感 Header 或带 Header 的复现命令写入磁盘。
+			// long: 请求头经常包含 Cookie，历史任务只持久化任务参数和状态，不把敏感 Header 或带 Header 的复现命令/日志写入磁盘。
+			snapshot.LastMessage = redactTaskLogLine(snapshot.LastMessage, task.Request)
+			snapshot.Logs = redactTaskLogLines(snapshot.Logs, task.Request)
 			snapshot.Request.Headers = nil
+			snapshot.Request.CustomProxy = redactProxyForDisplay(snapshot.Request.CustomProxy)
 			snapshot.Args = nil
 			snapshot.CommandLine = ""
 			tasks = append(tasks, &snapshot)
