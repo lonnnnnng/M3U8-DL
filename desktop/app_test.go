@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -231,6 +232,94 @@ func TestExportTaskLogWritesRedactedLogFile(t *testing.T) {
 		if strings.Contains(string(state), secret) {
 			t.Fatalf("persisted state should not contain sensitive exported log data %q:\n%s", secret, state)
 		}
+	}
+}
+
+func TestClearTaskLogPersistsEmptyLog(t *testing.T) {
+	app := newTestApp(t)
+	task, err := app.CreateTask(DownloadRequest{
+		URL:            "https://example.com/index.m3u8",
+		SaveDir:        filepath.Join(t.TempDir(), "out"),
+		SaveName:       "log-cleanup",
+		AutoSelect:     true,
+		ThreadCount:    4,
+		RetryCount:     2,
+		UseSystemProxy: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.appendTaskLog(task.ID, "下载进度 1/2")
+	app.appendTaskLog(task.ID, "下载进度 2/2")
+
+	cleared, err := app.ClearTaskLog(task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cleared.Logs) != 0 {
+		t.Fatalf("cleared task should return empty logs, got %#v", cleared.Logs)
+	}
+	if cleared.Status != StatusPending || cleared.LastMessage == "" {
+		t.Fatalf("clearing logs should keep task state and last message, got %#v", cleared)
+	}
+
+	stateBytes, err := os.ReadFile(app.statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var persisted persistedState
+	if err := json.Unmarshal(stateBytes, &persisted); err != nil {
+		t.Fatal(err)
+	}
+	var persistedTask *Task
+	for _, item := range persisted.Tasks {
+		if item != nil && item.ID == task.ID {
+			persistedTask = item
+			break
+		}
+	}
+	if persistedTask == nil {
+		t.Fatalf("persisted task missing after clearing log: %#v", persisted.Tasks)
+	}
+	if len(persistedTask.Logs) != 0 {
+		t.Fatalf("persisted task should not keep cleared logs, got %#v", persistedTask.Logs)
+	}
+
+	reloaded := &App{
+		tasks:     map[string]*Task{},
+		running:   map[string]*runningTask{},
+		settings:  defaultSettings(),
+		statePath: app.statePath,
+	}
+	if err := reloaded.loadState(); err != nil {
+		t.Fatal(err)
+	}
+	loadedTask := reloaded.tasks[task.ID]
+	if loadedTask == nil {
+		t.Fatalf("loaded task missing after clearing log")
+	}
+	if len(loadedTask.Logs) != 0 {
+		t.Fatalf("reloaded task should keep empty logs, got %#v", loadedTask.Logs)
+	}
+}
+
+func TestRetryTaskRejectsNonFailedTask(t *testing.T) {
+	app := newTestApp(t)
+	task, err := app.CreateTask(DownloadRequest{
+		URL:            "https://example.com/index.m3u8",
+		SaveDir:        filepath.Join(t.TempDir(), "out"),
+		AutoSelect:     true,
+		ThreadCount:    4,
+		RetryCount:     2,
+		UseSystemProxy: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = app.RetryTask(task.ID)
+	if err == nil || !strings.Contains(err.Error(), "只有失败任务可以重试") {
+		t.Fatalf("pending task should not use retry path, got %v", err)
 	}
 }
 

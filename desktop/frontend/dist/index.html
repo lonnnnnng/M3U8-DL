@@ -62,6 +62,13 @@
                     <option value="failed">失败</option>
                     <option value="stopped">已停止</option>
                   </select>
+                  <select id="task-sort" aria-label="任务排序">
+                    <option value="newest">最新</option>
+                    <option value="oldest">最旧</option>
+                    <option value="status">状态</option>
+                    <option value="progress">进度</option>
+                    <option value="title">名称</option>
+                  </select>
                   <button class="small-link" type="button" data-view-shortcut="create">新增</button>
                 </div>
               </div>
@@ -235,7 +242,7 @@
                 <span>任务日志</span>
                 <div>
                   <button id="export-log" type="button">导出日志</button>
-                  <button id="clear-log" type="button">清空显示</button>
+                  <button id="clear-log" type="button">清空日志</button>
                 </div>
               </div>
               <pre id="log"></pre>
@@ -245,6 +252,7 @@
       </section>
     </main>
 
+    <div id="toast-host" class="toast-host" aria-live="polite" aria-atomic="true"></div>
     <script src="./app.js"></script>
   </body>
 </html>

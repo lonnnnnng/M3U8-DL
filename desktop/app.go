@@ -599,6 +599,11 @@ func (a *App) RetryTask(id string) error {
 		a.mu.Unlock()
 		return errors.New("任务正在运行")
 	}
+	if task.Status != StatusFailed {
+		// long: 重试只保留给失败任务；等待、停止或已完成任务应通过开始入口重新执行，避免状态语义混在一起。
+		a.mu.Unlock()
+		return errors.New("只有失败任务可以重试")
+	}
 	task.Status = StatusPending
 	task.Queued = true
 	task.Progress = 0
@@ -842,6 +847,22 @@ func (a *App) ExportTaskLog(id string) (TaskFile, error) {
 	}
 	a.mu.Unlock()
 	return exported, nil
+}
+
+func (a *App) ClearTaskLog(id string) (Task, error) {
+	a.mu.Lock()
+	task := a.tasks[id]
+	if task == nil {
+		a.mu.Unlock()
+		return Task{}, errors.New("任务不存在")
+	}
+	// long: 清空日志只影响任务详情里的排障输出，任务状态、文件列表和最后消息继续保留，避免用户误以为任务记录被删除。
+	task.Logs = nil
+	snapshot := taskSnapshot(task)
+	err := a.saveStateLocked()
+	a.emitTaskLocked(task)
+	a.mu.Unlock()
+	return snapshot, err
 }
 
 func (a *App) OpenTaskFolder(id string) error {

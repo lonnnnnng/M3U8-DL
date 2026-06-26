@@ -58,6 +58,16 @@ button:active {
   background: #ececf0;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+  background: #f0f0f3;
+}
+
+button[data-busy="true"] {
+  color: #4a4a4f;
+}
+
 .app-shell {
   height: 100vh;
   min-height: 700px;
@@ -277,10 +287,10 @@ h1 {
 
 .task-tools {
   display: grid;
-  grid-template-columns: minmax(150px, 1fr) 92px 54px;
+  grid-template-columns: minmax(150px, 1fr) 92px 82px 54px;
   gap: 8px;
   align-items: center;
-  max-width: min(100%, 360px);
+  max-width: min(100%, 450px);
 }
 
 .task-tools input,
@@ -891,6 +901,45 @@ textarea:focus {
   line-height: 1.55;
 }
 
+.toast-host {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 40;
+  width: min(360px, calc(100vw - 36px));
+  display: grid;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #d7d7de;
+  border-left: 4px solid var(--accent);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.14);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  pointer-events: auto;
+}
+
+.toast.success {
+  border-left-color: var(--green);
+}
+
+.toast.warning {
+  border-left-color: var(--orange);
+}
+
+.toast.error {
+  border-left-color: var(--red);
+}
+
 @media (max-width: 900px) {
   body {
     min-width: 0;
@@ -968,7 +1017,7 @@ textarea:focus {
   .task-tools {
     width: 100%;
     max-width: none;
-    grid-template-columns: minmax(0, 1fr) 92px 54px;
+    grid-template-columns: minmax(0, 1fr) 92px 82px 54px;
   }
 
   .core-grid,

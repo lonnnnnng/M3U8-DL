@@ -26,11 +26,24 @@ const el = {
   coreVersion: document.querySelector("#core-version"),
   corePath: document.querySelector("#core-path"),
   refreshCore: document.querySelector("#refresh-core"),
+  refreshTasks: document.querySelector("#refresh-tasks"),
+  startPending: document.querySelector("#start-pending"),
+  stopRunning: document.querySelector("#stop-running"),
+  retryFailed: document.querySelector("#retry-failed"),
+  clearFinished: document.querySelector("#clear-finished"),
   copyCommand: document.querySelector("#copy-command"),
   copyLog: document.querySelector("#copy-log"),
   exportLog: document.querySelector("#export-log"),
+  startSelected: document.querySelector("#start-selected"),
+  stopSelected: document.querySelector("#stop-selected"),
+  retrySelected: document.querySelector("#retry-selected"),
+  removeSelected: document.querySelector("#remove-selected"),
+  refreshFiles: document.querySelector("#refresh-files"),
+  openFolder: document.querySelector("#open-folder"),
+  clearLog: document.querySelector("#clear-log"),
   taskSearch: document.querySelector("#task-search"),
   taskStatusFilter: document.querySelector("#task-status-filter"),
+  taskSort: document.querySelector("#task-sort"),
   preflightResult: document.querySelector("#preflight-result"),
   taskList: document.querySelector("#task-list"),
   taskCount: document.querySelector("#task-count"),
@@ -42,6 +55,7 @@ const el = {
   taskSummary: document.querySelector("#task-summary"),
   fileList: document.querySelector("#file-list"),
   log: document.querySelector("#log"),
+  toastHost: document.querySelector("#toast-host"),
   navItems: Array.from(document.querySelectorAll("[data-view]")),
   views: Array.from(document.querySelectorAll(".view"))
 };
@@ -50,9 +64,11 @@ let settings = {};
 let tasks = [];
 let selectedTaskId = "";
 let createOnly = false;
+let createActionButton = null;
 let activeView = "dashboard";
 let taskSearchText = "";
 let taskStatusFilter = "all";
+let taskSortMode = "newest";
 
 const defaultTools = [
   { name: "ffmpeg", label: "FFmpeg" },
@@ -179,6 +195,45 @@ function taskTimingText(task) {
   return parts.join(" · ");
 }
 
+function taskTimeValue(value) {
+  if (!value) return 0;
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? 0 : time;
+}
+
+function taskSortRank(task) {
+  if (task?.status === "running") return 0;
+  if (task?.status === "pending" && task?.queued) return 1;
+  if (task?.status === "pending") return 2;
+  if (task?.status === "failed") return 3;
+  if (task?.status === "stopped") return 4;
+  if (task?.status === "completed") return 5;
+  return 6;
+}
+
+function compareTasks(left, right) {
+  const newest = taskTimeValue(right.createdAt) - taskTimeValue(left.createdAt);
+  switch (taskSortMode) {
+    case "oldest":
+      return taskTimeValue(left.createdAt) - taskTimeValue(right.createdAt);
+    case "status": {
+      const rank = taskSortRank(left) - taskSortRank(right);
+      return rank || newest;
+    }
+    case "progress": {
+      const progress = Number(right.progress || 0) - Number(left.progress || 0);
+      return progress || newest;
+    }
+    case "title": {
+      const title = String(left.title || "").localeCompare(String(right.title || ""), "zh-CN");
+      return title || newest;
+    }
+    case "newest":
+    default:
+      return newest;
+  }
+}
+
 function formatSize(bytes) {
   if (!bytes) return "0 B";
   const units = ["B", "KB", "MB", "GB"];
@@ -198,6 +253,96 @@ function formatDate(value) {
   return date.toLocaleString("zh-CN", { hour12: false });
 }
 
+function errorMessage(error) {
+  return String(error?.message || error || "操作失败");
+}
+
+function notify(message, type = "info") {
+  const text = String(message || "").trim();
+  if (!text || !el.toastHost) return;
+  const toast = document.createElement("div");
+  toast.className = `toast ${type}`;
+  toast.textContent = text;
+  el.toastHost.appendChild(toast);
+  window.setTimeout(() => {
+    toast.remove();
+  }, type === "error" ? 5200 : 3200);
+}
+
+function reportError(error) {
+  notify(errorMessage(error), "error");
+}
+
+async function withBusy(button, busyText, action) {
+  if (!button) {
+    return action();
+  }
+  if (button.disabled) {
+    return undefined;
+  }
+  const previousText = button.textContent;
+  button.disabled = true;
+  button.setAttribute("aria-disabled", "true");
+  button.dataset.busy = "true";
+  if (busyText) {
+    button.textContent = busyText;
+  }
+  try {
+    return await action();
+  } finally {
+    button.disabled = false;
+    button.setAttribute("aria-disabled", "false");
+    delete button.dataset.busy;
+    button.textContent = previousText;
+    updateToolbarActionStates();
+    updateSelectedTaskActions();
+  }
+}
+
+function setActionState(button, enabled, reason = "") {
+  if (!button || button.dataset.busy === "true") return;
+  button.disabled = !enabled;
+  button.setAttribute("aria-disabled", enabled ? "false" : "true");
+  button.title = enabled ? "" : reason;
+}
+
+function updateSelectedTaskActions() {
+  const task = selectedTask();
+  const hasTask = Boolean(task);
+  const isRunning = task?.status === "running";
+  const isQueued = task?.status === "pending" && task?.queued;
+  const canStart = hasTask && !isRunning && !isQueued && task.status !== "failed";
+  const canStop = hasTask && (isRunning || isQueued);
+  const canRetry = hasTask && task.status === "failed";
+  const canRemove = hasTask && !isRunning;
+  const hasLogs = hasTask && Array.isArray(task.logs) && task.logs.length > 0;
+  const startDisabledReason = hasTask && task.status === "failed" ? "失败任务请使用重试" : "运行中或排队中的任务不能重复开始";
+
+  setActionState(el.copyCommand, hasTask && Boolean(task.commandLine), hasTask ? "当前任务还没有生成命令" : "请先选择一个任务");
+  setActionState(el.copyLog, hasLogs, hasTask ? "当前任务没有日志" : "请先选择一个任务");
+  setActionState(el.startSelected, canStart, hasTask ? startDisabledReason : "请先选择一个任务");
+  setActionState(el.stopSelected, canStop, hasTask ? "只有运行中或排队中的任务可以停止" : "请先选择一个任务");
+  setActionState(el.retrySelected, canRetry, hasTask ? "只有失败任务可以重试" : "请先选择一个任务");
+  setActionState(el.removeSelected, canRemove, hasTask ? "运行中的任务不能移除" : "请先选择一个任务");
+  setActionState(el.exportLog, hasLogs, hasTask ? "当前任务没有日志可导出" : "请先选择一个任务");
+  setActionState(el.clearLog, hasLogs, hasTask ? "当前任务没有日志可清空" : "请先选择一个任务");
+  setActionState(el.refreshFiles, hasTask, "请先选择一个任务");
+  setActionState(el.openFolder, hasTask, "请先选择一个任务");
+}
+
+function updateToolbarActionStates() {
+  const hasPending = tasks.some((task) => task.status === "pending");
+  const hasRunning = tasks.some((task) => task.status === "running");
+  const hasFailed = tasks.some((task) => task.status === "failed");
+  const hasFinished = tasks.some((task) => ["completed", "failed", "stopped"].includes(task.status));
+
+  setActionState(el.refreshTasks, true);
+  setActionState(el.startPending, hasPending, "没有等待中的任务");
+  setActionState(el.stopRunning, hasRunning, "没有运行中的任务");
+  setActionState(el.retryFailed, hasFailed, "没有失败任务");
+  setActionState(el.clearFinished, hasFinished, "没有可清理的完成、失败或停止任务");
+}
+
 function switchView(name) {
   activeView = viewMeta[name] ? name : "dashboard";
   const [kicker, title] = viewMeta[activeView];
@@ -213,10 +358,11 @@ function switchView(name) {
 
 function renderTasks() {
   const running = tasks.filter((task) => task.status === "running");
-  const visibleTasks = tasks.filter(taskMatchesCurrentFilter);
+  const visibleTasks = tasks.filter(taskMatchesCurrentFilter).slice().sort(compareTasks);
   el.taskCount.textContent = visibleTasks.length === tasks.length ? `${tasks.length}` : `${visibleTasks.length}/${tasks.length}`;
   el.runningCount.textContent = `${running.length} 个运行中`;
   el.activeSpeed.textContent = running.find((task) => task.speedText)?.speedText || "0 B/s";
+  updateToolbarActionStates();
   if (!tasks.length) {
     el.taskList.innerHTML = `<div class="empty">暂无任务。</div>`;
     renderDetail();
@@ -290,6 +436,7 @@ function renderDetail() {
     el.fileList.className = "file-list empty";
     el.fileList.textContent = "暂无文件。";
     el.log.textContent = "";
+    updateSelectedTaskActions();
     return;
   }
 
@@ -312,6 +459,7 @@ function renderDetail() {
   renderFiles(task.files);
   el.log.textContent = (task.logs || []).join("\n");
   el.log.scrollTop = el.log.scrollHeight;
+  updateSelectedTaskActions();
 }
 
 function renderFiles(files) {
@@ -335,13 +483,28 @@ function renderFiles(files) {
   `).join("");
 
   el.fileList.querySelectorAll("[data-open-file]").forEach((button) => {
-    button.addEventListener("click", () => api().RevealPath(button.dataset.openFile));
+    button.addEventListener("click", () => {
+      withBusy(button, "打开中", async () => {
+        try {
+          await api().RevealPath(button.dataset.openFile);
+        } catch (error) {
+          reportError(error);
+        }
+      });
+    });
   });
   el.fileList.querySelectorAll("[data-delete-file]").forEach((button) => {
     button.addEventListener("click", async () => {
       if (!window.confirm("确认删除这个输出文件？")) return;
-      await api().DeleteTaskFile(selectedTaskId, button.dataset.deleteFile);
-      await refreshFiles();
+      await withBusy(button, "删除中", async () => {
+        try {
+          await api().DeleteTaskFile(selectedTaskId, button.dataset.deleteFile);
+          await refreshFiles();
+          notify("文件已删除。", "success");
+        } catch (error) {
+          reportError(error);
+        }
+      });
     });
   });
 }
@@ -541,8 +704,8 @@ function escapeHTML(value) {
 async function copyText(text, successMessage) {
   const value = String(text || "").trim();
   if (!value) {
-    window.alert("没有可复制的内容。");
-    return;
+    notify("没有可复制的内容。", "warning");
+    return false;
   }
   let copied = false;
   if (navigator.clipboard?.writeText) {
@@ -568,8 +731,9 @@ async function copyText(text, successMessage) {
     }
   }
   if (successMessage) {
-    window.alert(successMessage);
+    notify(successMessage, "success");
   }
+  return true;
 }
 
 window.runtime?.EventsOn("task:update", (rawTask) => upsertTask(rawTask));
@@ -604,75 +768,115 @@ window.runtime?.EventsOn("task:files", (event) => {
 
 document.querySelector("#task-form").addEventListener("submit", async (event) => {
   event.preventDefault();
+  const startNow = !createOnly;
+  const button = createActionButton || event.submitter || document.querySelector("#create-start");
   try {
-    await createTask(!createOnly);
+    await withBusy(button, "创建中", async () => {
+      await createTask(startNow);
+      notify(startNow ? "任务已创建并开始下载。" : "任务已创建。", "success");
+    });
   } catch (error) {
-    window.alert(String(error?.message || error));
+    reportError(error);
   } finally {
     createOnly = false;
+    createActionButton = null;
   }
 });
 
 document.querySelector("#create-only").addEventListener("click", () => {
   createOnly = true;
+  createActionButton = document.querySelector("#create-only");
   document.querySelector("#task-form").requestSubmit();
 });
 document.querySelector("#preflight-task").addEventListener("click", async () => {
-  el.preflightResult.className = "preflight-card field-wide";
-  el.preflightResult.textContent = "正在预检查";
-  try {
-    renderPreflight(await api().PreflightDownload(collectRequest()));
-  } catch (error) {
-    renderPreflight({
-      status: "error",
-      message: "预检查失败",
-      checks: [{ name: "preflight", label: "预检查", status: "error", message: String(error?.message || error) }]
-    });
-  }
+  await withBusy(document.querySelector("#preflight-task"), "检查中", async () => {
+    el.preflightResult.className = "preflight-card field-wide";
+    el.preflightResult.textContent = "正在预检查";
+    try {
+      renderPreflight(await api().PreflightDownload(collectRequest()));
+      notify("预检查完成。", "success");
+    } catch (error) {
+      renderPreflight({
+        status: "error",
+        message: "预检查失败",
+        checks: [{ name: "preflight", label: "预检查", status: "error", message: errorMessage(error) }]
+      });
+      reportError(error);
+    }
+  });
 });
 document.querySelector("#copy-form-command").addEventListener("click", async () => {
-  try {
-    const commandText = await api().PreviewCommands(collectRequest());
-    await copyText(commandText, "当前任务命令已复制。");
-  } catch (error) {
-    window.alert(String(error?.message || error));
-  }
+  await withBusy(document.querySelector("#copy-form-command"), "复制中", async () => {
+    try {
+      const commandText = await api().PreviewCommands(collectRequest());
+      await copyText(commandText, "当前任务命令已复制。");
+    } catch (error) {
+      reportError(error);
+    }
+  });
 });
 
 document.querySelector("#choose-dir").addEventListener("click", async () => {
-  const selected = await api().ChooseDirectory(el.saveDir.value.trim());
-  if (selected) {
-    el.saveDir.value = selected;
-  }
+  await withBusy(document.querySelector("#choose-dir"), "选择中", async () => {
+    try {
+      const selected = await api().ChooseDirectory(el.saveDir.value.trim());
+      if (selected) {
+        el.saveDir.value = selected;
+      }
+    } catch (error) {
+      reportError(error);
+    }
+  });
 });
 
 document.querySelector("#save-settings").addEventListener("click", async () => {
-  applySettings(await api().SaveSettings(collectSettings()));
+  await withBusy(document.querySelector("#save-settings"), "保存中", async () => {
+    try {
+      applySettings(await api().SaveSettings(collectSettings()));
+      notify("设置已保存。", "success");
+    } catch (error) {
+      reportError(error);
+    }
+  });
 });
 el.checkFFmpeg.addEventListener("click", async () => {
-  el.ffmpegCheck.classList.remove("ok", "error");
-  el.ffmpegCheck.textContent = "检测中";
-  try {
-    applyToolCheck(el.ffmpegCheck, await api().CheckFFmpeg(el.ffmpegPath.value.trim()));
-  } catch (error) {
-    applyToolCheck(el.ffmpegCheck, { status: "error", error: String(error?.message || error) });
-  }
+  await withBusy(el.checkFFmpeg, "检测中", async () => {
+    el.ffmpegCheck.classList.remove("ok", "error");
+    el.ffmpegCheck.textContent = "检测中";
+    try {
+      applyToolCheck(el.ffmpegCheck, await api().CheckFFmpeg(el.ffmpegPath.value.trim()));
+      notify("FFmpeg 检测完成。", "success");
+    } catch (error) {
+      applyToolCheck(el.ffmpegCheck, { status: "error", error: errorMessage(error) });
+      reportError(error);
+    }
+  });
 });
 el.checkTools.addEventListener("click", async () => {
-  renderToolList(defaultTools, "检测中");
-  try {
-    renderToolList(await api().CheckTools(el.ffmpegPath.value.trim()));
-  } catch (error) {
-    renderToolList(defaultTools.map((tool) => ({
-      ...tool,
-      status: "error",
-      error: String(error?.message || error)
-    })));
-  }
+  await withBusy(el.checkTools, "检测中", async () => {
+    renderToolList(defaultTools, "检测中");
+    try {
+      renderToolList(await api().CheckTools(el.ffmpegPath.value.trim()));
+      notify("外部工具检测完成。", "success");
+    } catch (error) {
+      renderToolList(defaultTools.map((tool) => ({
+        ...tool,
+        status: "error",
+        error: errorMessage(error)
+      })));
+      reportError(error);
+    }
+  });
 });
 el.refreshCore.addEventListener("click", () => {
-  refreshCoreInfo().catch((error) => {
-    applyCoreInfo({ status: "error", error: String(error?.message || error) });
+  withBusy(el.refreshCore, "刷新中", async () => {
+    try {
+      await refreshCoreInfo();
+      notify("下载核心状态已刷新。", "success");
+    } catch (error) {
+      applyCoreInfo({ status: "error", error: errorMessage(error) });
+      reportError(error);
+    }
   });
 });
 el.taskSearch.addEventListener("input", () => {
@@ -683,89 +887,205 @@ el.taskStatusFilter.addEventListener("change", () => {
   taskStatusFilter = el.taskStatusFilter.value || "all";
   renderTasks();
 });
+el.taskSort.addEventListener("change", () => {
+  taskSortMode = el.taskSort.value || "newest";
+  renderTasks();
+});
 
-document.querySelector("#refresh-tasks").addEventListener("click", refreshTasks);
-document.querySelector("#start-pending").addEventListener("click", async () => {
-  try {
-    const count = await api().StartPendingTasks();
-    await refreshTasks();
-    window.alert(count ? `已开始 ${count} 个等待任务。` : "没有等待中的任务。");
-  } catch (error) {
-    window.alert(String(error?.message || error));
-  }
+el.refreshTasks.addEventListener("click", async () => {
+  await withBusy(el.refreshTasks, "刷新中", async () => {
+    try {
+      await refreshTasks();
+      notify("任务列表已刷新。", "success");
+    } catch (error) {
+      reportError(error);
+    }
+  });
 });
-document.querySelector("#stop-running").addEventListener("click", async () => {
+el.startPending.addEventListener("click", async () => {
+  await withBusy(el.startPending, "开始中", async () => {
+    try {
+      const count = await api().StartPendingTasks();
+      await refreshTasks();
+      notify(count ? `已开始 ${count} 个等待任务。` : "没有等待中的任务。", count ? "success" : "warning");
+    } catch (error) {
+      reportError(error);
+    }
+  });
+});
+el.stopRunning.addEventListener("click", async () => {
   if (!window.confirm("确认停止所有运行中的任务？")) return;
-  try {
-    const count = await api().StopRunningTasks();
-    await refreshTasks();
-    window.alert(count ? `已请求停止 ${count} 个运行中任务。` : "没有运行中的任务。");
-  } catch (error) {
-    window.alert(String(error?.message || error));
+  await withBusy(el.stopRunning, "停止中", async () => {
+    try {
+      const count = await api().StopRunningTasks();
+      await refreshTasks();
+      notify(count ? `已请求停止 ${count} 个运行中任务。` : "没有运行中的任务。", count ? "success" : "warning");
+    } catch (error) {
+      reportError(error);
+    }
+  });
+});
+el.retryFailed.addEventListener("click", async () => {
+  await withBusy(el.retryFailed, "重试中", async () => {
+    try {
+      const count = await api().RetryFailedTasks();
+      await refreshTasks();
+      notify(count ? `已重试 ${count} 个失败任务。` : "没有失败任务。", count ? "success" : "warning");
+    } catch (error) {
+      reportError(error);
+    }
+  });
+});
+el.clearFinished.addEventListener("click", async () => {
+  await withBusy(el.clearFinished, "清理中", async () => {
+    try {
+      await api().ClearFinishedTasks();
+      await refreshTasks();
+      notify("已清理完成、失败和停止的任务。", "success");
+    } catch (error) {
+      reportError(error);
+    }
+  });
+});
+el.startSelected.addEventListener("click", async () => {
+  if (!selectedTaskId) {
+    notify("请先选择一个任务。", "warning");
+    return;
   }
+  await withBusy(el.startSelected, "开始中", async () => {
+    try {
+      await api().StartTask(selectedTaskId);
+      await refreshTasks();
+      notify("任务已开始。", "success");
+    } catch (error) {
+      reportError(error);
+    }
+  });
 });
-document.querySelector("#retry-failed").addEventListener("click", async () => {
-  try {
-    const count = await api().RetryFailedTasks();
-    await refreshTasks();
-    window.alert(count ? `已重试 ${count} 个失败任务。` : "没有失败任务。");
-  } catch (error) {
-    window.alert(String(error?.message || error));
+el.stopSelected.addEventListener("click", async () => {
+  if (!selectedTaskId) {
+    notify("请先选择一个任务。", "warning");
+    return;
   }
+  await withBusy(el.stopSelected, "停止中", async () => {
+    try {
+      await api().StopTask(selectedTaskId);
+      await refreshTasks();
+      notify("已请求停止任务。", "success");
+    } catch (error) {
+      reportError(error);
+    }
+  });
 });
-document.querySelector("#clear-finished").addEventListener("click", async () => {
-  await api().ClearFinishedTasks();
-  await refreshTasks();
-});
-document.querySelector("#start-selected").addEventListener("click", async () => {
-  if (selectedTaskId) await api().StartTask(selectedTaskId);
-});
-document.querySelector("#stop-selected").addEventListener("click", async () => {
-  if (selectedTaskId) await api().StopTask(selectedTaskId);
-});
-document.querySelector("#retry-selected").addEventListener("click", async () => {
-  if (selectedTaskId) await api().RetryTask(selectedTaskId);
+el.retrySelected.addEventListener("click", async () => {
+  if (!selectedTaskId) {
+    notify("请先选择一个任务。", "warning");
+    return;
+  }
+  await withBusy(el.retrySelected, "重试中", async () => {
+    try {
+      await api().RetryTask(selectedTaskId);
+      await refreshTasks();
+      notify("任务已重新排队。", "success");
+    } catch (error) {
+      reportError(error);
+    }
+  });
 });
 el.copyCommand.addEventListener("click", async () => {
   const task = selectedTask();
-  if (!task) return;
-  try {
-    await copyText(task.commandLine, "任务命令已复制。");
-  } catch (error) {
-    window.alert(String(error?.message || error));
+  if (!task) {
+    notify("请先选择一个任务。", "warning");
+    return;
   }
+  await withBusy(el.copyCommand, "复制中", async () => {
+    try {
+      await copyText(task.commandLine, "任务命令已复制。");
+    } catch (error) {
+      reportError(error);
+    }
+  });
 });
 el.copyLog.addEventListener("click", async () => {
   const task = selectedTask();
-  if (!task) return;
-  try {
-    await copyText((task.logs || []).join("\n"), "任务日志已复制。");
-  } catch (error) {
-    window.alert(String(error?.message || error));
+  if (!task) {
+    notify("请先选择一个任务。", "warning");
+    return;
   }
+  await withBusy(el.copyLog, "复制中", async () => {
+    try {
+      await copyText((task.logs || []).join("\n"), "任务日志已复制。");
+    } catch (error) {
+      reportError(error);
+    }
+  });
 });
 el.exportLog.addEventListener("click", async () => {
-  if (!selectedTaskId) return;
-  try {
-    const file = normalizeFiles([await api().ExportTaskLog(selectedTaskId)])[0];
-    await refreshFiles();
-    window.alert(`日志已导出：${file?.name || "完成"}`);
-  } catch (error) {
-    window.alert(String(error?.message || error));
+  if (!selectedTaskId) {
+    notify("请先选择一个任务。", "warning");
+    return;
   }
+  await withBusy(el.exportLog, "导出中", async () => {
+    try {
+      const file = normalizeFiles([await api().ExportTaskLog(selectedTaskId)])[0];
+      await refreshFiles();
+      notify(`日志已导出：${file?.name || "完成"}`, "success");
+    } catch (error) {
+      reportError(error);
+    }
+  });
 });
-document.querySelector("#remove-selected").addEventListener("click", async () => {
+el.removeSelected.addEventListener("click", async () => {
   if (!selectedTaskId || !window.confirm("确认移除这个任务？输出文件不会删除。")) return;
-  await api().RemoveTask(selectedTaskId);
-  selectedTaskId = "";
-  await refreshTasks();
+  await withBusy(el.removeSelected, "移除中", async () => {
+    try {
+      await api().RemoveTask(selectedTaskId);
+      selectedTaskId = "";
+      await refreshTasks();
+      notify("任务已移除。", "success");
+    } catch (error) {
+      reportError(error);
+    }
+  });
 });
-document.querySelector("#refresh-files").addEventListener("click", refreshFiles);
-document.querySelector("#open-folder").addEventListener("click", async () => {
-  if (selectedTaskId) await api().OpenTaskFolder(selectedTaskId);
+el.refreshFiles.addEventListener("click", async () => {
+  await withBusy(el.refreshFiles, "刷新中", async () => {
+    try {
+      await refreshFiles();
+      notify("文件列表已刷新。", "success");
+    } catch (error) {
+      reportError(error);
+    }
+  });
 });
-document.querySelector("#clear-log").addEventListener("click", () => {
-  el.log.textContent = "";
+el.openFolder.addEventListener("click", async () => {
+  if (!selectedTaskId) {
+    notify("请先选择一个任务。", "warning");
+    return;
+  }
+  await withBusy(el.openFolder, "打开中", async () => {
+    try {
+      await api().OpenTaskFolder(selectedTaskId);
+    } catch (error) {
+      reportError(error);
+    }
+  });
+});
+el.clearLog.addEventListener("click", async () => {
+  if (!selectedTaskId) {
+    notify("请先选择一个任务。", "warning");
+    return;
+  }
+  await withBusy(el.clearLog, "清空中", async () => {
+    try {
+      const task = normalizeTask(await api().ClearTaskLog(selectedTaskId));
+      upsertTask(task);
+      el.log.textContent = "";
+      notify("任务日志已清空。", "success");
+    } catch (error) {
+      reportError(error);
+    }
+  });
 });
 el.navItems.forEach((button) => {
   button.addEventListener("click", () => switchView(button.dataset.view));
