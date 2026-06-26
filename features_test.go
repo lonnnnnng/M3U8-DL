@@ -124,6 +124,14 @@ func TestParseArgsBooleanExplicitFalse(t *testing.T) {
 	if opt.Input != "https://example.com/main.m3u8" {
 		t.Fatalf("input parsed incorrectly: %s", opt.Input)
 	}
+
+	opt, err = parseArgs([]string{"--progress-json", "true", "https://example.com/main.m3u8"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !opt.ProgressJSON {
+		t.Fatal("progress-json true was not parsed")
+	}
 }
 
 func TestConsoleRedirectDefaultsFollowUpstream(t *testing.T) {
@@ -928,6 +936,7 @@ func TestUsageUsesUpstreamCommandDescriptionResources(t *testing.T) {
 		"--doctor-json",
 		"--print-effective-options",
 		"--ui-language <zh-CN|zh-TW|en-US>",
+		"--progress-json",
 		"--auto-select",
 		"Automatically selects the best tracks of all types",
 		"Show help information",
@@ -936,6 +945,7 @@ func TestUsageUsesUpstreamCommandDescriptionResources(t *testing.T) {
 		"Check external tools such as ffmpeg",
 		"Show external tool diagnostics as JSON",
 		"Show parsed effective options as JSON",
+		"Output machine-readable download progress, summary, and errors as JSON lines",
 		"Set UI language",
 		"Set output directory",
 		"Pass custom header(s) to server",
@@ -4819,6 +4829,148 @@ func TestSetupLoggingTimestampsConsoleOutput(t *testing.T) {
 	}
 }
 
+func TestProgressJSONBypassesConsoleTimestamp(t *testing.T) {
+	out := captureStdout(t, func() {
+		cleanup, actual, err := setupLogging(Options{NoLog: true}, []string{"m3u8dl-go", "--progress-json", "true"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if actual != "" {
+			t.Fatalf("no-log should not return a path: %s", actual)
+		}
+		reporter := newDownloadProgressReporter(Options{ProgressJSON: true}, "Vid", 5)
+		reporter.startedAt = time.Now().Add(-time.Second)
+		reporter.bytes = 2 * 1024 * 1024
+		reporter.print(2)
+		if err := cleanup(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	line := strings.TrimSpace(out)
+	if !strings.HasPrefix(line, "{") {
+		t.Fatalf("progress json should be raw JSON without console timestamp, got %q", out)
+	}
+	var event downloadProgressEvent
+	if err := json.Unmarshal([]byte(line), &event); err != nil {
+		t.Fatalf("progress json should parse after logging setup: %v\n%s", err, out)
+	}
+	if event.Type != "progress" || event.Timestamp == "" {
+		t.Fatalf("progress json should include event metadata: %#v", event)
+	}
+}
+
+func TestProgressJSONMirrorsRawLineToLogFile(t *testing.T) {
+	tmp := t.TempDir()
+	logPath := filepath.Join(tmp, "progress.log")
+	out := captureStdout(t, func() {
+		cleanup, actual, err := setupLogging(Options{LogFilePath: logPath}, []string{"m3u8dl-go", "--progress-json", "true"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if actual != logPath {
+			t.Fatalf("log path mismatch: %s", actual)
+		}
+		reporter := newDownloadProgressReporter(Options{ProgressJSON: true}, "Vid", 5)
+		reporter.startedAt = time.Now().Add(-time.Second)
+		reporter.bytes = 2 * 1024 * 1024
+		reporter.print(2)
+		if err := cleanup(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	line := strings.TrimSpace(out)
+	if !strings.HasPrefix(line, "{") {
+		t.Fatalf("progress json stdout should remain raw JSON, got %q", out)
+	}
+	var event downloadProgressEvent
+	if err := json.Unmarshal([]byte(line), &event); err != nil {
+		t.Fatalf("progress json stdout should parse: %v\n%s", err, out)
+	}
+	contentBytes, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(contentBytes)
+	if !strings.Contains(content, line) {
+		t.Fatalf("progress json should be mirrored to log file:\nstdout=%s\nlog=%s", line, content)
+	}
+	if strings.Contains(content, "] "+line) {
+		t.Fatalf("mirrored progress json should not receive an extra log timestamp:\n%s", content)
+	}
+}
+
+func TestDownloadSummaryJSONIncludesExistingOutputs(t *testing.T) {
+	tmp := t.TempDir()
+	output := filepath.Join(tmp, "movie.mp4")
+	if err := os.WriteFile(output, []byte("media"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	missing := filepath.Join(tmp, "missing.mp4")
+	video := MediaVideo
+	out := captureStdout(t, func() {
+		cleanup, actual, err := setupLogging(Options{NoLog: true}, []string{"m3u8dl-go", "--progress-json", "true"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if actual != "" {
+			t.Fatalf("no-log should not return a path: %s", actual)
+		}
+		emitDownloadSummaryJSON(Options{ProgressJSON: true}, "completed", []outputFile{
+			{Path: output, MediaType: &video, Language: "zh", Name: "正片", StreamCount: 1},
+			{Path: missing},
+		})
+		if err := cleanup(); err != nil {
+			t.Fatal(err)
+		}
+	})
+	line := strings.TrimSpace(out)
+	if !strings.HasPrefix(line, "{") {
+		t.Fatalf("summary json should be raw JSON, got %q", out)
+	}
+	var event downloadSummaryEvent
+	if err := json.Unmarshal([]byte(line), &event); err != nil {
+		t.Fatalf("summary json should parse: %v\n%s", err, out)
+	}
+	if event.Type != "summary" || event.Status != "completed" || event.Timestamp == "" {
+		t.Fatalf("summary metadata mismatch: %#v", event)
+	}
+	if len(event.Outputs) != 1 {
+		t.Fatalf("summary should include only existing files: %#v", event.Outputs)
+	}
+	got := event.Outputs[0]
+	if got.Path != output || got.MediaType != "VIDEO" || got.Language != "zh" || got.Name != "正片" || got.StreamCount != 1 || got.Size != 5 {
+		t.Fatalf("summary output mismatch: %#v", got)
+	}
+}
+
+func TestDownloadErrorJSONEmittedForRuntimeErrors(t *testing.T) {
+	out := captureStdout(t, func() {
+		err := runWithContext(context.Background(), []string{
+			"https://example.com/index.m3u8",
+			"--progress-json", "true",
+			"--ui-language", "bad",
+			"--disable-update-check", "true",
+			"--no-log", "true",
+		}, []string{"m3u8dl-go"})
+		if err == nil {
+			t.Fatal("expected invalid language error")
+		}
+	})
+	var event downloadErrorEvent
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, `{"type":"error"`) {
+			if err := json.Unmarshal([]byte(line), &event); err != nil {
+				t.Fatalf("error json should parse: %v\n%s", err, line)
+			}
+			break
+		}
+	}
+	if event.Type != "error" || event.Status != "failed" || event.Timestamp == "" || !strings.Contains(event.Message, "--ui-language") {
+		t.Fatalf("error event mismatch: %#v\nstdout=%s", event, out)
+	}
+}
+
 func TestTimestampConsoleMessage(t *testing.T) {
 	got := timestampConsoleMessage("错误: boom", time.Date(2026, 6, 25, 21, 30, 0, 0, time.Local))
 	if got != "[2026-06-25 21:30:00] 错误: boom" {
@@ -4840,6 +4992,27 @@ func TestDownloadProgressReporterPrintsSpeedLineWhenRedirected(t *testing.T) {
 	}
 	if strings.Contains(out, "\r") || !strings.HasSuffix(out, "\n") {
 		t.Fatalf("redirected progress should be newline based, got %q", out)
+	}
+}
+
+func TestDownloadProgressReporterPrintsProgressJSON(t *testing.T) {
+	reporter := newDownloadProgressReporter(Options{ProgressJSON: true}, "Vid", 5)
+	reporter.startedAt = time.Now().Add(-time.Second)
+	reporter.bytes = 2 * 1024 * 1024
+
+	out := captureStdout(t, func() {
+		reporter.print(2)
+		reporter.finish()
+	})
+	var event downloadProgressEvent
+	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &event); err != nil {
+		t.Fatalf("progress json should be valid JSON: %v\n%s", err, out)
+	}
+	if event.Type != "progress" || event.Timestamp == "" || event.Stream != "Vid" || event.Current != 2 || event.Total != 5 || event.Bytes != 2*1024*1024 || event.Percent != 0.4 {
+		t.Fatalf("progress json mismatch: %#v", event)
+	}
+	if event.Speed == "" || strings.Contains(out, "\r") || !strings.HasSuffix(out, "\n") {
+		t.Fatalf("progress json should be newline based and include speed, got %#v raw=%q", event, out)
 	}
 }
 

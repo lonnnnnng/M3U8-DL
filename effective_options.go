@@ -111,6 +111,7 @@ type effectiveFilters struct {
 type effectiveDiagnostics struct {
 	ForceANSIConsole bool `json:"forceAnsiConsole"`
 	NoANSIColor      bool `json:"noAnsiColor"`
+	ProgressJSON     bool `json:"progressJson"`
 	NoLog            bool `json:"noLog"`
 }
 
@@ -217,6 +218,7 @@ func buildEffectiveOptionsReport(opt Options, implications []string) effectiveOp
 		Diagnostics: effectiveDiagnostics{
 			ForceANSIConsole: opt.ForceANSIConsole,
 			NoANSIColor:      opt.NoANSIColor,
+			ProgressJSON:     opt.ProgressJSON,
 			NoLog:            opt.NoLog,
 		},
 		Raw: effectiveRawFootprint{

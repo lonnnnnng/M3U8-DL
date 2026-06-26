@@ -265,6 +265,115 @@ func TestParseProgressWithSpeed(t *testing.T) {
 	}
 }
 
+func TestParseProgressJSONWithTimestamp(t *testing.T) {
+	event, ok := parseProgressJSON(`[2026-06-25 12:00:00] {"type":"progress","stream":"Vid","current":3,"total":7,"speed":"1.5 MB/s","bytes":1048576,"percent":0.42}`)
+	if !ok || event.Stream != "Vid" || event.Current != 3 || event.Total != 7 || event.Speed != "1.5 MB/s" || event.Bytes != 1048576 || event.Percent != 0.42 {
+		t.Fatalf("progress json parsed wrong: %#v ok=%t", event, ok)
+	}
+	line := progressEventLogLine(`[2026-06-25 12:00:00] {"type":"progress","stream":"Vid","current":3,"total":7,"speed":"1.5 MB/s"}`, event)
+	if line != "[2026-06-25 12:00:00] Vid 下载进度 3/7，速度 1.5 MB/s" {
+		t.Fatalf("progress json log line mismatch: %q", line)
+	}
+}
+
+func TestAppendTaskLogHandlesProgressJSON(t *testing.T) {
+	app := newTestApp(t)
+	task, err := app.CreateTask(DownloadRequest{
+		URL:            "https://example.com/index.m3u8",
+		SaveDir:        filepath.Join(t.TempDir(), "out"),
+		AutoSelect:     true,
+		ThreadCount:    4,
+		RetryCount:     2,
+		UseSystemProxy: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.appendTaskLog(task.ID, `[2026-06-25 12:00:00] {"type":"progress","stream":"Vid","current":2,"total":5,"speed":"2.0 MB/s","bytes":2097152,"percent":0.4}`)
+	updated := app.tasks[task.ID]
+	if updated.Progress != 0.4 || updated.ProgressText != "2/5 · 2.0 MB/s" || updated.SpeedText != "2.0 MB/s" {
+		t.Fatalf("task should parse progress json, got progress=%.2f text=%q speed=%q", updated.Progress, updated.ProgressText, updated.SpeedText)
+	}
+	if !strings.Contains(strings.Join(updated.Logs, "\n"), "Vid 下载进度 2/5，速度 2.0 MB/s") {
+		t.Fatalf("task logs should convert progress json to readable text: %#v", updated.Logs)
+	}
+}
+
+func TestAppendTaskLogHandlesSummaryJSON(t *testing.T) {
+	app := newTestApp(t)
+	out := filepath.Join(t.TempDir(), "out")
+	if err := os.MkdirAll(out, 0755); err != nil {
+		t.Fatal(err)
+	}
+	mediaPath := filepath.Join(out, "movie.mp4")
+	if err := os.WriteFile(mediaPath, []byte("media"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	task, err := app.CreateTask(DownloadRequest{
+		URL:            "https://example.com/index.m3u8",
+		SaveDir:        out,
+		AutoSelect:     true,
+		ThreadCount:    4,
+		RetryCount:     2,
+		UseSystemProxy: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.appendTaskLog(task.ID, `{"type":"summary","timestamp":"2026-06-25 12:00:00","status":"completed","outputs":[{"path":"`+mediaPath+`","size":5}]}`)
+	updated := app.tasks[task.ID]
+	if len(updated.Files) != 1 || updated.Files[0].Path != mediaPath || updated.Files[0].Size != 5 {
+		t.Fatalf("task should use summary files, got %#v", updated.Files)
+	}
+	if !strings.Contains(strings.Join(updated.Logs, "\n"), "下载完成，输出文件: movie.mp4") {
+		t.Fatalf("task logs should convert summary json to readable text: %#v", updated.Logs)
+	}
+}
+
+func TestTaskFailureUsesErrorJSONMessage(t *testing.T) {
+	app := newTestApp(t)
+	fakeCLI := writeFailingFakeCLI(t)
+	t.Setenv("M3U8DL_GO_CLI", fakeCLI)
+
+	task, err := app.StartDownload(DownloadRequest{
+		URL:            "https://example.com/index.m3u8",
+		SaveDir:        filepath.Join(t.TempDir(), "out"),
+		AutoSelect:     true,
+		ThreadCount:    4,
+		RetryCount:     2,
+		UseSystemProxy: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	task = waitTaskStatus(t, app, task.ID, StatusFailed, 5*time.Second)
+	if task.ExitCode != 2 {
+		t.Fatalf("failed task exit code mismatch: %#v", task)
+	}
+	if !strings.Contains(task.LastMessage, "下载失败: playlist parse failed") || task.FailureMessage != task.LastMessage {
+		t.Fatalf("failed task should keep structured error message, got last=%q failure=%q logs=%#v", task.LastMessage, task.FailureMessage, task.Logs)
+	}
+	if !strings.Contains(strings.Join(task.Logs, "\n"), "下载失败: playlist parse failed") {
+		t.Fatalf("task logs should include structured error message: %#v", task.Logs)
+	}
+}
+
+func TestBuildCLIArgsEnablesProgressJSON(t *testing.T) {
+	args := buildCLIArgs(DownloadRequest{
+		URL:            "https://example.com/index.m3u8",
+		SaveDir:        "/tmp/out",
+		AutoSelect:     true,
+		ThreadCount:    4,
+		RetryCount:     2,
+		UseSystemProxy: true,
+	})
+	joined := " " + strings.Join(args, " ") + " "
+	if !strings.Contains(joined, " --progress-json true ") {
+		t.Fatalf("desktop CLI args should enable progress json: %#v", args)
+	}
+}
+
 func TestTaskTimingEstimatesRemaining(t *testing.T) {
 	started := time.Date(2026, 6, 27, 4, 0, 0, 0, time.Local)
 	task := &Task{
@@ -636,8 +745,8 @@ while [ "$#" -gt 0 ]; do
 done
 mkdir -p "$out"
 echo "开始下载...Vid"
-echo "Vid 下载进度 1/2，速度 1.0 MB/s"
-echo "Vid 下载进度 2/2，速度 2.0 MB/s"
+echo '{"type":"progress","stream":"Vid","current":1,"total":2,"speed":"1.0 MB/s","bytes":1048576,"percent":0.5}'
+echo '{"type":"progress","stream":"Vid","current":2,"total":2,"speed":"2.0 MB/s","bytes":2097152,"percent":1}'
 printf "ok" > "$out/$name.mp4"
 echo "输出: $out/$name.mp4"
 `
@@ -698,6 +807,37 @@ for arg in "$@"; do
   fi
 done
 exit 0
+`
+	if err := os.WriteFile(path, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func writeFailingFakeCLI(t *testing.T) string {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("fake shell CLI test is only used on Unix-like CI runners")
+	}
+	path := filepath.Join(t.TempDir(), "m3u8dl-go-cli")
+	script := `#!/bin/sh
+set -eu
+if [ "${1:-}" = "--version-json" ]; then
+  echo '{"name":"m3u8dl-go","version":"9.9.9","fullVersion":"m3u8dl-go 9.9.9"}'
+  exit 0
+fi
+if [ "${1:-}" = "--version" ]; then
+  echo "m3u8dl-go 9.9.9"
+  exit 0
+fi
+for arg in "$@"; do
+  if [ "$arg" = "--print-effective-options" ]; then
+    echo '{"version":{"name":"m3u8dl-go","version":"9.9.9","fullVersion":"m3u8dl-go 9.9.9"}}'
+    exit 0
+  fi
+done
+echo '{"type":"error","timestamp":"2026-06-25 12:00:00","status":"failed","message":"playlist parse failed"}'
+exit 2
 `
 	if err := os.WriteFile(path, []byte(script), 0755); err != nil {
 		t.Fatal(err)

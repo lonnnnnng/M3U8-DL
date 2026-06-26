@@ -177,6 +177,11 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "關閉ANSI顏色",
 		EnUS: "Remove ANSI colors",
 	},
+	"cmd_progressJSON": {
+		ZhCN: "按行输出机器可读的下载进度、完成摘要和错误 JSON",
+		ZhTW: "按行輸出機器可讀的下載進度、完成摘要和錯誤 JSON",
+		EnUS: "Output machine-readable download progress, summary, and errors as JSON lines",
+	},
 	"processImageSub": {
 		ZhCN: "正在处理图形字幕",
 		ZhTW: "正在處理圖形字幕",

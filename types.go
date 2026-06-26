@@ -316,6 +316,7 @@ type Options struct {
 	HTTPRequestTimeout     float64
 	ForceANSIConsole       bool
 	NoANSIColor            bool
+	ProgressJSON           bool
 	AutoSelect             bool
 	SkipMerge              bool
 	SkipDownload           bool

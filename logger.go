@@ -21,6 +21,19 @@ const (
 	logLevelDebug
 )
 
+var (
+	consoleOutputMu sync.Mutex
+	rawOutputMu     sync.Mutex
+	rawStdout       *os.File
+	rawProgressLog  *rawProgressLogWriter
+)
+
+type rawProgressLogWriter struct {
+	dst   io.Writer
+	mu    *sync.Mutex
+	level logLevel
+}
+
 func setupLogging(opt Options, argv []string) (logCleanup, string, error) {
 	var file *os.File
 	var path string
@@ -70,14 +83,14 @@ func setupLogging(opt Options, argv []string) (logCleanup, string, error) {
 
 	var wg sync.WaitGroup
 	writeMu := &sync.Mutex{}
-	consoleMu := &sync.Mutex{}
-	stdoutConsole := &timestampConsoleWriter{dst: oldStdout, mu: consoleMu, atLineStart: true}
-	stderrConsole := &timestampConsoleWriter{dst: oldStderr, mu: consoleMu, atLineStart: true}
+	stdoutConsole := &timestampConsoleWriter{dst: oldStdout, mu: &consoleOutputMu, atLineStart: true}
+	stderrConsole := &timestampConsoleWriter{dst: oldStderr, mu: &consoleOutputMu, atLineStart: true}
 	var stdoutLog, stderrLog *filteredLogWriter
 	if file != nil {
 		stdoutLog = &filteredLogWriter{dst: file, mu: writeMu, level: parseLogLevel(opt.LogLevel)}
 		stderrLog = &filteredLogWriter{dst: file, mu: writeMu, level: parseLogLevel(opt.LogLevel)}
 	}
+	restoreRawOutput := setRawProgressOutput(oldStdout, stdoutLog)
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
@@ -97,6 +110,7 @@ func setupLogging(opt Options, argv []string) (logCleanup, string, error) {
 		_ = stdoutWriter.Close()
 		_ = stderrWriter.Close()
 		wg.Wait()
+		restoreRawOutput()
 		if stdoutLog != nil {
 			_ = stdoutLog.Flush()
 		}
@@ -110,6 +124,45 @@ func setupLogging(opt Options, argv []string) (logCleanup, string, error) {
 		}
 		return nil
 	}, path, nil
+}
+
+func setRawProgressOutput(stdout *os.File, log *filteredLogWriter) func() {
+	var progressLog *rawProgressLogWriter
+	if log != nil {
+		progressLog = &rawProgressLogWriter{dst: log.dst, mu: log.mu, level: log.level}
+	}
+	rawOutputMu.Lock()
+	previous := rawStdout
+	previousLog := rawProgressLog
+	rawStdout = stdout
+	rawProgressLog = progressLog
+	rawOutputMu.Unlock()
+	return func() {
+		rawOutputMu.Lock()
+		rawStdout = previous
+		rawProgressLog = previousLog
+		rawOutputMu.Unlock()
+	}
+}
+
+func writeRawEventLine(data []byte) bool {
+	rawOutputMu.Lock()
+	dst := rawStdout
+	log := rawProgressLog
+	rawOutputMu.Unlock()
+	consoleOutputMu.Lock()
+	defer consoleOutputMu.Unlock()
+	wroteStdout := false
+	if dst != nil {
+		_, err := dst.Write(data)
+		wroteStdout = err == nil
+	}
+	if log != nil && shouldWriteLogLine(string(data), log.level) {
+		log.mu.Lock()
+		_, _ = log.dst.Write(data)
+		log.mu.Unlock()
+	}
+	return wroteStdout
 }
 
 func combinedLogWriter(console io.Writer, fileLog *filteredLogWriter) io.Writer {

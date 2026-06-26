@@ -23,6 +23,29 @@ type versionInfo struct {
 	FullVersion string `json:"fullVersion"`
 }
 
+type downloadSummaryEvent struct {
+	Type      string                  `json:"type"`
+	Timestamp string                  `json:"timestamp"`
+	Status    string                  `json:"status"`
+	Outputs   []downloadSummaryOutput `json:"outputs"`
+}
+
+type downloadSummaryOutput struct {
+	Path        string `json:"path"`
+	MediaType   string `json:"mediaType,omitempty"`
+	Language    string `json:"language,omitempty"`
+	Name        string `json:"name,omitempty"`
+	StreamCount int    `json:"streamCount,omitempty"`
+	Size        int64  `json:"size,omitempty"`
+}
+
+type downloadErrorEvent struct {
+	Type      string `json:"type"`
+	Timestamp string `json:"timestamp"`
+	Status    string `json:"status"`
+	Message   string `json:"message"`
+}
+
 func main() {
 	if err := run(); err != nil {
 		var controlErr *cliControlError
@@ -68,7 +91,7 @@ func run() error {
 	return runWithContext(ctx, os.Args[1:], os.Args)
 }
 
-func runWithContext(ctx context.Context, args []string, command []string) error {
+func runWithContext(ctx context.Context, args []string, command []string) (err error) {
 	opt, err := parseArgs(args)
 	if err != nil {
 		return err
@@ -86,7 +109,12 @@ func runWithContext(ctx context.Context, args []string, command []string) error 
 	if err != nil {
 		return err
 	}
-	defer func() { _ = cleanupLog() }()
+	defer func() {
+		if err != nil {
+			emitDownloadErrorJSON(opt, err)
+		}
+		_ = cleanupLog()
+	}()
 	if consoleRedirected {
 		fmt.Println(tr(opt, "consoleRedirected"))
 	}
@@ -163,8 +191,9 @@ func runWithContext(ctx context.Context, args []string, command []string) error 
 	for _, msg := range disableMuxAfterDoneForDolbyVisionOutputs(&opt, outs) {
 		fmt.Println(msg)
 	}
+	var muxed string
 	if shouldMuxAfterDownload(opt, outs) {
-		muxed, err := muxOutputs(outs, opt)
+		muxed, err = muxOutputs(outs, opt)
 		if err != nil {
 			return err
 		}
@@ -175,7 +204,69 @@ func runWithContext(ctx context.Context, args []string, command []string) error 
 	for _, o := range outs {
 		fmt.Println(tr(opt, "output", o.Path))
 	}
+	emitDownloadSummaryJSON(opt, "completed", summaryOutputs(outs, muxed))
 	return nil
+}
+
+func summaryOutputs(outs []outputFile, muxed string) []outputFile {
+	if strings.TrimSpace(muxed) == "" {
+		return outs
+	}
+	result := make([]outputFile, 0, len(outs)+1)
+	result = append(result, outputFile{Path: muxed})
+	result = append(result, outs...)
+	return result
+}
+
+func emitDownloadSummaryJSON(opt Options, status string, outs []outputFile) {
+	event := downloadSummaryEvent{
+		Type:      "summary",
+		Timestamp: time.Now().Format("2006-01-02 15:04:05"),
+		Status:    status,
+		Outputs:   downloadSummaryOutputs(outs),
+	}
+	emitRawJSONEvent(opt, event)
+}
+
+func emitDownloadErrorJSON(opt Options, err error) {
+	if err == nil {
+		return
+	}
+	event := downloadErrorEvent{
+		Type:      "error",
+		Timestamp: time.Now().Format("2006-01-02 15:04:05"),
+		Status:    "failed",
+		Message:   err.Error(),
+	}
+	emitRawJSONEvent(opt, event)
+}
+
+func downloadSummaryOutputs(outs []outputFile) []downloadSummaryOutput {
+	result := make([]downloadSummaryOutput, 0, len(outs))
+	seen := map[string]bool{}
+	for _, out := range outs {
+		path := strings.TrimSpace(out.Path)
+		if path == "" || seen[path] {
+			continue
+		}
+		seen[path] = true
+		info, err := os.Stat(path)
+		if err != nil || info.IsDir() {
+			continue
+		}
+		item := downloadSummaryOutput{
+			Path:        path,
+			Language:    out.Language,
+			Name:        out.Name,
+			StreamCount: out.StreamCount,
+			Size:        info.Size(),
+		}
+		if out.MediaType != nil {
+			item.MediaType = string(*out.MediaType)
+		}
+		result = append(result, item)
+	}
+	return result
 }
 
 func waitForTaskStart(opt Options, now func() time.Time, sleep func(time.Duration), announce func(string)) {

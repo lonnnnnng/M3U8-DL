@@ -85,26 +85,27 @@ type DownloadRequest struct {
 }
 
 type Task struct {
-	ID            string          `json:"id"`
-	Title         string          `json:"title"`
-	Status        string          `json:"status"`
-	Queued        bool            `json:"queued"`
-	Progress      float64         `json:"progress"`
-	ProgressText  string          `json:"progressText"`
-	SpeedText     string          `json:"speedText"`
-	ElapsedText   string          `json:"elapsedText,omitempty"`
-	RemainingText string          `json:"remainingText,omitempty"`
-	LastMessage   string          `json:"lastMessage"`
-	ExitCode      int             `json:"exitCode"`
-	CreatedAt     time.Time       `json:"createdAt"`
-	StartedAt     *time.Time      `json:"startedAt,omitempty"`
-	FinishedAt    *time.Time      `json:"finishedAt,omitempty"`
-	Request       DownloadRequest `json:"request"`
-	Args          []string        `json:"args"`
-	Command       string          `json:"command"`
-	CommandLine   string          `json:"commandLine,omitempty"`
-	Logs          []string        `json:"logs"`
-	Files         []TaskFile      `json:"files"`
+	ID             string          `json:"id"`
+	Title          string          `json:"title"`
+	Status         string          `json:"status"`
+	Queued         bool            `json:"queued"`
+	Progress       float64         `json:"progress"`
+	ProgressText   string          `json:"progressText"`
+	SpeedText      string          `json:"speedText"`
+	ElapsedText    string          `json:"elapsedText,omitempty"`
+	RemainingText  string          `json:"remainingText,omitempty"`
+	LastMessage    string          `json:"lastMessage"`
+	FailureMessage string          `json:"failureMessage,omitempty"`
+	ExitCode       int             `json:"exitCode"`
+	CreatedAt      time.Time       `json:"createdAt"`
+	StartedAt      *time.Time      `json:"startedAt,omitempty"`
+	FinishedAt     *time.Time      `json:"finishedAt,omitempty"`
+	Request        DownloadRequest `json:"request"`
+	Args           []string        `json:"args"`
+	Command        string          `json:"command"`
+	CommandLine    string          `json:"commandLine,omitempty"`
+	Logs           []string        `json:"logs"`
+	Files          []TaskFile      `json:"files"`
 }
 
 type TaskFile struct {
@@ -160,6 +161,40 @@ type cliVersionInfo struct {
 	Name        string `json:"name"`
 	Version     string `json:"version"`
 	FullVersion string `json:"fullVersion"`
+}
+
+type cliProgressEvent struct {
+	Type      string  `json:"type"`
+	Timestamp string  `json:"timestamp"`
+	Stream    string  `json:"stream"`
+	Current   int     `json:"current"`
+	Total     int     `json:"total"`
+	Speed     string  `json:"speed"`
+	Bytes     int64   `json:"bytes"`
+	Percent   float64 `json:"percent"`
+}
+
+type cliSummaryEvent struct {
+	Type      string             `json:"type"`
+	Timestamp string             `json:"timestamp"`
+	Status    string             `json:"status"`
+	Outputs   []cliSummaryOutput `json:"outputs"`
+}
+
+type cliSummaryOutput struct {
+	Path        string `json:"path"`
+	MediaType   string `json:"mediaType,omitempty"`
+	Language    string `json:"language,omitempty"`
+	Name        string `json:"name,omitempty"`
+	StreamCount int    `json:"streamCount,omitempty"`
+	Size        int64  `json:"size,omitempty"`
+}
+
+type cliErrorEvent struct {
+	Type      string `json:"type"`
+	Timestamp string `json:"timestamp"`
+	Status    string `json:"status"`
+	Message   string `json:"message"`
 }
 
 type taskLogEvent struct {
@@ -495,6 +530,7 @@ func (a *App) StartTask(id string) error {
 		task.ElapsedText = ""
 		task.RemainingText = ""
 		task.LastMessage = "已加入队列，等待空闲任务槽"
+		task.FailureMessage = ""
 		task.ExitCode = 0
 		now := time.Now()
 		task.Logs = appendLimited(task.Logs, timestampTaskLogLine("已加入队列，等待空闲任务槽。", now))
@@ -512,6 +548,7 @@ func (a *App) StartTask(id string) error {
 	task.ElapsedText = "0秒"
 	task.RemainingText = ""
 	task.LastMessage = "正在启动下载核心"
+	task.FailureMessage = ""
 	task.ExitCode = 0
 	task.Files = nil
 	now := time.Now()
@@ -569,6 +606,7 @@ func (a *App) RetryTask(id string) error {
 	task.ElapsedText = ""
 	task.RemainingText = ""
 	task.LastMessage = "等待重新开始"
+	task.FailureMessage = ""
 	task.ExitCode = 0
 	task.FinishedAt = nil
 	task.Logs = appendLimited(task.Logs, timestampTaskLogLine("任务已重新排队。", time.Now()))
@@ -703,6 +741,7 @@ func (a *App) scheduleQueuedTasks() {
 		task.ElapsedText = "0秒"
 		task.RemainingText = ""
 		task.LastMessage = "正在启动下载核心"
+		task.FailureMessage = ""
 		task.ExitCode = 0
 		task.Files = nil
 		now := time.Now()
@@ -1015,6 +1054,7 @@ func (a *App) runTask(id string) {
 	if cmd.ProcessState != nil {
 		exitCode = cmd.ProcessState.ExitCode()
 	}
+	wasCanceled := ctx.Err() != nil
 	a.removeRunning(id)
 	cancel()
 
@@ -1023,7 +1063,7 @@ func (a *App) runTask(id string) {
 		return
 	}
 	if waitErr != nil {
-		if ctx.Err() != nil {
+		if wasCanceled {
 			a.finishTask(id, StatusStopped, exitCode, "下载任务已停止")
 			return
 		}
@@ -1050,12 +1090,15 @@ func (a *App) finishTask(id string, status string, exitCode int, message string)
 	task.Status = status
 	task.Queued = false
 	task.ExitCode = exitCode
+	if status == StatusFailed && strings.TrimSpace(task.FailureMessage) != "" {
+		message = task.FailureMessage
+	}
 	task.LastMessage = message
 	task.FinishedAt = &now
 	if status == StatusCompleted {
 		task.Progress = 1
 		task.ProgressText = "完成"
-		task.Files = scanTaskFiles(task)
+		task.Files = mergeTaskFiles(task.Files, scanTaskFiles(task))
 	}
 	updateTaskTiming(task, now)
 	logLine := timestampTaskLogLine(message, now)
@@ -1071,6 +1114,16 @@ func (a *App) finishTask(id string, status string, exitCode int, message string)
 
 func (a *App) appendTaskLog(id string, line string) {
 	now := time.Now()
+	progressEvent, hasProgressEvent := parseProgressJSON(line)
+	summaryEvent, hasSummaryEvent := parseSummaryJSON(line)
+	errorEvent, hasErrorEvent := parseErrorJSON(line)
+	if hasProgressEvent {
+		line = progressEventLogLine(line, progressEvent)
+	} else if hasSummaryEvent {
+		line = summaryEventLogLine(summaryEvent)
+	} else if hasErrorEvent {
+		line = errorEventLogLine(errorEvent)
+	}
 	logLine := timestampTaskLogLine(line, now)
 	a.mu.Lock()
 	task := a.tasks[id]
@@ -1080,14 +1133,14 @@ func (a *App) appendTaskLog(id string, line string) {
 	}
 	task.Logs = appendLimited(task.Logs, logLine)
 	task.LastMessage = line
-	if current, total, speed, ok := parseProgress(line); ok {
-		task.Progress = float64(current) / float64(total)
-		task.SpeedText = speed
-		if speed != "" {
-			task.ProgressText = fmt.Sprintf("%d/%d · %s", current, total, speed)
-		} else {
-			task.ProgressText = fmt.Sprintf("%d/%d", current, total)
-		}
+	if hasProgressEvent {
+		applyProgressEvent(task, progressEvent)
+	} else if hasSummaryEvent {
+		task.Files = mergeTaskFiles(task.Files, taskFilesFromSummary(task, summaryEvent))
+	} else if hasErrorEvent {
+		task.FailureMessage = line
+	} else if current, total, speed, ok := parseProgress(line); ok {
+		applyProgressValues(task, current, total, speed)
 	}
 	updateTaskTiming(task, now)
 	_ = a.saveStateLocked()
@@ -1096,6 +1149,167 @@ func (a *App) appendTaskLog(id string, line string) {
 
 	a.emitLog(id, logLine)
 	a.emitTask(snapshot)
+}
+
+func parseProgressJSON(line string) (cliProgressEvent, bool) {
+	payload := stripTaskLogTimestamp(line)
+	if !strings.HasPrefix(payload, "{") {
+		return cliProgressEvent{}, false
+	}
+	var event cliProgressEvent
+	if err := json.Unmarshal([]byte(payload), &event); err != nil {
+		return cliProgressEvent{}, false
+	}
+	if event.Type != "progress" || event.Total <= 0 || event.Current < 0 {
+		return cliProgressEvent{}, false
+	}
+	if event.Percent <= 0 {
+		event.Percent = float64(event.Current) / float64(event.Total)
+	}
+	return event, true
+}
+
+func parseSummaryJSON(line string) (cliSummaryEvent, bool) {
+	payload := stripTaskLogTimestamp(line)
+	if !strings.HasPrefix(payload, "{") {
+		return cliSummaryEvent{}, false
+	}
+	var event cliSummaryEvent
+	if err := json.Unmarshal([]byte(payload), &event); err != nil {
+		return cliSummaryEvent{}, false
+	}
+	if event.Type != "summary" {
+		return cliSummaryEvent{}, false
+	}
+	return event, true
+}
+
+func parseErrorJSON(line string) (cliErrorEvent, bool) {
+	payload := stripTaskLogTimestamp(line)
+	if !strings.HasPrefix(payload, "{") {
+		return cliErrorEvent{}, false
+	}
+	var event cliErrorEvent
+	if err := json.Unmarshal([]byte(payload), &event); err != nil {
+		return cliErrorEvent{}, false
+	}
+	if event.Type != "error" || strings.TrimSpace(event.Message) == "" {
+		return cliErrorEvent{}, false
+	}
+	return event, true
+}
+
+func stripTaskLogTimestamp(line string) string {
+	line = strings.TrimSpace(line)
+	if match := taskLogTimestampRE.FindString(line); match != "" {
+		line = strings.TrimSpace(line[len(match):])
+	}
+	return line
+}
+
+func progressEventLogLine(original string, event cliProgressEvent) string {
+	message := progressEventMessage(event)
+	if match := taskLogTimestampRE.FindString(strings.TrimSpace(original)); match != "" {
+		return match + " " + message
+	}
+	return message
+}
+
+func progressEventMessage(event cliProgressEvent) string {
+	prefix := strings.TrimSpace(event.Stream)
+	if prefix == "" {
+		prefix = "下载"
+	}
+	if strings.TrimSpace(event.Speed) != "" {
+		return fmt.Sprintf("%s 下载进度 %d/%d，速度 %s", prefix, event.Current, event.Total, strings.TrimSpace(event.Speed))
+	}
+	return fmt.Sprintf("%s 下载进度 %d/%d", prefix, event.Current, event.Total)
+}
+
+func summaryEventLogLine(event cliSummaryEvent) string {
+	names := make([]string, 0, len(event.Outputs))
+	for _, output := range event.Outputs {
+		if name := filepath.Base(strings.TrimSpace(output.Path)); name != "." && name != "" {
+			names = append(names, name)
+		}
+	}
+	if len(names) == 0 {
+		return "下载完成，未收到输出文件摘要"
+	}
+	if len(names) > 3 {
+		names = append(names[:3], fmt.Sprintf("等 %d 个文件", len(event.Outputs)))
+	}
+	return "下载完成，输出文件: " + strings.Join(names, "、")
+}
+
+func errorEventLogLine(event cliErrorEvent) string {
+	message := strings.TrimSpace(event.Message)
+	if message == "" {
+		return "下载失败"
+	}
+	return "下载失败: " + message
+}
+
+func applyProgressEvent(task *Task, event cliProgressEvent) {
+	if task == nil {
+		return
+	}
+	progress := event.Percent
+	if progress < 0 {
+		progress = 0
+	}
+	if progress > 1 {
+		progress = 1
+	}
+	task.Progress = progress
+	applyProgressText(task, event.Current, event.Total, strings.TrimSpace(event.Speed))
+}
+
+func applyProgressValues(task *Task, current int, total int, speed string) {
+	if task == nil || total <= 0 {
+		return
+	}
+	task.Progress = float64(current) / float64(total)
+	if task.Progress > 1 {
+		task.Progress = 1
+	}
+	applyProgressText(task, current, total, speed)
+}
+
+func applyProgressText(task *Task, current int, total int, speed string) {
+	task.SpeedText = strings.TrimSpace(speed)
+	if task.SpeedText != "" {
+		task.ProgressText = fmt.Sprintf("%d/%d · %s", current, total, task.SpeedText)
+	} else {
+		task.ProgressText = fmt.Sprintf("%d/%d", current, total)
+	}
+}
+
+func taskFilesFromSummary(task *Task, event cliSummaryEvent) []TaskFile {
+	if task == nil {
+		return nil
+	}
+	root := strings.TrimSpace(task.Request.SaveDir)
+	files := make([]TaskFile, 0, len(event.Outputs))
+	for _, output := range event.Outputs {
+		path := strings.TrimSpace(output.Path)
+		if path == "" {
+			continue
+		}
+		if root != "" && !pathUnderDir(path, root) {
+			continue
+		}
+		info, err := os.Stat(path)
+		if err != nil || info.IsDir() {
+			continue
+		}
+		ext := strings.ToLower(filepath.Ext(path))
+		if !isManagedOutputExt(ext) {
+			continue
+		}
+		files = append(files, taskFileFromInfo(path, info))
+	}
+	return files
 }
 
 func timestampTaskLogLine(line string, now time.Time) string {
@@ -1216,6 +1430,7 @@ func buildCLIArgs(req DownloadRequest) []string {
 		"--auto-select", fmt.Sprintf("%t", req.AutoSelect),
 		"--ui-language", "zh-CN",
 		"--disable-update-check", "true",
+		"--progress-json", "true",
 		"--thread-count", fmt.Sprintf("%d", req.ThreadCount),
 		"--download-retry-count", fmt.Sprintf("%d", req.RetryCount),
 		"--use-system-proxy", fmt.Sprintf("%t", req.UseSystemProxy),
@@ -1357,6 +1572,28 @@ func scanTaskFiles(task *Task) []TaskFile {
 		return files[i].Modified.After(files[j].Modified)
 	})
 	return files
+}
+
+func mergeTaskFiles(groups ...[]TaskFile) []TaskFile {
+	byPath := map[string]TaskFile{}
+	for _, files := range groups {
+		for _, file := range files {
+			path := strings.TrimSpace(file.Path)
+			if path == "" {
+				continue
+			}
+			file.Path = path
+			byPath[path] = file
+		}
+	}
+	merged := make([]TaskFile, 0, len(byPath))
+	for _, file := range byPath {
+		merged = append(merged, file)
+	}
+	sort.Slice(merged, func(i, j int) bool {
+		return merged[i].Modified.After(merged[j].Modified)
+	})
+	return merged
 }
 
 func taskFileFromInfo(path string, info fs.FileInfo) TaskFile {

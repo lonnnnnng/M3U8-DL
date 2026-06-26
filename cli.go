@@ -196,6 +196,8 @@ func parseArgs(args []string) (Options, error) {
 			opt.ForceANSIConsole = boolFlag(true)
 		case "--no-ansi-color":
 			opt.NoANSIColor = boolFlag(true)
+		case "--progress-json":
+			opt.ProgressJSON = boolFlag(true)
 		case "--auto-select":
 			opt.AutoSelect = boolFlag(true)
 		case "--skip-merge":
@@ -1151,6 +1153,7 @@ func usageWithOptions(opt Options) string {
 				{"--no-log [true|false]", "cmd_noLog"},
 				{"--force-ansi-console [true|false]", "cmd_forceAnsiConsole"},
 				{"--no-ansi-color [true|false]", "cmd_noAnsiColor"},
+				{"--progress-json [true|false]", "cmd_progressJSON"},
 				{"--no-date-info [true|false]", "cmd_noDateInfo"},
 			},
 		},

@@ -741,6 +741,17 @@ type downloadProgressReporter struct {
 	bytes      int64
 }
 
+type downloadProgressEvent struct {
+	Type      string  `json:"type"`
+	Timestamp string  `json:"timestamp"`
+	Stream    string  `json:"stream"`
+	Current   int64   `json:"current"`
+	Total     int     `json:"total"`
+	Speed     string  `json:"speed"`
+	Bytes     int64   `json:"bytes"`
+	Percent   float64 `json:"percent"`
+}
+
 func newDownloadProgressReporter(opt Options, streamName string, total int) *downloadProgressReporter {
 	return &downloadProgressReporter{
 		opt:        opt,
@@ -765,7 +776,27 @@ func (p *downloadProgressReporter) print(current int64) {
 	if p == nil {
 		return
 	}
-	speed := formatByteRate(atomic.LoadInt64(&p.bytes), time.Since(p.startedAt))
+	bytes := atomic.LoadInt64(&p.bytes)
+	speed := formatByteRate(bytes, time.Since(p.startedAt))
+	if p.opt.ProgressJSON {
+		percent := 0.0
+		if p.total > 0 {
+			percent = float64(current) / float64(p.total)
+		}
+		// long: 桌面端需要稳定协议而不是解析本地化文案；JSON 直写原始 stdout，避免日志层时间戳破坏逐行 JSON 解析。
+		event := downloadProgressEvent{
+			Type:      "progress",
+			Timestamp: time.Now().Format("2006-01-02 15:04:05"),
+			Stream:    p.streamName,
+			Current:   current,
+			Total:     p.total,
+			Speed:     speed,
+			Bytes:     bytes,
+			Percent:   percent,
+		}
+		emitRawJSONEvent(p.opt, event)
+		return
+	}
 	message := tr(p.opt, "downloadProgressWithSpeed", p.streamName, current, p.total, speed)
 	if p.opt.ForceANSIConsole {
 		// long: 桌面端通过管道按换行读取 CLI 输出；重定向场景必须逐行输出，否则 UI 只能在下载结束后才收到进度。
@@ -776,7 +807,7 @@ func (p *downloadProgressReporter) print(current int64) {
 }
 
 func (p *downloadProgressReporter) finish() {
-	if p == nil || p.opt.ForceANSIConsole {
+	if p == nil || p.opt.ForceANSIConsole || p.opt.ProgressJSON {
 		return
 	}
 	fmt.Println()
