@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -922,11 +923,19 @@ func TestUsageUsesUpstreamCommandDescriptionResources(t *testing.T) {
 		"-dv, --drop-video",
 		"-h, --help, -?",
 		"--version",
+		"--version-json",
+		"--doctor",
+		"--doctor-json",
+		"--print-effective-options",
 		"--ui-language <zh-CN|zh-TW|en-US>",
 		"--auto-select",
 		"Automatically selects the best tracks of all types",
 		"Show help information",
 		"Show version information",
+		"Show machine-readable version information",
+		"Check external tools such as ffmpeg",
+		"Show external tool diagnostics as JSON",
+		"Show parsed effective options as JSON",
 		"Set UI language",
 		"Set output directory",
 		"Pass custom header(s) to server",
@@ -984,6 +993,98 @@ func TestMainHelpUsesParsedUILanguage(t *testing.T) {
 	}
 	if strings.Contains(output, "混流时引入外部媒体文件") {
 		t.Fatalf("main morehelp should not fall back to default Chinese resource after --ui-language en-US:\n%s", output)
+	}
+}
+
+func TestMainVersionJSON(t *testing.T) {
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+	os.Args = []string{"m3u8dl-go", "--version-json"}
+	output := captureStdout(t, main)
+	var payload versionInfo
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("version json should be valid JSON: %v\n%s", err, output)
+	}
+	want := currentVersionInfo()
+	if payload != want {
+		t.Fatalf("version json mismatch: want %#v got %#v", want, payload)
+	}
+}
+
+func TestMainPrintEffectiveOptionsJSONRedactsSensitiveValues(t *testing.T) {
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+	os.Args = []string{
+		"m3u8dl-go",
+		"https://example.com/index.m3u8",
+		"--print-effective-options",
+		"--ffmpeg-binary-path", "",
+		"--auto-select", "true",
+		"--custom-range", "0-2",
+		"--custom-proxy", "http://user:secret@127.0.0.1:8888",
+		"--custom-hls-key", "00112233445566778899aabbccddeeff",
+		"-H", "Cookie: session=secret",
+		"-H", "Referer: https://example.com",
+	}
+	output := captureStdout(t, main)
+	var payload effectiveOptionsReport
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("effective options should be valid JSON: %v\n%s", err, output)
+	}
+	if payload.Input != "https://example.com/index.m3u8" || !payload.Download.AutoSelect || payload.Filters.CustomRange != "0-2" {
+		t.Fatalf("effective options missed parsed values: %#v", payload)
+	}
+	if payload.Network.Headers["cookie"] != "<redacted>" || payload.Network.Headers["referer"] != "https://example.com" {
+		t.Fatalf("headers should redact only sensitive values: %#v", payload.Network.Headers)
+	}
+	if strings.Contains(output, "session=secret") || strings.Contains(output, "user:secret") || strings.Contains(output, "00112233445566778899aabbccddeeff") {
+		t.Fatalf("effective options should not leak sensitive values:\n%s", output)
+	}
+	if payload.Decryption.CustomHLSKeyBytes != 16 || !payload.Decryption.CustomHLSKeyPresent {
+		t.Fatalf("custom hls key footprint mismatch: %#v", payload.Decryption)
+	}
+}
+
+func TestProbeDoctorToolsReportsAvailableAndMissingTools(t *testing.T) {
+	specs := []doctorToolSpec{
+		{Name: "ffmpeg", Command: "ffmpeg", Args: []string{"-version"}},
+		{Name: "mp4decrypt", Command: "mp4decrypt", Args: []string{"--version"}},
+	}
+	tools := probeDoctorTools(specs, func(command string) (string, error) {
+		if command == "ffmpeg" {
+			return "/usr/local/bin/ffmpeg", nil
+		}
+		return "", errors.New("not found")
+	}, func(ctx context.Context, path string, args []string) (string, error) {
+		if path != "/usr/local/bin/ffmpeg" || !reflect.DeepEqual(args, []string{"-version"}) {
+			t.Fatalf("unexpected version probe path=%s args=%v", path, args)
+		}
+		return "ffmpeg version 7.0", nil
+	})
+
+	if len(tools) != 2 {
+		t.Fatalf("expected two tool diagnostics, got %#v", tools)
+	}
+	if tools[0].Status != "ok" || tools[0].Path != "/usr/local/bin/ffmpeg" || tools[0].Version != "ffmpeg version 7.0" {
+		t.Fatalf("ffmpeg diagnostic mismatch: %#v", tools[0])
+	}
+	if tools[1].Status != "missing" || tools[1].Error != "not found" {
+		t.Fatalf("missing diagnostic mismatch: %#v", tools[1])
+	}
+}
+
+func TestDoctorToolSpecsIncludeFFprobeNextToCustomFFmpeg(t *testing.T) {
+	opt := defaultOptions()
+	opt.FFmpegBinaryPath = "/opt/media/bin/ffmpeg"
+	specs := doctorToolSpecs(opt)
+	if len(specs) < 2 {
+		t.Fatalf("expected ffmpeg and ffprobe specs, got %#v", specs)
+	}
+	if specs[0].Name != "ffmpeg" || specs[0].Command != "/opt/media/bin/ffmpeg" {
+		t.Fatalf("ffmpeg spec mismatch: %#v", specs[0])
+	}
+	if specs[1].Name != "ffprobe" || specs[1].Command != "/opt/media/bin/ffprobe" {
+		t.Fatalf("ffprobe should be derived from custom ffmpeg path, got %#v", specs[1])
 	}
 }
 

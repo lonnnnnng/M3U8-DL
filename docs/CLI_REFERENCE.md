@@ -93,6 +93,10 @@ ffmpeg 单轨合并：
 | `<input>` | 输入 URL、`file:` URL 或本地 m3u8 文件。 |
 | `-h, --help, -?` | 显示帮助信息。 |
 | `--version` | 显示版本信息。 |
+| `--version-json` | 以 JSON 输出版本信息，供桌面端或脚本识别当前下载核心。 |
+| `--doctor` | 检测 `ffmpeg`、`ffprobe`、`mkvmerge`、`mp4decrypt`、`shaka-packager` 等外部工具；如果指定了 `--ffmpeg-binary-path`，会优先检测同目录 `ffprobe`。 |
+| `--doctor-json` | 以 JSON 输出外部工具检测结果，适合脚本或客户端集成。 |
+| `--print-effective-options` | 以 JSON 输出解析、校验和派生后的有效参数；会隐藏 Cookie、Authorization、代理密码和 key 原文。 |
 | `--ui-language <zh-CN\|zh-TW\|en-US>` | 设置 UI 语言；不传时默认简体中文，繁中系统默认繁中。 |
 
 ### 输入与网络

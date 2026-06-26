@@ -12,11 +12,22 @@ const el = {
   binaryMerge: document.querySelector("#binaryMerge"),
   concurrentDownload: document.querySelector("#concurrentDownload"),
   ffmpegPath: document.querySelector("#ffmpegPath"),
+  checkFFmpeg: document.querySelector("#check-ffmpeg"),
+  ffmpegCheck: document.querySelector("#ffmpeg-check"),
+  checkTools: document.querySelector("#check-tools"),
+  toolList: document.querySelector("#tool-list"),
   threadCount: document.querySelector("#threadCount"),
   retryCount: document.querySelector("#retryCount"),
   maxSpeed: document.querySelector("#maxSpeed"),
   customProxy: document.querySelector("#customProxy"),
   useSystemProxy: document.querySelector("#useSystemProxy"),
+  coreStatus: document.querySelector("#core-status"),
+  coreVersion: document.querySelector("#core-version"),
+  corePath: document.querySelector("#core-path"),
+  refreshCore: document.querySelector("#refresh-core"),
+  copyCommand: document.querySelector("#copy-command"),
+  copyLog: document.querySelector("#copy-log"),
+  preflightResult: document.querySelector("#preflight-result"),
   taskList: document.querySelector("#task-list"),
   taskCount: document.querySelector("#task-count"),
   runningCount: document.querySelector("#running-count"),
@@ -36,6 +47,14 @@ let tasks = [];
 let selectedTaskId = "";
 let createOnly = false;
 let activeView = "dashboard";
+
+const defaultTools = [
+  { name: "ffmpeg", label: "FFmpeg" },
+  { name: "ffprobe", label: "FFprobe" },
+  { name: "mkvmerge", label: "mkvmerge" },
+  { name: "mp4decrypt", label: "mp4decrypt" },
+  { name: "shaka-packager", label: "Shaka Packager" }
+];
 
 const viewMeta = {
   dashboard: ["任务监控", "下载任务"],
@@ -83,6 +102,9 @@ function normalizeTask(task = {}) {
     startedAt: field(task, "startedAt", "StartedAt"),
     finishedAt: field(task, "finishedAt", "FinishedAt"),
     request: normalizeRequest(field(task, "request", "Request", {})),
+    args: field(task, "args", "Args", []),
+    command: field(task, "command", "Command"),
+    commandLine: field(task, "commandLine", "CommandLine"),
     logs: field(task, "logs", "Logs", []),
     files: normalizeFiles(field(task, "files", "Files", []))
   };
@@ -96,6 +118,28 @@ function normalizeFiles(files = []) {
     modified: field(file, "modified", "Modified"),
     extension: field(file, "extension", "Extension")
   }));
+}
+
+function normalizeToolInfo(tool = {}) {
+  return {
+    name: field(tool, "name", "Name"),
+    label: field(tool, "label", "Label") || field(tool, "name", "Name"),
+    command: field(tool, "command", "Command"),
+    status: field(tool, "status", "Status", "pending"),
+    path: field(tool, "path", "Path"),
+    version: field(tool, "version", "Version"),
+    error: field(tool, "error", "Error")
+  };
+}
+
+function normalizePreflightCheck(check = {}) {
+  return {
+    name: field(check, "name", "Name"),
+    label: field(check, "label", "Label"),
+    status: field(check, "status", "Status", "error"),
+    message: field(check, "message", "Message"),
+    detail: field(check, "detail", "Detail")
+  };
 }
 
 function taskStatusText(status) {
@@ -193,6 +237,7 @@ function renderDetail() {
   }
 
   el.detailTitle.textContent = task.title;
+  const commandLine = task.commandLine || "任务开始后生成";
   el.taskSummary.className = "summary";
   el.taskSummary.innerHTML = `
     <div><span>状态</span><strong>${taskStatusText(task.status)}</strong></div>
@@ -203,6 +248,7 @@ function renderDetail() {
     <div><span>参数</span><strong>${task.request.autoSelect ? "自动选轨" : "手动选轨"} / ${task.request.muxMP4 ? "MP4" : "原始输出"}</strong></div>
     <div><span>开始时间</span><strong>${formatDate(task.startedAt || task.createdAt)}</strong></div>
     <div><span>结束时间</span><strong>${formatDate(task.finishedAt)}</strong></div>
+    <div class="summary-command"><span>命令</span><code title="${escapeHTML(commandLine)}">${escapeHTML(commandLine)}</code></div>
   `;
   renderFiles(task.files);
   el.log.textContent = (task.logs || []).join("\n");
@@ -311,8 +357,83 @@ function applySettings(nextSettings) {
   el.customProxy.value = field(settings, "customProxy", "CustomProxy", "");
 }
 
+function applyCoreInfo(info = {}) {
+  const status = field(info, "status", "Status", "error");
+  const error = field(info, "error", "Error", "");
+  const fullVersion = field(info, "fullVersion", "FullVersion", "");
+  el.coreStatus.textContent = status === "ready" ? "可用" : "异常";
+  el.coreStatus.classList.toggle("error", status !== "ready");
+  el.coreVersion.textContent = fullVersion || "-";
+  el.corePath.textContent = field(info, "cliPath", "CLIPath", "") || error || "-";
+  el.corePath.title = el.corePath.textContent;
+}
+
+function applyToolCheck(node, info = {}) {
+  const status = field(info, "status", "Status", "error");
+  const path = field(info, "path", "Path", "");
+  const version = field(info, "version", "Version", "");
+  const error = field(info, "error", "Error", "");
+  node.classList.toggle("ok", status === "ready");
+  node.classList.toggle("error", status !== "ready");
+  node.textContent = status === "ready" ? `${version || "可用"} · ${path}` : (error || "检测失败");
+  node.title = node.textContent;
+}
+
+function renderToolList(rawTools = defaultTools, pendingText = "尚未检测") {
+  const tools = rawTools.map(normalizeToolInfo);
+  el.toolList.innerHTML = tools.map((tool) => {
+    const ready = tool.status === "ready";
+    const failed = tool.status === "error";
+    const detail = ready ? [tool.version, tool.path].filter(Boolean).join(" · ") : (tool.error || pendingText);
+    const statusText = ready ? "可用" : (failed ? "不可用" : pendingText);
+    return `
+      <div class="tool-row ${ready ? "ready" : ""} ${failed ? "failed" : ""}">
+        <div>
+          <strong>${escapeHTML(tool.label)}</strong>
+          <span title="${escapeHTML(detail)}">${escapeHTML(detail)}</span>
+        </div>
+        <b>${escapeHTML(statusText)}</b>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderPreflight(report = {}) {
+  const status = field(report, "status", "Status", "error");
+  const message = field(report, "message", "Message", "预检查失败");
+  const taskCount = Number(field(report, "taskCount", "TaskCount", 0)) || 0;
+  const checks = field(report, "checks", "Checks", []).map(normalizePreflightCheck);
+  const commandLines = field(report, "commandLines", "CommandLines", []);
+  el.preflightResult.className = `preflight-card field-wide ${status}`;
+  el.preflightResult.innerHTML = `
+    <div class="preflight-head">
+      <strong>${escapeHTML(message)}</strong>
+      <span>${taskCount ? `${taskCount} 个任务` : ""}</span>
+    </div>
+    <div class="preflight-list">
+      ${checks.map((check) => `
+        <div class="preflight-row ${escapeHTML(check.status)}">
+          <b>${escapeHTML(check.label || check.name)}</b>
+          <span title="${escapeHTML(check.detail || check.message)}">${escapeHTML(check.message || "-")}</span>
+        </div>
+      `).join("")}
+    </div>
+    ${commandLines.length ? `<code title="${escapeHTML(commandLines.join("\n"))}">${escapeHTML(commandLines.join("\n"))}</code>` : ""}
+  `;
+}
+
+async function refreshCoreInfo() {
+  el.coreStatus.textContent = "检查中";
+  el.coreStatus.classList.remove("error");
+  el.coreVersion.textContent = "-";
+  el.corePath.textContent = "-";
+  applyCoreInfo(await api().GetCoreInfo());
+}
+
 async function loadInitialState() {
   applySettings(await api().GetSettings());
+  renderToolList();
+  await refreshCoreInfo();
   tasks = (await api().ListTasks()).map(normalizeTask);
   if (tasks.length && !selectedTaskId) {
     selectedTaskId = tasks[0].id;
@@ -354,6 +475,40 @@ function escapeHTML(value) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+async function copyText(text, successMessage) {
+  const value = String(text || "").trim();
+  if (!value) {
+    window.alert("没有可复制的内容。");
+    return;
+  }
+  let copied = false;
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      copied = true;
+    } catch {
+      copied = false;
+    }
+  }
+  if (!copied) {
+    const textarea = document.createElement("textarea");
+    textarea.value = value;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.left = "-9999px";
+    document.body.appendChild(textarea);
+    textarea.select();
+    copied = document.execCommand("copy");
+    textarea.remove();
+    if (!copied) {
+      throw new Error("复制失败，请手动选择日志或命令。");
+    }
+  }
+  if (successMessage) {
+    window.alert(successMessage);
+  }
 }
 
 window.runtime?.EventsOn("task:update", (rawTask) => upsertTask(rawTask));
@@ -401,6 +556,27 @@ document.querySelector("#create-only").addEventListener("click", () => {
   createOnly = true;
   document.querySelector("#task-form").requestSubmit();
 });
+document.querySelector("#preflight-task").addEventListener("click", async () => {
+  el.preflightResult.className = "preflight-card field-wide";
+  el.preflightResult.textContent = "正在预检查";
+  try {
+    renderPreflight(await api().PreflightDownload(collectRequest()));
+  } catch (error) {
+    renderPreflight({
+      status: "error",
+      message: "预检查失败",
+      checks: [{ name: "preflight", label: "预检查", status: "error", message: String(error?.message || error) }]
+    });
+  }
+});
+document.querySelector("#copy-form-command").addEventListener("click", async () => {
+  try {
+    const commandText = await api().PreviewCommands(collectRequest());
+    await copyText(commandText, "当前任务命令已复制。");
+  } catch (error) {
+    window.alert(String(error?.message || error));
+  }
+});
 
 document.querySelector("#choose-dir").addEventListener("click", async () => {
   const selected = await api().ChooseDirectory(el.saveDir.value.trim());
@@ -411,6 +587,32 @@ document.querySelector("#choose-dir").addEventListener("click", async () => {
 
 document.querySelector("#save-settings").addEventListener("click", async () => {
   applySettings(await api().SaveSettings(collectSettings()));
+});
+el.checkFFmpeg.addEventListener("click", async () => {
+  el.ffmpegCheck.classList.remove("ok", "error");
+  el.ffmpegCheck.textContent = "检测中";
+  try {
+    applyToolCheck(el.ffmpegCheck, await api().CheckFFmpeg(el.ffmpegPath.value.trim()));
+  } catch (error) {
+    applyToolCheck(el.ffmpegCheck, { status: "error", error: String(error?.message || error) });
+  }
+});
+el.checkTools.addEventListener("click", async () => {
+  renderToolList(defaultTools, "检测中");
+  try {
+    renderToolList(await api().CheckTools(el.ffmpegPath.value.trim()));
+  } catch (error) {
+    renderToolList(defaultTools.map((tool) => ({
+      ...tool,
+      status: "error",
+      error: String(error?.message || error)
+    })));
+  }
+});
+el.refreshCore.addEventListener("click", () => {
+  refreshCoreInfo().catch((error) => {
+    applyCoreInfo({ status: "error", error: String(error?.message || error) });
+  });
 });
 
 document.querySelector("#refresh-tasks").addEventListener("click", refreshTasks);
@@ -426,6 +628,24 @@ document.querySelector("#stop-selected").addEventListener("click", async () => {
 });
 document.querySelector("#retry-selected").addEventListener("click", async () => {
   if (selectedTaskId) await api().RetryTask(selectedTaskId);
+});
+el.copyCommand.addEventListener("click", async () => {
+  const task = selectedTask();
+  if (!task) return;
+  try {
+    await copyText(task.commandLine, "任务命令已复制。");
+  } catch (error) {
+    window.alert(String(error?.message || error));
+  }
+});
+el.copyLog.addEventListener("click", async () => {
+  const task = selectedTask();
+  if (!task) return;
+  try {
+    await copyText((task.logs || []).join("\n"), "任务日志已复制。");
+  } catch (error) {
+    window.alert(String(error?.message || error));
+  }
 });
 document.querySelector("#remove-selected").addEventListener("click", async () => {
   if (!selectedTaskId || !window.confirm("确认移除这个任务？输出文件不会删除。")) return;

@@ -368,4 +368,5 @@ type Options struct {
 	DisableUpdateCheck     bool
 	AllowHLSMultiExtMap    bool
 	MaxSpeed               int64
+	PrintEffectiveOptions  bool
 }

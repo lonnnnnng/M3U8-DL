@@ -58,6 +58,8 @@
               <div class="panel-title">
                 <span id="detail-title">任务详情</span>
                 <div class="detail-actions">
+                  <button id="copy-command" type="button">复制命令</button>
+                  <button id="copy-log" type="button">复制日志</button>
                   <button id="start-selected" type="button">开始</button>
                   <button id="stop-selected" type="button">停止</button>
                   <button id="retry-selected" type="button">重试</button>
@@ -74,6 +76,8 @@
             <div class="panel-title">
               <span>新建下载任务</span>
               <div class="actions">
+                <button id="preflight-task" type="button">预检查</button>
+                <button id="copy-form-command" type="button">复制命令</button>
                 <button id="create-only" type="button">仅创建</button>
                 <button id="create-start" form="task-form" type="submit">创建并下载</button>
               </div>
@@ -124,6 +128,8 @@
                 <label><input id="binaryMerge" type="checkbox" /> 二进制直拼</label>
                 <label><input id="concurrentDownload" type="checkbox" /> 多轨并发</label>
               </div>
+
+              <section id="preflight-result" class="preflight-card field-wide empty">尚未预检查。</section>
             </form>
           </section>
         </section>
@@ -136,10 +142,44 @@
             </div>
 
             <div class="settings-grid">
+              <section class="core-card field-wide">
+                <div class="core-card-head">
+                  <span>下载核心</span>
+                  <button id="refresh-core" type="button">刷新</button>
+                </div>
+                <div class="core-grid">
+                  <div>
+                    <span>状态</span>
+                    <strong id="core-status">检查中</strong>
+                  </div>
+                  <div>
+                    <span>版本</span>
+                    <strong id="core-version">-</strong>
+                  </div>
+                  <div class="core-path">
+                    <span>路径</span>
+                    <strong id="core-path">-</strong>
+                  </div>
+                </div>
+              </section>
+
               <label class="field field-wide">
                 <span>FFmpeg 路径</span>
-                <input id="ffmpegPath" type="text" placeholder="/opt/homebrew/bin/ffmpeg" />
+                <div class="inline-input tool-input">
+                  <input id="ffmpegPath" type="text" placeholder="/opt/homebrew/bin/ffmpeg" />
+                  <button id="check-ffmpeg" type="button">检测</button>
+                </div>
+                <strong id="ffmpeg-check" class="tool-result">尚未检测</strong>
               </label>
+
+              <section class="tools-card field-wide">
+                <div class="tools-card-head">
+                  <span>外部工具</span>
+                  <button id="check-tools" type="button">检测全部</button>
+                </div>
+                <div id="tool-list" class="tool-list"></div>
+              </section>
+
               <label class="field">
                 <span>线程数</span>
                 <input id="threadCount" type="number" min="1" step="1" />

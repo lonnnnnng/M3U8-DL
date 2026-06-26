@@ -98,6 +98,7 @@ type Task struct {
 	Request      DownloadRequest `json:"request"`
 	Args         []string        `json:"args"`
 	Command      string          `json:"command"`
+	CommandLine  string          `json:"commandLine,omitempty"`
 	Logs         []string        `json:"logs"`
 	Files        []TaskFile      `json:"files"`
 }
@@ -108,6 +109,53 @@ type TaskFile struct {
 	Size      int64     `json:"size"`
 	Modified  time.Time `json:"modified"`
 	Extension string    `json:"extension"`
+}
+
+type CoreInfo struct {
+	Status      string `json:"status"`
+	CLIPath     string `json:"cliPath"`
+	Version     string `json:"version"`
+	FullVersion string `json:"fullVersion"`
+	Error       string `json:"error,omitempty"`
+}
+
+type ToolInfo struct {
+	Name    string `json:"name"`
+	Label   string `json:"label"`
+	Command string `json:"command"`
+	Status  string `json:"status"`
+	Path    string `json:"path"`
+	Version string `json:"version"`
+	Error   string `json:"error,omitempty"`
+}
+
+type PreflightReport struct {
+	Status       string           `json:"status"`
+	Message      string           `json:"message"`
+	TaskCount    int              `json:"taskCount"`
+	CommandLines []string         `json:"commandLines"`
+	Checks       []PreflightCheck `json:"checks"`
+}
+
+type PreflightCheck struct {
+	Name    string `json:"name"`
+	Label   string `json:"label"`
+	Status  string `json:"status"`
+	Message string `json:"message"`
+	Detail  string `json:"detail,omitempty"`
+}
+
+type toolCheckSpec struct {
+	Name     string
+	Label    string
+	Commands []string
+	Args     []string
+}
+
+type cliVersionInfo struct {
+	Name        string `json:"name"`
+	Version     string `json:"version"`
+	FullVersion string `json:"fullVersion"`
 }
 
 type taskLogEvent struct {
@@ -177,6 +225,56 @@ func (a *App) GetSettings() Settings {
 	return a.settings
 }
 
+func (a *App) GetCoreInfo() CoreInfo {
+	cliPath, err := findCLIPath()
+	if err != nil {
+		return CoreInfo{
+			Status: "error",
+			Error:  err.Error(),
+		}
+	}
+	info, err := readCLIVersion(cliPath)
+	if err != nil {
+		return CoreInfo{
+			Status:  "error",
+			CLIPath: cliPath,
+			Error:   err.Error(),
+		}
+	}
+	info.CLIPath = cliPath
+	return info
+}
+
+func (a *App) CheckFFmpeg(path string) ToolInfo {
+	info, err := probeToolVersion(strings.TrimSpace(path), "ffmpeg", []string{"-version"})
+	info.Name = "ffmpeg"
+	info.Label = "FFmpeg"
+	if err != nil {
+		info.Status = "error"
+		info.Error = err.Error()
+	}
+	return info
+}
+
+func (a *App) CheckTools(ffmpegPath string) []ToolInfo {
+	specs := desktopToolCheckSpecs(ffmpegPath)
+	tools := make([]ToolInfo, 0, len(specs))
+	for _, spec := range specs {
+		info, err := probeToolCandidates(spec.Commands, spec.Args)
+		info.Name = spec.Name
+		info.Label = spec.Label
+		if len(spec.Commands) > 0 {
+			info.Command = spec.Commands[0]
+		}
+		if err != nil {
+			info.Status = "error"
+			info.Error = err.Error()
+		}
+		tools = append(tools, info)
+	}
+	return tools
+}
+
 func (a *App) SaveSettings(settings Settings) (Settings, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -231,6 +329,97 @@ func (a *App) CreateTask(req DownloadRequest) (Task, error) {
 	return a.createTask(requests[0])
 }
 
+func (a *App) PreviewCommands(req DownloadRequest) (string, error) {
+	requests, err := expandDownloadRequests(req)
+	if err != nil {
+		return "", err
+	}
+	lines := make([]string, 0, len(requests))
+	for _, item := range requests {
+		item = a.applyRequestDefaults(item)
+		lines = append(lines, taskCommandLine(defaultCLICommandName(), buildCLIArgs(item)))
+	}
+	return strings.Join(lines, "\n"), nil
+}
+
+func (a *App) PreflightDownload(req DownloadRequest) PreflightReport {
+	report := PreflightReport{Status: "ready", Message: "预检查通过"}
+	requests, err := expandDownloadRequests(req)
+	if err != nil {
+		report.addCheck("input", "下载地址", "error", err.Error(), "")
+		report.finalize()
+		return report
+	}
+	report.TaskCount = len(requests)
+	if len(requests) == 1 {
+		report.addCheck("input", "下载地址", "ready", "已识别 1 个任务", requests[0].URL)
+	} else {
+		report.addCheck("input", "下载地址", "ready", fmt.Sprintf("已识别 %d 个批量任务", len(requests)), "")
+	}
+
+	cliPath := ""
+	coreReady := false
+	cliPath, coreErr := findCLIPath()
+	if coreErr != nil {
+		report.addCheck("core", "下载核心", "error", "找不到下载核心", coreErr.Error())
+	} else if info, err := readCLIVersion(cliPath); err != nil {
+		report.addCheck("core", "下载核心", "error", "下载核心不可用", err.Error())
+	} else {
+		coreReady = true
+		report.addCheck("core", "下载核心", "ready", info.FullVersion, cliPath)
+	}
+
+	checkedDirs := map[string]bool{}
+	checkedFFmpeg := map[string]bool{}
+	var validationErrors []string
+	for _, item := range requests {
+		item = a.applyRequestDefaults(item)
+		args := buildCLIArgs(item)
+		report.CommandLines = append(report.CommandLines, taskCommandLine(defaultCLICommandName(), args))
+
+		if coreReady {
+			if err := validateCLIArguments(cliPath, args); err != nil {
+				validationErrors = append(validationErrors, redactPreflightError(err.Error(), item))
+			}
+		}
+
+		if !checkedDirs[item.SaveDir] {
+			checkedDirs[item.SaveDir] = true
+			if err := ensureWritableDirectory(item.SaveDir); err != nil {
+				report.addCheck("output", "输出目录", "error", "输出目录不可写", err.Error())
+			} else {
+				report.addCheck("output", "输出目录", "ready", "可写", item.SaveDir)
+			}
+		}
+
+		if item.MuxMP4 || strings.TrimSpace(item.FFmpegPath) != "" {
+			key := strings.TrimSpace(item.FFmpegPath)
+			if key == "" {
+				key = "ffmpeg"
+			}
+			if checkedFFmpeg[key] {
+				continue
+			}
+			checkedFFmpeg[key] = true
+			info, err := probeToolVersion(item.FFmpegPath, "ffmpeg", []string{"-version"})
+			if err != nil {
+				report.addCheck("ffmpeg", "FFmpeg", "error", "MP4 混流需要 FFmpeg", err.Error())
+			} else {
+				report.addCheck("ffmpeg", "FFmpeg", "ready", info.Version, info.Path)
+			}
+		}
+	}
+	if coreReady {
+		if len(validationErrors) == 0 {
+			report.addCheck("args", "参数校验", "ready", "核心参数校验通过", fmt.Sprintf("%d 个任务", len(requests)))
+		} else {
+			report.addCheck("args", "参数校验", "error", "核心参数校验失败", strings.Join(validationErrors, "\n"))
+		}
+	}
+	report.finalize()
+	return report
+}
+
 func (a *App) CreateTasks(req DownloadRequest) ([]Task, error) {
 	requests, err := expandDownloadRequests(req)
 	if err != nil {
@@ -256,12 +445,16 @@ func (a *App) createTask(req DownloadRequest) (Task, error) {
 		return Task{}, fmt.Errorf("创建输出目录失败: %w", err)
 	}
 
+	args := buildCLIArgs(req)
 	task := &Task{
-		ID:        newTaskID(),
-		Title:     taskTitle(req),
-		Status:    StatusPending,
-		CreatedAt: time.Now(),
-		Request:   req,
+		ID:          newTaskID(),
+		Title:       taskTitle(req),
+		Status:      StatusPending,
+		CreatedAt:   time.Now(),
+		Request:     req,
+		Args:        args,
+		Command:     defaultCLICommandName(),
+		CommandLine: taskCommandLine(defaultCLICommandName(), args),
 	}
 
 	a.mu.Lock()
@@ -553,7 +746,7 @@ func (a *App) runTask(id string) {
 		return
 	}
 	args := buildCLIArgs(req)
-	cmdText := cliPath + " " + shellPreview(args)
+	cmdText := taskCommandLine(cliPath, args)
 	a.appendTaskLog(id, "$ "+cmdText)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -575,6 +768,7 @@ func (a *App) runTask(id string) {
 	if task != nil {
 		task.Command = cliPath
 		task.Args = append([]string(nil), args...)
+		task.CommandLine = cmdText
 		a.emitTaskLocked(task)
 		_ = a.saveStateLocked()
 	}
@@ -767,6 +961,23 @@ func buildCLIArgs(req DownloadRequest) []string {
 	return args
 }
 
+func defaultCLICommandName() string {
+	if runtime.GOOS == "windows" {
+		return "m3u8dl-go-cli.exe"
+	}
+	return "m3u8dl-go-cli"
+}
+
+func taskCommandLine(command string, args []string) string {
+	command = strings.TrimSpace(command)
+	if command == "" {
+		command = defaultCLICommandName()
+	}
+	// long: 任务详情里的复制命令必须和实际启动命令共用同一套 shell 转义，避免 URL、路径或 Header 中的空格导致用户复现失败。
+	parts := append([]string{command}, args...)
+	return shellPreview(parts)
+}
+
 func taskTitle(req DownloadRequest) string {
 	if value := strings.TrimSpace(req.SaveName); value != "" {
 		return value
@@ -888,6 +1099,68 @@ func pathUnderDir(path string, root string) bool {
 	return rel == "." || (!strings.HasPrefix(rel, "..") && !filepath.IsAbs(rel))
 }
 
+func (r *PreflightReport) addCheck(name string, label string, status string, message string, detail string) {
+	r.Checks = append(r.Checks, PreflightCheck{
+		Name:    name,
+		Label:   label,
+		Status:  status,
+		Message: message,
+		Detail:  detail,
+	})
+}
+
+func (r *PreflightReport) finalize() {
+	status := "ready"
+	for _, check := range r.Checks {
+		switch check.Status {
+		case "error":
+			r.Status = "error"
+			r.Message = "预检查发现问题"
+			return
+		case "warning":
+			status = "warning"
+		}
+	}
+	r.Status = status
+	if status == "warning" {
+		r.Message = "预检查有提醒"
+	} else {
+		r.Message = "预检查通过"
+	}
+}
+
+func ensureWritableDirectory(dir string) error {
+	dir = strings.TrimSpace(dir)
+	if dir == "" {
+		return errors.New("输出目录为空")
+	}
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("创建输出目录失败: %w", err)
+	}
+	info, err := os.Stat(dir)
+	if err != nil {
+		return fmt.Errorf("读取输出目录失败: %w", err)
+	}
+	if !info.IsDir() {
+		return errors.New("输出路径不是目录")
+	}
+	// long: 桌面端预检查要复用真实下载的输出目录权限边界，用临时探针文件确认写入能力，避免任务启动后才发现沙盒/权限问题。
+	probe, err := os.CreateTemp(dir, ".m3u8dl-go-write-test-*")
+	if err != nil {
+		return fmt.Errorf("写入输出目录失败: %w", err)
+	}
+	name := probe.Name()
+	closeErr := probe.Close()
+	removeErr := os.Remove(name)
+	if closeErr != nil {
+		return fmt.Errorf("关闭写入探针失败: %w", closeErr)
+	}
+	if removeErr != nil {
+		return fmt.Errorf("清理写入探针失败: %w", removeErr)
+	}
+	return nil
+}
+
 func openPath(path string) error {
 	if strings.TrimSpace(path) == "" {
 		return errors.New("路径为空")
@@ -946,8 +1219,10 @@ func (a *App) saveStateLocked() error {
 	for _, id := range a.order {
 		if task := a.tasks[id]; task != nil {
 			snapshot := taskSnapshot(task)
-			// long: 请求头经常包含 Cookie，历史任务只持久化任务参数和状态，不把敏感 Header 写入磁盘。
+			// long: 请求头经常包含 Cookie，历史任务只持久化任务参数和状态，不把敏感 Header 或带 Header 的复现命令写入磁盘。
 			snapshot.Request.Headers = nil
+			snapshot.Args = nil
+			snapshot.CommandLine = ""
 			tasks = append(tasks, &snapshot)
 		}
 	}
@@ -1007,6 +1282,237 @@ func findCLIPath() (string, error) {
 	return "", errors.New("找不到下载核心，请确认 m3u8dl-go-cli 与桌面应用在同一目录，或设置 M3U8DL_GO_CLI")
 }
 
+func readCLIVersion(cliPath string) (CoreInfo, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, cliPath, "--version-json")
+	cmd.Env = desktopEnvironment()
+	out, err := cmd.Output()
+	if err == nil {
+		var payload cliVersionInfo
+		if jsonErr := json.Unmarshal([]byte(strings.TrimSpace(string(out))), &payload); jsonErr == nil && payload.FullVersion != "" {
+			return CoreInfo{
+				Status:      "ready",
+				Version:     strings.TrimSpace(payload.Version),
+				FullVersion: strings.TrimSpace(payload.FullVersion),
+			}, nil
+		}
+	}
+
+	ctx, cancel = context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	cmd = exec.CommandContext(ctx, cliPath, "--version")
+	cmd.Env = desktopEnvironment()
+	out, err = cmd.Output()
+	if err != nil {
+		if ctx.Err() != nil {
+			return CoreInfo{}, errors.New("读取下载核心版本超时")
+		}
+		return CoreInfo{}, fmt.Errorf("读取下载核心版本失败: %w", err)
+	}
+	fullVersion := strings.TrimSpace(string(out))
+	return CoreInfo{
+		Status:      "ready",
+		Version:     strings.TrimSpace(strings.TrimPrefix(fullVersion, "m3u8dl-go")),
+		FullVersion: fullVersion,
+	}, nil
+}
+
+func desktopToolCheckSpecs(ffmpegPath string) []toolCheckSpec {
+	ffmpegPath = strings.TrimSpace(ffmpegPath)
+	ffmpegCommands := []string{"ffmpeg"}
+	if ffmpegPath != "" {
+		ffmpegCommands = []string{ffmpegPath}
+	}
+	ffprobeCommands := []string{"ffprobe"}
+	if candidate := ffprobeCommandFromFFmpegPath(ffmpegPath); candidate != "" {
+		ffprobeCommands = append([]string{candidate}, ffprobeCommands...)
+	}
+	return []toolCheckSpec{
+		{Name: "ffmpeg", Label: "FFmpeg", Commands: ffmpegCommands, Args: []string{"-version"}},
+		{Name: "ffprobe", Label: "FFprobe", Commands: ffprobeCommands, Args: []string{"-version"}},
+		{Name: "mkvmerge", Label: "mkvmerge", Commands: []string{"mkvmerge"}, Args: []string{"--version"}},
+		{Name: "mp4decrypt", Label: "mp4decrypt", Commands: []string{"mp4decrypt"}, Args: []string{"--version"}},
+		{Name: "shaka-packager", Label: "Shaka Packager", Commands: []string{"shaka-packager", "packager-linux-x64", "packager-osx-x64", "packager-win-x64"}, Args: []string{"--version"}},
+	}
+}
+
+func ffprobeCommandFromFFmpegPath(ffmpegPath string) string {
+	if ffmpegPath == "" {
+		return ""
+	}
+	dir := filepath.Dir(ffmpegPath)
+	base := filepath.Base(ffmpegPath)
+	if strings.HasPrefix(base, "ffmpeg") && dir != "." {
+		return filepath.Join(dir, strings.Replace(base, "ffmpeg", "ffprobe", 1))
+	}
+	return ""
+}
+
+func probeToolVersion(path string, fallbackName string, args []string) (ToolInfo, error) {
+	command := strings.TrimSpace(path)
+	if command == "" {
+		command = fallbackName
+	}
+	return probeToolCandidates([]string{command}, args)
+}
+
+func probeToolCandidates(commands []string, args []string) (ToolInfo, error) {
+	var lastErr error
+	for _, command := range commands {
+		command = strings.TrimSpace(command)
+		if command == "" {
+			continue
+		}
+		resolved, err := lookPathDesktop(command)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		return runToolVersionProbe(resolved, args)
+	}
+	if lastErr != nil {
+		return ToolInfo{}, lastErr
+	}
+	return ToolInfo{}, errors.New("工具名称为空")
+}
+
+func runToolVersionProbe(resolved string, args []string) (ToolInfo, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, resolved, args...)
+	cmd.Env = desktopEnvironment()
+	out, err := cmd.CombinedOutput()
+	if ctx.Err() != nil {
+		return ToolInfo{Path: resolved}, errors.New("读取工具版本超时")
+	}
+	if err != nil {
+		text := firstNonEmptyLine(string(out))
+		if text != "" {
+			return ToolInfo{Path: resolved}, fmt.Errorf("读取工具版本失败: %w: %s", err, text)
+		}
+		return ToolInfo{Path: resolved}, fmt.Errorf("读取工具版本失败: %w", err)
+	}
+	return ToolInfo{
+		Status:  "ready",
+		Path:    resolved,
+		Version: firstNonEmptyLine(string(out)),
+	}, nil
+}
+
+func validateCLIArguments(cliPath string, args []string) error {
+	cliArgs := append([]string(nil), args...)
+	cliArgs = append(cliArgs, "--print-effective-options")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, cliPath, cliArgs...)
+	cmd.Env = desktopEnvironment()
+	out, err := cmd.CombinedOutput()
+	if ctx.Err() != nil {
+		return errors.New("读取参数校验结果超时")
+	}
+	if err != nil {
+		text := strings.TrimSpace(string(out))
+		if text == "" {
+			return fmt.Errorf("下载核心参数校验失败: %w", err)
+		}
+		return fmt.Errorf("下载核心参数校验失败: %w: %s", err, firstNonEmptyLine(text))
+	}
+	return nil
+}
+
+func redactPreflightError(text string, req DownloadRequest) string {
+	for _, header := range req.Headers {
+		name, value, ok := strings.Cut(header, ":")
+		if !ok || !sensitiveHeaderName(name) {
+			continue
+		}
+		value = strings.TrimSpace(value)
+		if value != "" {
+			text = strings.ReplaceAll(text, value, "<redacted>")
+		}
+		text = strings.ReplaceAll(text, header, strings.TrimSpace(name)+": <redacted>")
+	}
+	if proxy := strings.TrimSpace(req.CustomProxy); proxy != "" {
+		text = strings.ReplaceAll(text, proxy, redactProxyForDisplay(proxy))
+	}
+	return text
+}
+
+func sensitiveHeaderName(name string) bool {
+	name = strings.ToLower(strings.TrimSpace(name))
+	return name == "cookie" ||
+		name == "authorization" ||
+		name == "proxy-authorization" ||
+		name == "x-api-key" ||
+		name == "x-auth-token"
+}
+
+func redactProxyForDisplay(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	if before, after, ok := strings.Cut(raw, "@"); ok {
+		if scheme, userPart, hasScheme := strings.Cut(before, "://"); hasScheme {
+			if user, _, hasPassword := strings.Cut(userPart, ":"); hasPassword {
+				return scheme + "://" + user + ":redacted@" + after
+			}
+		}
+	}
+	return raw
+}
+
+func lookPathDesktop(command string) (string, error) {
+	if resolved, err := exec.LookPath(command); err == nil {
+		return resolved, nil
+	}
+	if hasPathSeparator(command) {
+		return "", fmt.Errorf("exec: %q: executable file not found", command)
+	}
+	for _, dir := range filepath.SplitList(desktopSearchPath()) {
+		if dir == "" {
+			continue
+		}
+		for _, candidate := range executableCandidates(filepath.Join(dir, command)) {
+			if isExecutable(candidate) {
+				return candidate, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("exec: %q: executable file not found in PATH", command)
+}
+
+func executableCandidates(path string) []string {
+	if runtime.GOOS != "windows" || filepath.Ext(path) != "" {
+		return []string{path}
+	}
+	extensions := strings.Split(os.Getenv("PATHEXT"), ";")
+	if len(extensions) == 0 || strings.Join(extensions, "") == "" {
+		extensions = []string{".COM", ".EXE", ".BAT", ".CMD"}
+	}
+	candidates := []string{path}
+	for _, ext := range extensions {
+		ext = strings.TrimSpace(ext)
+		if ext != "" {
+			candidates = append(candidates, path+ext)
+		}
+	}
+	return candidates
+}
+
+func hasPathSeparator(command string) bool {
+	return strings.Contains(command, "/") || strings.Contains(command, `\`)
+}
+
+func firstNonEmptyLine(text string) string {
+	for _, line := range strings.Split(text, "\n") {
+		if value := strings.TrimSpace(line); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
 func isExecutable(path string) bool {
 	info, err := os.Stat(path)
 	if err != nil || info.IsDir() {
@@ -1020,13 +1526,7 @@ func isExecutable(path string) bool {
 
 func desktopEnvironment() []string {
 	env := os.Environ()
-	pathValue := os.Getenv("PATH")
-	finderSafePath := "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-	if pathValue == "" {
-		env = append(env, "PATH="+finderSafePath)
-	} else {
-		env = append(env, "PATH="+finderSafePath+":"+pathValue)
-	}
+	env = append(env, "PATH="+desktopSearchPath())
 	// long: 桌面应用从 Finder 启动时通常没有用户 shell 环境，补齐中文 locale 和常见命令路径可以减少 ffmpeg 查找失败。
 	if os.Getenv("LC_ALL") == "" {
 		env = append(env, "LC_ALL=zh_CN.UTF-8")
@@ -1035,6 +1535,15 @@ func desktopEnvironment() []string {
 		env = append(env, "LANG=zh_CN.UTF-8")
 	}
 	return env
+}
+
+func desktopSearchPath() string {
+	pathValue := os.Getenv("PATH")
+	finderSafePath := "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+	if pathValue == "" {
+		return finderSafePath
+	}
+	return finderSafePath + string(os.PathListSeparator) + pathValue
 }
 
 func shellPreview(args []string) string {

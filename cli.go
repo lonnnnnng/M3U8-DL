@@ -106,6 +106,14 @@ func parseArgs(args []string) (Options, error) {
 			return opt, &cliControlError{kind: "help", opt: opt}
 		case "--version":
 			return opt, &cliControlError{kind: "version", opt: opt}
+		case "--version-json":
+			return opt, &cliControlError{kind: "version-json", opt: opt}
+		case "--doctor":
+			return opt, &cliControlError{kind: "doctor", opt: opt}
+		case "--doctor-json":
+			return opt, &cliControlError{kind: "doctor-json", opt: opt}
+		case "--print-effective-options":
+			opt.PrintEffectiveOptions = true
 		case "--morehelp":
 			v, err := next()
 			if err != nil {
@@ -1092,6 +1100,10 @@ func usageWithOptions(opt Options) string {
 			lines: []usageLine{
 				{"-h, --help, -?", "cmd_help"},
 				{"--version", "cmd_version"},
+				{"--version-json", "cmd_versionJSON"},
+				{"--doctor", "cmd_doctor"},
+				{"--doctor-json", "cmd_doctorJSON"},
+				{"--print-effective-options", "cmd_printEffectiveOptions"},
 				{"--ui-language <zh-CN|zh-TW|en-US>", "cmd_uiLanguage"},
 			},
 		},

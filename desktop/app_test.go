@@ -44,6 +44,145 @@ func TestTaskLifecycleWithFakeCLI(t *testing.T) {
 	if !taskLogTimestampRE.MatchString(task.Logs[0]) {
 		t.Fatalf("task logs should include timestamps: %#v", task.Logs)
 	}
+	if task.CommandLine == "" || !strings.Contains(task.CommandLine, fakeCLI) || !strings.Contains(task.CommandLine, "--save-name sample") {
+		t.Fatalf("completed task should expose reproducible command line, got %q", task.CommandLine)
+	}
+}
+
+func TestCreateTaskCommandPreviewDoesNotPersistSensitiveHeaders(t *testing.T) {
+	app := newTestApp(t)
+	task, err := app.CreateTask(DownloadRequest{
+		URL:            "https://example.com/index.m3u8",
+		SaveDir:        filepath.Join(t.TempDir(), "out dir"),
+		Headers:        []string{"Cookie: session=secret"},
+		AutoSelect:     true,
+		ThreadCount:    4,
+		RetryCount:     2,
+		UseSystemProxy: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if task.CommandLine == "" || !strings.Contains(task.CommandLine, "m3u8dl-go-cli") || !strings.Contains(task.CommandLine, "'Cookie: session=secret'") {
+		t.Fatalf("task should expose command preview for current session, got %q", task.CommandLine)
+	}
+	state, err := os.ReadFile(app.statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(state), "session=secret") || strings.Contains(string(state), "commandLine") {
+		t.Fatalf("persisted state should not contain sensitive command data:\n%s", state)
+	}
+}
+
+func TestPreviewCommandsExpandsBatchWithoutCreatingTasks(t *testing.T) {
+	app := newTestApp(t)
+	commands, err := app.PreviewCommands(DownloadRequest{
+		URL:               "第一集|https://example.com/one.m3u8\n第二集|https://example.com/two.m3u8",
+		SaveDir:           filepath.Join(t.TempDir(), "out dir"),
+		LinkNameSeparator: "|",
+		AutoSelect:        true,
+		ThreadCount:       4,
+		RetryCount:        2,
+		UseSystemProxy:    true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(commands, "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected two preview commands, got %q", commands)
+	}
+	if !strings.Contains(lines[0], "--save-name") || !strings.Contains(lines[0], "第一集") || !strings.Contains(lines[1], "第二集") {
+		t.Fatalf("preview commands should preserve batch names, got %q", commands)
+	}
+	if len(app.ListTasks()) != 0 {
+		t.Fatalf("preview should not create tasks, got %#v", app.ListTasks())
+	}
+}
+
+func TestPreflightDownloadChecksCoreOutputAndFFmpeg(t *testing.T) {
+	app := newTestApp(t)
+	fakeCLI := writeFakeCLI(t)
+	fakeFFmpeg := writeFakeFFmpeg(t)
+	t.Setenv("M3U8DL_GO_CLI", fakeCLI)
+
+	report := app.PreflightDownload(DownloadRequest{
+		URL:            "https://example.com/index.m3u8",
+		SaveDir:        filepath.Join(t.TempDir(), "out"),
+		FFmpegPath:     fakeFFmpeg,
+		AutoSelect:     true,
+		MuxMP4:         true,
+		ThreadCount:    4,
+		RetryCount:     2,
+		UseSystemProxy: true,
+	})
+	if report.Status != "ready" || report.TaskCount != 1 || len(report.CommandLines) != 1 {
+		t.Fatalf("preflight should pass, got %#v", report)
+	}
+	for _, name := range []string{"input", "core", "output", "ffmpeg"} {
+		if check := preflightCheckByName(report, name); check == nil || check.Status != "ready" {
+			t.Fatalf("preflight check %s should be ready, got %#v in %#v", name, check, report.Checks)
+		}
+	}
+	if !strings.Contains(report.CommandLines[0], "--ffmpeg-binary-path") || !strings.Contains(report.CommandLines[0], fakeFFmpeg) {
+		t.Fatalf("preflight should expose preview command with ffmpeg path, got %#v", report.CommandLines)
+	}
+}
+
+func TestPreflightDownloadReportsUnwritableOutputPath(t *testing.T) {
+	app := newTestApp(t)
+	fakeCLI := writeFakeCLI(t)
+	t.Setenv("M3U8DL_GO_CLI", fakeCLI)
+	filePath := filepath.Join(t.TempDir(), "not-a-dir")
+	if err := os.WriteFile(filePath, []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	report := app.PreflightDownload(DownloadRequest{
+		URL:            "https://example.com/index.m3u8",
+		SaveDir:        filePath,
+		AutoSelect:     true,
+		MuxMP4:         false,
+		ThreadCount:    4,
+		RetryCount:     2,
+		UseSystemProxy: true,
+	})
+	if report.Status != "error" {
+		t.Fatalf("preflight should fail for file output path, got %#v", report)
+	}
+	check := preflightCheckByName(report, "output")
+	if check == nil || check.Status != "error" || !strings.Contains(check.Message, "输出目录") {
+		t.Fatalf("preflight should report output error, got %#v", report.Checks)
+	}
+}
+
+func TestPreflightDownloadReportsCoreArgumentValidationError(t *testing.T) {
+	app := newTestApp(t)
+	fakeCLI := writeEffectiveOptionsRejectingFakeCLI(t)
+	t.Setenv("M3U8DL_GO_CLI", fakeCLI)
+
+	report := app.PreflightDownload(DownloadRequest{
+		URL:            "https://example.com/index.m3u8",
+		SaveDir:        filepath.Join(t.TempDir(), "out"),
+		Headers:        []string{"Cookie: session=secret"},
+		AutoSelect:     true,
+		MuxMP4:         false,
+		ThreadCount:    4,
+		RetryCount:     2,
+		UseSystemProxy: true,
+		CustomProxy:    "http://user:secret@127.0.0.1:8888",
+	})
+	if report.Status != "error" {
+		t.Fatalf("preflight should fail for core argument validation, got %#v", report)
+	}
+	check := preflightCheckByName(report, "args")
+	if check == nil || check.Status != "error" || !strings.Contains(check.Detail, "bad option") {
+		t.Fatalf("preflight should expose sanitized argument validation error, got %#v", report.Checks)
+	}
+	if strings.Contains(check.Detail, "session=secret") || strings.Contains(check.Detail, "user:secret") {
+		t.Fatalf("preflight argument error should be redacted, got %#v", check)
+	}
 }
 
 func TestParseProgressWithSpeed(t *testing.T) {
@@ -55,6 +194,69 @@ func TestParseProgressWithSpeed(t *testing.T) {
 	current, total, speed, ok = parseProgress("Vid download progress 4/9, speed 900 KB/s")
 	if !ok || current != 4 || total != 9 || speed != "900 KB/s" {
 		t.Fatalf("english progress with speed parsed wrong: current=%d total=%d speed=%q ok=%t", current, total, speed, ok)
+	}
+}
+
+func TestGetCoreInfoUsesVersionJSON(t *testing.T) {
+	app := newTestApp(t)
+	fakeCLI := writeFakeCLI(t)
+	t.Setenv("M3U8DL_GO_CLI", fakeCLI)
+
+	info := app.GetCoreInfo()
+	if info.Status != "ready" || info.CLIPath != fakeCLI || info.Version != "9.9.9" || info.FullVersion != "m3u8dl-go 9.9.9" || info.Error != "" {
+		t.Fatalf("core info should read fake CLI version json, got %#v", info)
+	}
+}
+
+func TestGetCoreInfoFallsBackToPlainVersion(t *testing.T) {
+	app := newTestApp(t)
+	fakeCLI := writeVersionOnlyFakeCLI(t)
+	t.Setenv("M3U8DL_GO_CLI", fakeCLI)
+
+	info := app.GetCoreInfo()
+	if info.Status != "ready" || info.CLIPath != fakeCLI || info.Version != "8.8.8" || info.FullVersion != "m3u8dl-go 8.8.8" || info.Error != "" {
+		t.Fatalf("core info should fall back to plain --version, got %#v", info)
+	}
+}
+
+func TestCheckFFmpegReadsVersion(t *testing.T) {
+	app := newTestApp(t)
+	fakeFFmpeg := writeFakeFFmpeg(t)
+
+	info := app.CheckFFmpeg(fakeFFmpeg)
+	if info.Status != "ready" || info.Path != fakeFFmpeg || info.Version != "ffmpeg version 9.9.9" || info.Error != "" {
+		t.Fatalf("ffmpeg check mismatch: %#v", info)
+	}
+}
+
+func TestCheckToolsDetectsFFprobeAndShakaAlias(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("fake shell tool test is only used on Unix-like CI runners")
+	}
+	app := newTestApp(t)
+	dir := t.TempDir()
+	fakeFFmpeg := writeFakeTool(t, dir, "ffmpeg", "-version", "ffmpeg version 9.9.9")
+	writeFakeTool(t, dir, "ffprobe", "-version", "ffprobe version 9.9.9")
+	writeFakeTool(t, dir, "mkvmerge", "--version", "mkvmerge v99")
+	writeFakeTool(t, dir, "mp4decrypt", "--version", "mp4decrypt v99")
+	writeFakeTool(t, dir, "packager-osx-x64", "--version", "packager version 99")
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	tools := app.CheckTools(fakeFFmpeg)
+	byName := map[string]ToolInfo{}
+	for _, tool := range tools {
+		byName[tool.Name] = tool
+	}
+	for _, name := range []string{"ffmpeg", "ffprobe", "mkvmerge", "mp4decrypt", "shaka-packager"} {
+		if byName[name].Status != "ready" {
+			t.Fatalf("tool %s should be ready, got %#v in %#v", name, byName[name], tools)
+		}
+	}
+	if byName["ffprobe"].Path != filepath.Join(dir, "ffprobe") {
+		t.Fatalf("ffprobe should be resolved next to custom ffmpeg, got %#v", byName["ffprobe"])
+	}
+	if byName["shaka-packager"].Path != filepath.Join(dir, "packager-osx-x64") {
+		t.Fatalf("shaka alias should be detected, got %#v", byName["shaka-packager"])
 	}
 }
 
@@ -198,6 +400,20 @@ func writeFakeCLI(t *testing.T) string {
 	path := filepath.Join(t.TempDir(), "m3u8dl-go-cli")
 	script := `#!/bin/sh
 set -eu
+if [ "${1:-}" = "--version-json" ]; then
+  echo '{"name":"m3u8dl-go","version":"9.9.9","fullVersion":"m3u8dl-go 9.9.9"}'
+  exit 0
+fi
+if [ "${1:-}" = "--version" ]; then
+  echo "m3u8dl-go 9.9.9"
+  exit 0
+fi
+for arg in "$@"; do
+  if [ "$arg" = "--print-effective-options" ]; then
+    echo '{"version":{"name":"m3u8dl-go","version":"9.9.9","fullVersion":"m3u8dl-go 9.9.9"}}'
+    exit 0
+  fi
+done
 out="."
 name="sample"
 while [ "$#" -gt 0 ]; do
@@ -218,6 +434,98 @@ echo "输出: $out/$name.mp4"
 		t.Fatal(err)
 	}
 	return path
+}
+
+func writeEffectiveOptionsRejectingFakeCLI(t *testing.T) string {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("fake shell CLI test is only used on Unix-like CI runners")
+	}
+	path := filepath.Join(t.TempDir(), "m3u8dl-go-cli")
+	script := `#!/bin/sh
+set -eu
+if [ "${1:-}" = "--version-json" ]; then
+  echo '{"name":"m3u8dl-go","version":"9.9.9","fullVersion":"m3u8dl-go 9.9.9"}'
+  exit 0
+fi
+for arg in "$@"; do
+  if [ "$arg" = "--print-effective-options" ]; then
+    echo '错误: bad option Cookie: session=secret http://user:secret@127.0.0.1:8888' >&2
+    exit 2
+  fi
+done
+exit 0
+`
+	if err := os.WriteFile(path, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func writeVersionOnlyFakeCLI(t *testing.T) string {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("fake shell CLI test is only used on Unix-like CI runners")
+	}
+	path := filepath.Join(t.TempDir(), "m3u8dl-go-cli")
+	script := `#!/bin/sh
+set -eu
+if [ "${1:-}" = "--version" ]; then
+  echo "m3u8dl-go 8.8.8"
+  exit 0
+fi
+exit 2
+`
+	if err := os.WriteFile(path, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func writeFakeFFmpeg(t *testing.T) string {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("fake shell tool test is only used on Unix-like CI runners")
+	}
+	path := filepath.Join(t.TempDir(), "ffmpeg")
+	script := `#!/bin/sh
+set -eu
+if [ "${1:-}" = "-version" ]; then
+  echo "ffmpeg version 9.9.9"
+  exit 0
+fi
+exit 2
+`
+	if err := os.WriteFile(path, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func writeFakeTool(t *testing.T, dir string, name string, versionArg string, output string) string {
+	t.Helper()
+	path := filepath.Join(dir, name)
+	script := `#!/bin/sh
+set -eu
+if [ "${1:-}" = "` + versionArg + `" ]; then
+  echo "` + output + `"
+  exit 0
+fi
+exit 2
+`
+	if err := os.WriteFile(path, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func preflightCheckByName(report PreflightReport, name string) *PreflightCheck {
+	for i := range report.Checks {
+		if report.Checks[i].Name == name {
+			return &report.Checks[i]
+		}
+	}
+	return nil
 }
 
 func waitTaskStatus(t *testing.T, app *App, id string, want string, timeout time.Duration) Task {

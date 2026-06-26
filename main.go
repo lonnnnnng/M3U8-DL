@@ -17,6 +17,12 @@ import (
 
 const version = "m3u8dl-go 1.0.0"
 
+type versionInfo struct {
+	Name        string `json:"name"`
+	Version     string `json:"version"`
+	FullVersion string `json:"fullVersion"`
+}
+
 func main() {
 	if err := run(); err != nil {
 		var controlErr *cliControlError
@@ -28,6 +34,16 @@ func main() {
 			case "version":
 				fmt.Println(version)
 				return
+			case "version-json":
+				b, _ := json.Marshal(currentVersionInfo())
+				fmt.Println(string(b))
+				return
+			case "doctor":
+				fmt.Print(runDoctorText(controlErr.opt))
+				return
+			case "doctor-json":
+				fmt.Print(runDoctorJSON(controlErr.opt))
+				return
 			case "morehelp":
 				fmt.Print(moreHelpWithOptions(controlErr.value, controlErr.opt))
 				return
@@ -35,6 +51,14 @@ func main() {
 		}
 		fmt.Fprintln(os.Stderr, timestampConsoleMessage("错误: "+err.Error(), time.Now()))
 		os.Exit(1)
+	}
+}
+
+func currentVersionInfo() versionInfo {
+	return versionInfo{
+		Name:        "m3u8dl-go",
+		Version:     strings.TrimSpace(strings.TrimPrefix(version, "m3u8dl-go")),
+		FullVersion: version,
 	}
 }
 
@@ -48,6 +72,14 @@ func runWithContext(ctx context.Context, args []string, command []string) error 
 	opt, err := parseArgs(args)
 	if err != nil {
 		return err
+	}
+	if opt.PrintEffectiveOptions {
+		output, err := runPrintEffectiveOptions(opt, command, time.Now())
+		if err != nil {
+			return err
+		}
+		fmt.Print(output)
+		return nil
 	}
 	consoleRedirected := applyConsoleRedirectDefaults(&opt, os.Stdout, os.Stderr)
 	cleanupLog, _, err := setupLogging(opt, command)

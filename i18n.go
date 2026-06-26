@@ -147,6 +147,26 @@ var localizedTexts = map[string]localizedText{
 		ZhTW: "顯示版本訊息",
 		EnUS: "Show version information",
 	},
+	"cmd_versionJSON": {
+		ZhCN: "以 JSON 输出版本信息",
+		ZhTW: "以 JSON 輸出版本訊息",
+		EnUS: "Show machine-readable version information",
+	},
+	"cmd_doctor": {
+		ZhCN: "检测 ffmpeg、ffprobe 等外部工具",
+		ZhTW: "檢測 ffmpeg、ffprobe 等外部工具",
+		EnUS: "Check external tools such as ffmpeg and ffprobe",
+	},
+	"cmd_doctorJSON": {
+		ZhCN: "以 JSON 输出外部工具检测结果",
+		ZhTW: "以 JSON 輸出外部工具檢測結果",
+		EnUS: "Show external tool diagnostics as JSON",
+	},
+	"cmd_printEffectiveOptions": {
+		ZhCN: "以 JSON 输出解析后的有效参数",
+		ZhTW: "以 JSON 輸出解析後的有效參數",
+		EnUS: "Show parsed effective options as JSON",
+	},
 	"cmd_forceAnsiConsole": {
 		ZhCN: "强制认定终端为支持ANSI且可交互的终端",
 		ZhTW: "強制認定終端為支援ANSI且可交往的終端",

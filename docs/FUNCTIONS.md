@@ -8,6 +8,7 @@
 - 支持协议：HLS/m3u8、DASH/mpd、MSS/ism；本 Go 复刻版只实现 HLS。
 - 播放列表识别：根据正文识别 HLS、DASH、MSS、直播 TS、二进制异常；本 Go 复刻版只解析 HLS，其他类型保留上游式匹配提示后返回不支持。
 - 多语言 CLI：`zh-CN`、`zh-TW`、`en-US`。
+- 诊断：CLI 支持 `--version-json`、`--doctor`、`--doctor-json` 和 `--print-effective-options`，可检测 `ffmpeg`、`ffprobe`、`mkvmerge`、`mp4decrypt`、Shaka Packager，并输出脱敏后的有效参数 JSON；桌面端设置页可查看下载核心状态/版本/路径，并一键检测同一组外部工具。
 - 更新检查、日志文件、ANSI 进度条。
 - HTTP：默认 User-Agent、自定义 Header、playlist/key 默认 `Accept-Encoding: gzip, deflate` 与 `Cache-Control: no-cache`、系统代理、自定义代理、超时、重试、gzip/deflate/br 响应解压。
 - Master playlist：解析视频、音频、字幕、分辨率、码率、语言、名称、频道、HDR/DV 标记。
