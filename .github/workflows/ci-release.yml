@@ -26,6 +26,26 @@ jobs:
       - name: Run tests
         run: go test -count=1 ./...
 
+  desktop-test:
+    name: Desktop Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: desktop/go.mod
+          cache: true
+
+      - name: Run desktop tests
+        working-directory: desktop
+        run: go test -count=1 ./...
+
+      - name: Check frontend script syntax
+        run: node --check desktop/frontend/dist/app.js
+
   build:
     name: Build ${{ matrix.goos }}-${{ matrix.goarch }}
     runs-on: ubuntu-latest
@@ -94,9 +114,19 @@ jobs:
           if-no-files-found: error
 
   desktop-macos:
-    name: Desktop macOS
-    runs-on: macos-latest
-    needs: test
+    name: Desktop macOS ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    needs:
+      - test
+      - desktop-test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15-intel
+            arch: amd64
+          - runner: macos-15
+            arch: arm64
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -113,9 +143,69 @@ jobs:
       - name: Upload desktop archive
         uses: actions/upload-artifact@v4
         with:
-          name: m3u8dl-go_desktop_macos
+          name: m3u8dl-go_desktop_macos_${{ matrix.arch }}
           path: |
-            dist/m3u8dl-go_*_desktop_macos_*.zip
+            dist/m3u8dl-go_*_desktop_macos_${{ matrix.arch }}.zip
+          if-no-files-found: error
+
+  desktop-linux:
+    name: Desktop Linux amd64
+    runs-on: ubuntu-22.04
+    needs:
+      - test
+      - desktop-test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install Linux desktop dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.0-dev
+
+      - name: Build desktop app
+        run: ./scripts/build_desktop_linux.sh
+
+      - name: Upload desktop archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: m3u8dl-go_desktop_linux_amd64
+          path: |
+            dist/m3u8dl-go_*_desktop_linux_amd64.tar.gz
+          if-no-files-found: error
+
+  desktop-windows:
+    name: Desktop Windows amd64
+    runs-on: windows-latest
+    needs:
+      - test
+      - desktop-test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build desktop app
+        shell: pwsh
+        run: ./scripts/build_desktop_windows.ps1
+
+      - name: Upload desktop archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: m3u8dl-go_desktop_windows_amd64
+          path: |
+            dist/m3u8dl-go_*_desktop_windows_amd64.zip
           if-no-files-found: error
 
   release:
@@ -124,6 +214,8 @@ jobs:
     needs:
       - build
       - desktop-macos
+      - desktop-linux
+      - desktop-windows
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - name: Download archives

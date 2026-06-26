@@ -71,5 +71,6 @@ LEGACY_ARCHIVE="${DIST_DIR}/m3u8dl-go_desktop_macos_${ARCH_SUFFIX}.zip"
 # 旧版无版本号 zip 容易被误认成当前构建结果，重新打包同一架构时一并清掉。
 rm -f "${ARCHIVE}" "${ARCHIVE}.sha256" "${LEGACY_ARCHIVE}" "${LEGACY_ARCHIVE}.sha256"
 ditto -c -k --norsrc --keepParent "${APP_PATH}" "${ARCHIVE}"
+"${ROOT_DIR}/scripts/verify_desktop_archive.sh" "${ARCHIVE}"
 
 echo "${ARCHIVE}"

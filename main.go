@@ -94,6 +94,10 @@ func run() error {
 func runWithContext(ctx context.Context, args []string, command []string) (err error) {
 	opt, err := parseArgs(args)
 	if err != nil {
+		var controlErr *cliControlError
+		if !errors.As(err, &controlErr) && progressJSONRequested(args) {
+			emitDownloadErrorJSON(Options{ProgressJSON: true}, err)
+		}
 		return err
 	}
 	if opt.PrintEffectiveOptions {
@@ -206,6 +210,29 @@ func runWithContext(ctx context.Context, args []string, command []string) (err e
 	}
 	emitDownloadSummaryJSON(opt, "completed", summaryOutputs(outs, muxed))
 	return nil
+}
+
+func progressJSONRequested(args []string) bool {
+	enabled := false
+	for i := 0; i < len(args); i++ {
+		if args[i] != "--progress-json" {
+			continue
+		}
+		// long: 参数解析失败时还没有完整 Options；这里复用布尔选项的显式 true/false 语义，只用于决定是否输出机器可读错误。
+		enabled = true
+		if i+1 >= len(args) {
+			continue
+		}
+		switch strings.ToLower(args[i+1]) {
+		case "true":
+			enabled = true
+			i++
+		case "false":
+			enabled = false
+			i++
+		}
+	}
+	return enabled
 }
 
 func summaryOutputs(outs []outputFile, muxed string) []outputFile {

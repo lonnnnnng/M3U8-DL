@@ -327,6 +327,7 @@ func normalizeSettings(settings Settings) Settings {
 	if strings.TrimSpace(settings.DefaultSaveDir) == "" {
 		settings.DefaultSaveDir = defaultSaveDir()
 	}
+	settings.CustomProxy = clearRedactedProxyForRuntime(settings.CustomProxy)
 	if settings.ThreadCount <= 0 {
 		settings.ThreadCount = 8
 	}
@@ -1847,10 +1848,7 @@ func (a *App) loadState() error {
 		if task == nil || task.ID == "" {
 			continue
 		}
-		if task.Status == StatusRunning {
-			task.Status = StatusStopped
-			task.LastMessage = "上次退出时任务仍在运行，已标记为停止"
-		}
+		sanitizeLoadedTask(task)
 		a.tasks[task.ID] = task
 	}
 	a.order = append([]string(nil), state.Order...)
@@ -1867,6 +1865,14 @@ func (a *App) loadState() error {
 		}
 	}
 	return nil
+}
+
+func sanitizeLoadedTask(task *Task) {
+	if task.Status == StatusRunning {
+		task.Status = StatusStopped
+		task.LastMessage = "上次退出时任务仍在运行，已标记为停止"
+	}
+	task.Request.CustomProxy = clearRedactedProxyForRuntime(task.Request.CustomProxy)
 }
 
 func (a *App) saveStateLocked() error {
@@ -1888,7 +1894,7 @@ func (a *App) saveStateLocked() error {
 		}
 	}
 	state := persistedState{
-		Settings: a.settings,
+		Settings: settingsForPersistence(a.settings),
 		Order:    append([]string(nil), a.order...),
 		Tasks:    tasks,
 	}
@@ -2119,6 +2125,19 @@ func redactProxyForDisplay(raw string) string {
 				return scheme + "://" + user + ":redacted@" + after
 			}
 		}
+	}
+	return raw
+}
+
+func settingsForPersistence(settings Settings) Settings {
+	settings.CustomProxy = redactProxyForDisplay(settings.CustomProxy)
+	return settings
+}
+
+func clearRedactedProxyForRuntime(raw string) string {
+	if strings.Contains(raw, ":redacted@") {
+		// long: 状态文件只保留代理密码的脱敏形态；重新启动后不能把 redacted 当成真实密码继续发请求。
+		return ""
 	}
 	return raw
 }

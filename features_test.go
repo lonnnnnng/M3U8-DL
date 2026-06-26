@@ -4971,6 +4971,46 @@ func TestDownloadErrorJSONEmittedForRuntimeErrors(t *testing.T) {
 	}
 }
 
+func TestDownloadErrorJSONEmittedForParseErrors(t *testing.T) {
+	out := captureStdout(t, func() {
+		err := runWithContext(context.Background(), []string{
+			"--progress-json", "true",
+			"--thread-count", "bad",
+			"https://example.com/index.m3u8",
+		}, []string{"m3u8dl-go"})
+		if err == nil {
+			t.Fatal("expected parse error")
+		}
+	})
+	line := strings.TrimSpace(out)
+	if !strings.HasPrefix(line, `{"type":"error"`) {
+		t.Fatalf("parse error should emit raw JSON error, got %q", out)
+	}
+	var event downloadErrorEvent
+	if err := json.Unmarshal([]byte(line), &event); err != nil {
+		t.Fatalf("parse error json should parse: %v\n%s", err, line)
+	}
+	if event.Type != "error" || event.Status != "failed" || event.Timestamp == "" || !strings.Contains(event.Message, "ThreadCount") {
+		t.Fatalf("parse error event mismatch: %#v", event)
+	}
+}
+
+func TestDownloadErrorJSONSkipsParseErrorsWhenDisabled(t *testing.T) {
+	out := captureStdout(t, func() {
+		err := runWithContext(context.Background(), []string{
+			"--progress-json", "false",
+			"--thread-count", "bad",
+			"https://example.com/index.m3u8",
+		}, []string{"m3u8dl-go"})
+		if err == nil {
+			t.Fatal("expected parse error")
+		}
+	})
+	if strings.TrimSpace(out) != "" {
+		t.Fatalf("progress-json false should not emit parse error JSON, got %q", out)
+	}
+}
+
 func TestTimestampConsoleMessage(t *testing.T) {
 	got := timestampConsoleMessage("错误: boom", time.Date(2026, 6, 25, 21, 30, 0, 0, time.Local))
 	if got != "[2026-06-25 21:30:00] 错误: boom" {

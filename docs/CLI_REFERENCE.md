@@ -143,7 +143,7 @@ ffmpeg 单轨合并：
 | `--no-log [true\|false]` | 关闭日志文件输出。 |
 | `--force-ansi-console [true\|false]` | 强制认为终端支持 ANSI 且可交互。 |
 | `--no-ansi-color [true\|false]` | 去除 ANSI 颜色。 |
-| `--progress-json [true\|false]` | 按行输出机器可读事件 JSON。`progress` 事件包含 `timestamp`、`stream`、`current`、`total`、`speed`、`bytes`、`percent`；成功完成时会追加 `summary` 事件和实际存在的输出文件列表；运行期失败会追加 `error` 事件和错误信息；stdout 保持纯 JSON 行，默认日志文件会记录同一事件，桌面端默认开启。 |
+| `--progress-json [true\|false]` | 按行输出机器可读事件 JSON。`progress` 事件包含 `timestamp`、`stream`、`current`、`total`、`speed`、`bytes`、`percent`；成功完成时会追加 `summary` 事件和实际存在的输出文件列表；参数解析失败或运行期失败会追加 `error` 事件和错误信息；stdout 保持纯 JSON 行，默认日志文件会记录同一事件，桌面端默认开启。 |
 | `--no-date-info [true\|false]` | 混流时不写入日期 metadata。 |
 
 ### 字幕与选流

@@ -54,7 +54,7 @@ go run . --morehelp custom-range
 
 ## 桌面版
 
-macOS 桌面版基于 Wails 构建，界面负责填写 m3u8、输出目录、文件名、请求头和常用合并选项，实际下载仍复用同版本 `m3u8dl-go` 命令行核心。
+桌面版基于 Wails 构建，界面负责填写 m3u8、输出目录、文件名、请求头和常用合并选项，实际下载仍复用同版本 `m3u8dl-go` 命令行核心。
 
 本地构建 macOS `.app`：
 
@@ -62,7 +62,17 @@ macOS 桌面版基于 Wails 构建，界面负责填写 m3u8、输出目录、�
 ./scripts/build_desktop_macos.sh
 ```
 
-产物会写入 `dist/m3u8dl-go_<version>_desktop_macos_<arch>.zip`。
+Linux/Windows 桌面包在对应系统上构建：
+
+```zsh
+./scripts/build_desktop_linux.sh
+```
+
+```powershell
+./scripts/build_desktop_windows.ps1
+```
+
+发布流水线会先运行 CLI 和桌面端测试，再生成 macOS amd64/arm64、Linux amd64、Windows amd64 桌面包。产物会写入 `dist/m3u8dl-go_<version>_desktop_<os>_<arch>.*`，桌面打包脚本会检查包内桌面程序、内置 CLI 和 `.sha256` 排除规则。
 
 ## 已实现主能力
 

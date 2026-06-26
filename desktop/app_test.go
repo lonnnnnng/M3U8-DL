@@ -75,6 +75,97 @@ func TestCreateTaskCommandPreviewDoesNotPersistSensitiveHeaders(t *testing.T) {
 	}
 }
 
+func TestSaveSettingsDoesNotPersistProxyPassword(t *testing.T) {
+	app := newTestApp(t)
+	saved, err := app.SaveSettings(Settings{
+		DefaultSaveDir: filepath.Join(t.TempDir(), "downloads"),
+		ThreadCount:    8,
+		RetryCount:     3,
+		MaxActiveTasks: 2,
+		CustomProxy:    "http://user:secret@127.0.0.1:8888",
+		UseSystemProxy: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.CustomProxy != "http://user:secret@127.0.0.1:8888" {
+		t.Fatalf("runtime settings should keep proxy for current session, got %q", saved.CustomProxy)
+	}
+
+	stateBytes, err := os.ReadFile(app.statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stateText := string(stateBytes)
+	if strings.Contains(stateText, "user:secret") {
+		t.Fatalf("persisted settings should not contain proxy password:\n%s", stateText)
+	}
+	if !strings.Contains(stateText, "http://user:redacted@127.0.0.1:8888") {
+		t.Fatalf("persisted settings should retain redacted proxy for auditability:\n%s", stateText)
+	}
+
+	reloaded := &App{
+		tasks:     map[string]*Task{},
+		running:   map[string]*runningTask{},
+		settings:  defaultSettings(),
+		statePath: app.statePath,
+	}
+	if err := reloaded.loadState(); err != nil {
+		t.Fatal(err)
+	}
+	if reloaded.settings.CustomProxy != "" {
+		t.Fatalf("redacted proxy should be cleared before runtime reuse, got %q", reloaded.settings.CustomProxy)
+	}
+}
+
+func TestLoadedTaskClearsRedactedProxyBeforeRetry(t *testing.T) {
+	app := newTestApp(t)
+	task, err := app.CreateTask(DownloadRequest{
+		URL:            "https://example.com/index.m3u8",
+		SaveDir:        filepath.Join(t.TempDir(), "out"),
+		CustomProxy:    "http://user:secret@127.0.0.1:8888",
+		AutoSelect:     true,
+		ThreadCount:    4,
+		RetryCount:     2,
+		UseSystemProxy: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if task.Request.CustomProxy != "http://user:secret@127.0.0.1:8888" {
+		t.Fatalf("runtime task should keep proxy for current session, got %q", task.Request.CustomProxy)
+	}
+
+	stateBytes, err := os.ReadFile(app.statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stateText := string(stateBytes)
+	if strings.Contains(stateText, "user:secret") {
+		t.Fatalf("persisted task should not contain proxy password:\n%s", stateText)
+	}
+	if !strings.Contains(stateText, "http://user:redacted@127.0.0.1:8888") {
+		t.Fatalf("persisted task should keep redacted proxy for display:\n%s", stateText)
+	}
+
+	reloaded := &App{
+		tasks:     map[string]*Task{},
+		running:   map[string]*runningTask{},
+		settings:  defaultSettings(),
+		statePath: app.statePath,
+	}
+	if err := reloaded.loadState(); err != nil {
+		t.Fatal(err)
+	}
+	loadedTask := reloaded.tasks[task.ID]
+	if loadedTask == nil {
+		t.Fatalf("loaded task missing: %#v", reloaded.tasks)
+	}
+	if loadedTask.Request.CustomProxy != "" {
+		t.Fatalf("redacted task proxy should be cleared before retry, got %q", loadedTask.Request.CustomProxy)
+	}
+}
+
 func TestExportTaskLogWritesRedactedLogFile(t *testing.T) {
 	app := newTestApp(t)
 	out := filepath.Join(t.TempDir(), "out")
