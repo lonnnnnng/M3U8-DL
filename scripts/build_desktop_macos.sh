@@ -60,6 +60,11 @@ mkdir -p "${APP_PATH}/Contents/Resources"
 cp "${CLI_HELPER}" "${APP_PATH}/Contents/Resources/m3u8dl-go-cli"
 chmod +x "${APP_PATH}/Contents/Resources/m3u8dl-go-cli"
 
+# long: 内置 CLI 是 Wails 签名后才注入的资源，必须重新签名，否则 macOS 会把 app 判定为密封资源被改动。
+codesign --force --sign - "${APP_PATH}/Contents/Resources/m3u8dl-go-cli"
+codesign --force --deep --sign - "${APP_PATH}"
+codesign --verify --deep --strict --verbose=2 "${APP_PATH}"
+
 mkdir -p "${DIST_DIR}"
 ARCHIVE="${DIST_DIR}/${TARGET_NAME}.zip"
 LEGACY_ARCHIVE="${DIST_DIR}/m3u8dl-go_desktop_macos_${ARCH_SUFFIX}.zip"
