@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -51,37 +52,115 @@ type runningTask struct {
 }
 
 type Settings struct {
-	DefaultSaveDir     string `json:"defaultSaveDir"`
-	FFmpegPath         string `json:"ffmpegPath"`
-	MaxActiveTasks     int    `json:"maxActiveTasks"`
-	ThreadCount        int    `json:"threadCount"`
-	RetryCount         int    `json:"retryCount"`
-	MaxSpeed           string `json:"maxSpeed"`
-	AutoSelect         bool   `json:"autoSelect"`
-	MuxMP4             bool   `json:"muxMP4"`
-	BinaryMerge        bool   `json:"binaryMerge"`
-	ConcurrentDownload bool   `json:"concurrentDownload"`
-	UseSystemProxy     bool   `json:"useSystemProxy"`
-	CustomProxy        string `json:"customProxy"`
+	DefaultSaveDir          string   `json:"defaultSaveDir"`
+	FFmpegPath              string   `json:"ffmpegPath"`
+	BaseURL                 string   `json:"baseURL"`
+	TmpDir                  string   `json:"tmpDir"`
+	SavePattern             string   `json:"savePattern"`
+	HTTPRequestTimeout      float64  `json:"httpRequestTimeout"`
+	MaxActiveTasks          int      `json:"maxActiveTasks"`
+	ThreadCount             int      `json:"threadCount"`
+	RetryCount              int      `json:"retryCount"`
+	MaxSpeed                string   `json:"maxSpeed"`
+	SubFormat               string   `json:"subFormat"`
+	SelectVideo             string   `json:"selectVideo"`
+	SelectAudio             string   `json:"selectAudio"`
+	SelectSubtitle          string   `json:"selectSubtitle"`
+	DropVideo               string   `json:"dropVideo"`
+	DropAudio               string   `json:"dropAudio"`
+	DropSubtitle            string   `json:"dropSubtitle"`
+	KeyTextFile             string   `json:"keyTextFile"`
+	DecryptionEngine        string   `json:"decryptionEngine"`
+	DecryptionBinaryPath    string   `json:"decryptionBinaryPath"`
+	CustomHLSMethod         string   `json:"customHLSMethod"`
+	AdKeywords              []string `json:"adKeywords"`
+	LiveRecordLimit         string   `json:"liveRecordLimit"`
+	LiveWaitTime            int      `json:"liveWaitTime"`
+	LiveTakeCount           int      `json:"liveTakeCount"`
+	MuxAfterDone            string   `json:"muxAfterDone"`
+	MuxImports              []string `json:"muxImports"`
+	AutoSelect              bool     `json:"autoSelect"`
+	SubOnly                 bool     `json:"subOnly"`
+	DisableSubtitleFix      bool     `json:"disableSubtitleFix"`
+	MP4RealTimeDecryption   bool     `json:"mp4RealTimeDecryption"`
+	LivePerformAsVOD        bool     `json:"livePerformAsVOD"`
+	LiveRealTimeMerge       bool     `json:"liveRealTimeMerge"`
+	DisableLiveKeepSegments bool     `json:"disableLiveKeepSegments"`
+	LivePipeMux             bool     `json:"livePipeMux"`
+	LiveFixVTTByAudio       bool     `json:"liveFixVTTByAudio"`
+	MuxMP4                  bool     `json:"muxMP4"`
+	NoDateInfo              bool     `json:"noDateInfo"`
+	BinaryMerge             bool     `json:"binaryMerge"`
+	AppendURLParams         bool     `json:"appendURLParams"`
+	SkipDownload            bool     `json:"skipDownload"`
+	SkipMerge               bool     `json:"skipMerge"`
+	KeepSegments            bool     `json:"keepSegments"`
+	DisableMetaJSON         bool     `json:"disableMetaJSON"`
+	DisableSegmentCheck     bool     `json:"disableSegmentCheck"`
+	NoLog                   bool     `json:"noLog"`
+	ConcurrentDownload      bool     `json:"concurrentDownload"`
+	UseSystemProxy          bool     `json:"useSystemProxy"`
+	CustomProxy             string   `json:"customProxy"`
 }
 
 type DownloadRequest struct {
-	URL                string   `json:"url"`
-	SaveDir            string   `json:"saveDir"`
-	SaveName           string   `json:"saveName"`
-	LinkNameSeparator  string   `json:"linkNameSeparator"`
-	Headers            []string `json:"headers"`
-	CustomRange        string   `json:"customRange"`
-	FFmpegPath         string   `json:"ffmpegPath"`
-	ThreadCount        int      `json:"threadCount"`
-	RetryCount         int      `json:"retryCount"`
-	MaxSpeed           string   `json:"maxSpeed"`
-	AutoSelect         bool     `json:"autoSelect"`
-	MuxMP4             bool     `json:"muxMP4"`
-	BinaryMerge        bool     `json:"binaryMerge"`
-	ConcurrentDownload bool     `json:"concurrentDownload"`
-	UseSystemProxy     bool     `json:"useSystemProxy"`
-	CustomProxy        string   `json:"customProxy"`
+	URL                     string   `json:"url"`
+	SaveDir                 string   `json:"saveDir"`
+	SaveName                string   `json:"saveName"`
+	SavePattern             string   `json:"savePattern"`
+	LinkNameSeparator       string   `json:"linkNameSeparator"`
+	BaseURL                 string   `json:"baseURL"`
+	TmpDir                  string   `json:"tmpDir"`
+	Headers                 []string `json:"headers"`
+	CustomRange             string   `json:"customRange"`
+	FFmpegPath              string   `json:"ffmpegPath"`
+	HTTPRequestTimeout      float64  `json:"httpRequestTimeout"`
+	ThreadCount             int      `json:"threadCount"`
+	RetryCount              int      `json:"retryCount"`
+	MaxSpeed                string   `json:"maxSpeed"`
+	SubFormat               string   `json:"subFormat"`
+	SelectVideo             string   `json:"selectVideo"`
+	SelectAudio             string   `json:"selectAudio"`
+	SelectSubtitle          string   `json:"selectSubtitle"`
+	DropVideo               string   `json:"dropVideo"`
+	DropAudio               string   `json:"dropAudio"`
+	DropSubtitle            string   `json:"dropSubtitle"`
+	Keys                    []string `json:"keys"`
+	KeyTextFile             string   `json:"keyTextFile"`
+	DecryptionEngine        string   `json:"decryptionEngine"`
+	DecryptionBinaryPath    string   `json:"decryptionBinaryPath"`
+	MP4RealTimeDecryption   bool     `json:"mp4RealTimeDecryption"`
+	CustomHLSMethod         string   `json:"customHLSMethod"`
+	CustomHLSKey            string   `json:"customHLSKey"`
+	CustomHLSIV             string   `json:"customHLSIV"`
+	AdKeywords              []string `json:"adKeywords"`
+	TaskStartAt             string   `json:"taskStartAt"`
+	LiveRecordLimit         string   `json:"liveRecordLimit"`
+	LiveWaitTime            int      `json:"liveWaitTime"`
+	LiveTakeCount           int      `json:"liveTakeCount"`
+	MuxAfterDone            string   `json:"muxAfterDone"`
+	MuxImports              []string `json:"muxImports"`
+	AutoSelect              bool     `json:"autoSelect"`
+	SubOnly                 bool     `json:"subOnly"`
+	DisableSubtitleFix      bool     `json:"disableSubtitleFix"`
+	LivePerformAsVOD        bool     `json:"livePerformAsVOD"`
+	LiveRealTimeMerge       bool     `json:"liveRealTimeMerge"`
+	DisableLiveKeepSegments bool     `json:"disableLiveKeepSegments"`
+	LivePipeMux             bool     `json:"livePipeMux"`
+	LiveFixVTTByAudio       bool     `json:"liveFixVTTByAudio"`
+	MuxMP4                  bool     `json:"muxMP4"`
+	NoDateInfo              bool     `json:"noDateInfo"`
+	BinaryMerge             bool     `json:"binaryMerge"`
+	AppendURLParams         bool     `json:"appendURLParams"`
+	SkipDownload            bool     `json:"skipDownload"`
+	SkipMerge               bool     `json:"skipMerge"`
+	KeepSegments            bool     `json:"keepSegments"`
+	DisableMetaJSON         bool     `json:"disableMetaJSON"`
+	DisableSegmentCheck     bool     `json:"disableSegmentCheck"`
+	NoLog                   bool     `json:"noLog"`
+	ConcurrentDownload      bool     `json:"concurrentDownload"`
+	UseSystemProxy          bool     `json:"useSystemProxy"`
+	CustomProxy             string   `json:"customProxy"`
 }
 
 type Task struct {
@@ -117,11 +196,21 @@ type TaskFile struct {
 }
 
 type CoreInfo struct {
-	Status      string `json:"status"`
-	CLIPath     string `json:"cliPath"`
-	Version     string `json:"version"`
-	FullVersion string `json:"fullVersion"`
-	Error       string `json:"error,omitempty"`
+	Status          string                `json:"status"`
+	CLIPath         string                `json:"cliPath"`
+	Version         string                `json:"version"`
+	FullVersion     string                `json:"fullVersion"`
+	Scope           string                `json:"scope,omitempty"`
+	Capabilities    []CoreCapabilityGroup `json:"capabilities,omitempty"`
+	Unsupported     []string              `json:"unsupported,omitempty"`
+	CapabilityError string                `json:"capabilityError,omitempty"`
+	Error           string                `json:"error,omitempty"`
+}
+
+type CoreCapabilityGroup struct {
+	Name  string   `json:"name"`
+	Label string   `json:"label"`
+	Items []string `json:"items"`
 }
 
 type ToolInfo struct {
@@ -163,6 +252,12 @@ type cliVersionInfo struct {
 	FullVersion string `json:"fullVersion"`
 }
 
+type cliCapabilitiesReport struct {
+	Scope        string              `json:"scope"`
+	Capabilities map[string][]string `json:"capabilities"`
+	Unsupported  []string            `json:"unsupported"`
+}
+
 type cliProgressEvent struct {
 	Type      string  `json:"type"`
 	Timestamp string  `json:"timestamp"`
@@ -190,11 +285,41 @@ type cliSummaryOutput struct {
 	Size        int64  `json:"size,omitempty"`
 }
 
+type cliProbeReport struct {
+	Master      bool               `json:"master"`
+	Live        bool               `json:"live"`
+	TrackCounts cliProbeTrackCount `json:"trackCounts"`
+	Tracks      []cliProbeTrack    `json:"tracks"`
+}
+
+type cliProbeTrackCount struct {
+	Total     int `json:"total"`
+	Video     int `json:"video"`
+	Audio     int `json:"audio"`
+	Subtitles int `json:"subtitles"`
+}
+
+type cliProbeTrack struct {
+	ID              int      `json:"id"`
+	Type            string   `json:"type"`
+	Display         string   `json:"display"`
+	SegmentCount    int      `json:"segmentCount"`
+	DurationSeconds float64  `json:"durationSeconds"`
+	Live            bool     `json:"live"`
+	Encrypted       bool     `json:"encrypted"`
+	EncryptMethods  []string `json:"encryptMethods,omitempty"`
+}
+
 type cliErrorEvent struct {
 	Type      string `json:"type"`
 	Timestamp string `json:"timestamp"`
 	Status    string `json:"status"`
 	Message   string `json:"message"`
+}
+
+type localDependency struct {
+	Label string
+	Path  string
 }
 
 type taskLogEvent struct {
@@ -229,6 +354,9 @@ func defaultSettings() Settings {
 		MaxActiveTasks:     2,
 		ThreadCount:        8,
 		RetryCount:         3,
+		HTTPRequestTimeout: 100,
+		SubFormat:          "SRT",
+		DecryptionEngine:   "MP4DECRYPT",
 		AutoSelect:         true,
 		MuxMP4:             true,
 		UseSystemProxy:     true,
@@ -280,6 +408,13 @@ func (a *App) GetCoreInfo() CoreInfo {
 		}
 	}
 	info.CLIPath = cliPath
+	if report, err := readCLICapabilities(cliPath); err == nil {
+		info.Scope = report.Scope
+		info.Unsupported = append([]string(nil), report.Unsupported...)
+		info.Capabilities = capabilityGroups(report.Capabilities)
+	} else {
+		info.CapabilityError = err.Error()
+	}
 	return info
 }
 
@@ -337,6 +472,15 @@ func normalizeSettings(settings Settings) Settings {
 	if settings.RetryCount < 0 {
 		settings.RetryCount = 3
 	}
+	if settings.HTTPRequestTimeout <= 0 {
+		settings.HTTPRequestTimeout = 100
+	}
+	if strings.TrimSpace(settings.SubFormat) == "" {
+		settings.SubFormat = "SRT"
+	}
+	if strings.TrimSpace(settings.DecryptionEngine) == "" {
+		settings.DecryptionEngine = "MP4DECRYPT"
+	}
 	return settings
 }
 
@@ -346,12 +490,42 @@ func (a *App) ChooseDirectory(current string) (string, error) {
 	}
 	selected, err := wailsRuntime.OpenDirectoryDialog(a.ctx, wailsRuntime.OpenDialogOptions{
 		Title:            "选择输出目录",
-		DefaultDirectory: current,
+		DefaultDirectory: dialogDefaultDirectory(current),
 	})
 	if err != nil {
 		return "", err
 	}
 	return selected, nil
+}
+
+func (a *App) ChooseFile(current string) (string, error) {
+	if a.ctx == nil {
+		return "", errors.New("应用尚未初始化")
+	}
+	selected, err := wailsRuntime.OpenFileDialog(a.ctx, wailsRuntime.OpenDialogOptions{
+		Title:            "选择文件",
+		DefaultDirectory: dialogDefaultDirectory(current),
+	})
+	if err != nil {
+		return "", err
+	}
+	return selected, nil
+}
+
+func dialogDefaultDirectory(current string) string {
+	current = strings.TrimSpace(current)
+	if current == "" {
+		return ""
+	}
+	info, err := os.Stat(current)
+	if err == nil && info.IsDir() {
+		return current
+	}
+	dir := filepath.Dir(current)
+	if dir == "." || dir == current {
+		return ""
+	}
+	return dir
 }
 
 func (a *App) ListTasks() []Task {
@@ -413,6 +587,9 @@ func (a *App) PreflightDownload(req DownloadRequest) PreflightReport {
 
 	checkedDirs := map[string]bool{}
 	checkedFFmpeg := map[string]bool{}
+	checkedLocalDeps := map[string]bool{}
+	var localReady []string
+	var localErrors []string
 	var validationErrors []string
 	for _, item := range requests {
 		item = a.applyRequestDefaults(item)
@@ -434,28 +611,59 @@ func (a *App) PreflightDownload(req DownloadRequest) PreflightReport {
 			}
 		}
 
-		if item.MuxMP4 || strings.TrimSpace(item.FFmpegPath) != "" {
+		needsFFmpegForTask := ((item.MuxMP4 || muxAfterDoneNeedsFFmpeg(item.MuxAfterDone)) && !item.SkipDownload && !item.SkipMerge) || item.LivePipeMux
+		if needsFFmpegForTask || strings.TrimSpace(item.FFmpegPath) != "" {
 			key := strings.TrimSpace(item.FFmpegPath)
 			if key == "" {
 				key = "ffmpeg"
 			}
-			if checkedFFmpeg[key] {
-				continue
-			}
-			checkedFFmpeg[key] = true
-			info, err := probeToolVersion(item.FFmpegPath, "ffmpeg", []string{"-version"})
-			if err != nil {
-				report.addCheck("ffmpeg", "FFmpeg", "error", "MP4 混流需要 FFmpeg", err.Error())
-			} else {
-				report.addCheck("ffmpeg", "FFmpeg", "ready", info.Version, info.Path)
+			if !checkedFFmpeg[key] {
+				checkedFFmpeg[key] = true
+				info, err := probeToolVersion(item.FFmpegPath, "ffmpeg", []string{"-version"})
+				if err != nil {
+					report.addCheck("ffmpeg", "FFmpeg", "error", "MP4 混流需要 FFmpeg", err.Error())
+				} else {
+					report.addCheck("ffmpeg", "FFmpeg", "ready", info.Version, info.Path)
+				}
 			}
 		}
+
+		for _, dep := range localDependencies(item) {
+			key := dep.Label + "\x00" + dep.Path
+			if checkedLocalDeps[key] {
+				continue
+			}
+			checkedLocalDeps[key] = true
+			if err := ensureExistingFile(dep.Path); err != nil {
+				localErrors = append(localErrors, fmt.Sprintf("%s %q: %v", dep.Label, dep.Path, err))
+			} else {
+				localReady = append(localReady, fmt.Sprintf("%s: %s", dep.Label, dep.Path))
+			}
+		}
+	}
+	if len(localErrors) > 0 {
+		report.addCheck("local-files", "本地文件", "error", "本地依赖不可用", strings.Join(localErrors, "\n"))
+	} else if len(localReady) > 0 {
+		report.addCheck("local-files", "本地文件", "ready", fmt.Sprintf("已检查 %d 个本地依赖", len(localReady)), strings.Join(localReady, "\n"))
 	}
 	if coreReady {
 		if len(validationErrors) == 0 {
 			report.addCheck("args", "参数校验", "ready", "核心参数校验通过", fmt.Sprintf("%d 个任务", len(requests)))
 		} else {
 			report.addCheck("args", "参数校验", "error", "核心参数校验失败", strings.Join(validationErrors, "\n"))
+		}
+	}
+	if coreReady && len(validationErrors) == 0 {
+		if len(requests) == 1 {
+			item := a.applyRequestDefaults(requests[0])
+			probe, err := probeCLIResource(cliPath, buildCLIArgs(item))
+			if err != nil {
+				report.addCheck("source", "资源探测", "error", "资源解析失败", redactPreflightError(err.Error(), item))
+			} else {
+				report.addCheck("source", "资源探测", "ready", probeSummaryMessage(probe), probeSummaryDetail(probe))
+			}
+		} else {
+			report.addCheck("source", "资源探测", "warning", "批量任务已跳过源探测", "可复制命令或单独预检查某个地址查看轨道摘要")
 		}
 	}
 	report.finalize()
@@ -999,14 +1207,77 @@ func (a *App) applyRequestDefaults(req DownloadRequest) DownloadRequest {
 	if strings.TrimSpace(req.FFmpegPath) == "" {
 		req.FFmpegPath = settings.FFmpegPath
 	}
+	if strings.TrimSpace(req.BaseURL) == "" {
+		req.BaseURL = settings.BaseURL
+	}
+	if strings.TrimSpace(req.TmpDir) == "" {
+		req.TmpDir = settings.TmpDir
+	}
+	if strings.TrimSpace(req.SavePattern) == "" {
+		req.SavePattern = settings.SavePattern
+	}
 	if req.ThreadCount <= 0 {
 		req.ThreadCount = settings.ThreadCount
 	}
 	if req.RetryCount < 0 {
 		req.RetryCount = settings.RetryCount
 	}
+	if req.HTTPRequestTimeout <= 0 {
+		req.HTTPRequestTimeout = settings.HTTPRequestTimeout
+	}
 	if strings.TrimSpace(req.MaxSpeed) == "" {
 		req.MaxSpeed = settings.MaxSpeed
+	}
+	if strings.TrimSpace(req.SubFormat) == "" {
+		req.SubFormat = settings.SubFormat
+	}
+	if strings.TrimSpace(req.SelectVideo) == "" {
+		req.SelectVideo = settings.SelectVideo
+	}
+	if strings.TrimSpace(req.SelectAudio) == "" {
+		req.SelectAudio = settings.SelectAudio
+	}
+	if strings.TrimSpace(req.SelectSubtitle) == "" {
+		req.SelectSubtitle = settings.SelectSubtitle
+	}
+	if strings.TrimSpace(req.DropVideo) == "" {
+		req.DropVideo = settings.DropVideo
+	}
+	if strings.TrimSpace(req.DropAudio) == "" {
+		req.DropAudio = settings.DropAudio
+	}
+	if strings.TrimSpace(req.DropSubtitle) == "" {
+		req.DropSubtitle = settings.DropSubtitle
+	}
+	if strings.TrimSpace(req.KeyTextFile) == "" {
+		req.KeyTextFile = settings.KeyTextFile
+	}
+	if strings.TrimSpace(req.DecryptionEngine) == "" {
+		req.DecryptionEngine = settings.DecryptionEngine
+	}
+	if strings.TrimSpace(req.DecryptionBinaryPath) == "" {
+		req.DecryptionBinaryPath = settings.DecryptionBinaryPath
+	}
+	if strings.TrimSpace(req.CustomHLSMethod) == "" {
+		req.CustomHLSMethod = settings.CustomHLSMethod
+	}
+	if len(req.AdKeywords) == 0 {
+		req.AdKeywords = append([]string(nil), settings.AdKeywords...)
+	}
+	if strings.TrimSpace(req.LiveRecordLimit) == "" {
+		req.LiveRecordLimit = settings.LiveRecordLimit
+	}
+	if req.LiveWaitTime <= 0 {
+		req.LiveWaitTime = settings.LiveWaitTime
+	}
+	if req.LiveTakeCount <= 0 {
+		req.LiveTakeCount = settings.LiveTakeCount
+	}
+	if strings.TrimSpace(req.MuxAfterDone) == "" {
+		req.MuxAfterDone = settings.MuxAfterDone
+	}
+	if len(req.MuxImports) == 0 {
+		req.MuxImports = append([]string(nil), settings.MuxImports...)
 	}
 	if strings.TrimSpace(req.CustomProxy) == "" {
 		req.CustomProxy = settings.CustomProxy
@@ -1460,11 +1731,116 @@ func buildCLIArgs(req DownloadRequest) []string {
 	if value := strings.TrimSpace(req.SaveName); value != "" {
 		args = append(args, "--save-name", value)
 	}
+	if value := strings.TrimSpace(req.SavePattern); value != "" {
+		args = append(args, "--save-pattern", value)
+	}
+	if value := strings.TrimSpace(req.BaseURL); value != "" {
+		args = append(args, "--base-url", value)
+	}
+	if value := strings.TrimSpace(req.TmpDir); value != "" {
+		args = append(args, "--tmp-dir", value)
+	}
+	if req.HTTPRequestTimeout > 0 {
+		args = append(args, "--http-request-timeout", formatDesktopSeconds(req.HTTPRequestTimeout))
+	}
 	if value := strings.TrimSpace(req.CustomRange); value != "" {
 		args = append(args, "--custom-range", value)
 	}
+	if value := strings.TrimSpace(req.TaskStartAt); value != "" {
+		args = append(args, "--task-start-at", value)
+	}
+	for _, keyword := range req.AdKeywords {
+		if value := strings.TrimSpace(keyword); value != "" {
+			args = append(args, "--ad-keyword", value)
+		}
+	}
 	if value := strings.TrimSpace(req.MaxSpeed); value != "" {
 		args = append(args, "-R", value)
+	}
+	if req.SubOnly {
+		args = append(args, "--sub-only", "true")
+	}
+	if value := strings.TrimSpace(req.SubFormat); value != "" {
+		args = append(args, "--sub-format", value)
+	}
+	if req.DisableSubtitleFix {
+		args = append(args, "--auto-subtitle-fix", "false")
+	}
+	if value := strings.TrimSpace(req.SelectVideo); value != "" {
+		args = append(args, "-sv", value)
+	}
+	if value := strings.TrimSpace(req.SelectAudio); value != "" {
+		args = append(args, "-sa", value)
+	}
+	if value := strings.TrimSpace(req.SelectSubtitle); value != "" {
+		args = append(args, "-ss", value)
+	}
+	if value := strings.TrimSpace(req.DropVideo); value != "" {
+		args = append(args, "-dv", value)
+	}
+	if value := strings.TrimSpace(req.DropAudio); value != "" {
+		args = append(args, "-da", value)
+	}
+	if value := strings.TrimSpace(req.DropSubtitle); value != "" {
+		args = append(args, "-ds", value)
+	}
+	for _, key := range req.Keys {
+		if value := strings.TrimSpace(key); value != "" {
+			args = append(args, "--key", value)
+		}
+	}
+	if value := strings.TrimSpace(req.KeyTextFile); value != "" {
+		args = append(args, "--key-text-file", value)
+	}
+	if value := strings.TrimSpace(req.DecryptionEngine); value != "" {
+		args = append(args, "--decryption-engine", value)
+	}
+	if value := strings.TrimSpace(req.DecryptionBinaryPath); value != "" {
+		args = append(args, "--decryption-binary-path", value)
+	}
+	if req.MP4RealTimeDecryption {
+		args = append(args, "--mp4-real-time-decryption", "true")
+	}
+	if value := strings.TrimSpace(req.CustomHLSMethod); value != "" {
+		args = append(args, "--custom-hls-method", value)
+	}
+	if value := strings.TrimSpace(req.CustomHLSKey); value != "" {
+		args = append(args, "--custom-hls-key", value)
+	}
+	if value := strings.TrimSpace(req.CustomHLSIV); value != "" {
+		args = append(args, "--custom-hls-iv", value)
+	}
+	if req.LivePerformAsVOD {
+		args = append(args, "--live-perform-as-vod", "true")
+	}
+	if req.LiveRealTimeMerge {
+		args = append(args, "--live-real-time-merge", "true")
+	}
+	if req.DisableLiveKeepSegments {
+		args = append(args, "--live-keep-segments", "false")
+	}
+	if req.LivePipeMux {
+		args = append(args, "--live-pipe-mux", "true")
+	}
+	if value := strings.TrimSpace(req.LiveRecordLimit); value != "" {
+		args = append(args, "--live-record-limit", value)
+	}
+	if req.LiveWaitTime > 0 {
+		args = append(args, "--live-wait-time", fmt.Sprintf("%d", req.LiveWaitTime))
+	}
+	if req.LiveTakeCount > 0 {
+		args = append(args, "--live-take-count", fmt.Sprintf("%d", req.LiveTakeCount))
+	}
+	if req.LiveFixVTTByAudio {
+		args = append(args, "--live-fix-vtt-by-audio", "true")
+	}
+	if value := strings.TrimSpace(req.MuxAfterDone); value != "" {
+		args = append(args, "-M", value)
+	}
+	for _, item := range req.MuxImports {
+		if value := strings.TrimSpace(item); value != "" {
+			args = append(args, "--mux-import", value)
+		}
 	}
 	if req.ConcurrentDownload {
 		args = append(args, "-mt", "true")
@@ -1472,7 +1848,31 @@ func buildCLIArgs(req DownloadRequest) []string {
 	if req.BinaryMerge {
 		args = append(args, "--binary-merge", "true")
 	}
-	if req.MuxMP4 {
+	if req.AppendURLParams {
+		args = append(args, "--append-url-params", "true")
+	}
+	if req.SkipDownload {
+		args = append(args, "--skip-download", "true")
+	}
+	if req.SkipMerge {
+		args = append(args, "--skip-merge", "true")
+	}
+	if req.KeepSegments {
+		args = append(args, "--del-after-done", "false")
+	}
+	if req.DisableMetaJSON {
+		args = append(args, "--write-meta-json", "false")
+	}
+	if req.DisableSegmentCheck {
+		args = append(args, "--check-segments-count", "false")
+	}
+	if req.NoLog {
+		args = append(args, "--no-log", "true")
+	}
+	if req.NoDateInfo {
+		args = append(args, "--no-date-info", "true")
+	}
+	if req.MuxMP4 && strings.TrimSpace(req.MuxAfterDone) == "" {
 		args = append(args, "-M", "format=mp4:muxer=ffmpeg")
 	}
 	if value := strings.TrimSpace(req.CustomProxy); value != "" {
@@ -1487,6 +1887,18 @@ func buildCLIArgs(req DownloadRequest) []string {
 		}
 	}
 	return args
+}
+
+func muxAfterDoneNeedsFFmpeg(value string) bool {
+	value = strings.ToLower(strings.TrimSpace(value))
+	if value == "" {
+		return false
+	}
+	return !strings.Contains(value, "muxer=mkvmerge")
+}
+
+func formatDesktopSeconds(value float64) string {
+	return strconv.FormatFloat(value, 'f', -1, 64)
 }
 
 func defaultCLICommandName() string {
@@ -1670,6 +2082,9 @@ func buildTaskLogExport(task Task, exportedAt time.Time) string {
 	if len(task.Request.Headers) > 0 {
 		writeExportLine("请求头", "已脱敏，不在日志文件中保留原文")
 	}
+	if len(task.Request.Keys) > 0 || strings.TrimSpace(task.Request.CustomHLSKey) != "" || strings.TrimSpace(task.Request.CustomHLSIV) != "" {
+		writeExportLine("密钥", "已脱敏，不在日志文件中保留原文")
+	}
 	if proxy := strings.TrimSpace(task.Request.CustomProxy); proxy != "" {
 		writeExportLine("代理", redactProxyForDisplay(proxy))
 	}
@@ -1777,6 +2192,83 @@ func pathUnderDir(path string, root string) bool {
 		return false
 	}
 	return rel == "." || (!strings.HasPrefix(rel, "..") && !filepath.IsAbs(rel))
+}
+
+func localDependencies(req DownloadRequest) []localDependency {
+	var deps []localDependency
+	if value := strings.TrimSpace(req.KeyTextFile); value != "" {
+		deps = append(deps, localDependency{Label: "Key 文本文件", Path: value})
+	}
+	if value := strings.TrimSpace(req.DecryptionBinaryPath); value != "" {
+		deps = append(deps, localDependency{Label: "解密工具", Path: value})
+	}
+	for _, raw := range req.MuxImports {
+		if value := strings.TrimSpace(raw); value != "" {
+			deps = append(deps, localDependency{Label: "外部轨道", Path: muxImportPath(value)})
+		}
+	}
+	return deps
+}
+
+func muxImportPath(raw string) string {
+	params := splitDesktopComplex(raw)
+	if path := params["path"]; path != "" {
+		return path
+	}
+	return raw
+}
+
+func splitDesktopComplex(input string) map[string]string {
+	out := map[string]string{}
+	for _, part := range splitDesktopComplexParts(input, ':') {
+		if part == "" {
+			continue
+		}
+		key, value, ok := strings.Cut(part, "=")
+		if !ok {
+			out[part] = part
+			continue
+		}
+		out[strings.TrimSpace(key)] = strings.Trim(strings.TrimSpace(value), "\"'")
+	}
+	return out
+}
+
+func splitDesktopComplexParts(input string, sep rune) []string {
+	var parts []string
+	var b strings.Builder
+	for _, r := range input {
+		if r == sep {
+			current := b.String()
+			if strings.HasSuffix(current, `\`) {
+				b.Reset()
+				b.WriteString(strings.TrimSuffix(current, `\`))
+				b.WriteRune(r)
+				continue
+			}
+			parts = append(parts, b.String())
+			b.Reset()
+			continue
+		}
+		b.WriteRune(r)
+	}
+	parts = append(parts, b.String())
+	return parts
+}
+
+func ensureExistingFile(path string) error {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return errors.New("路径为空")
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		return errors.New("路径是目录，不是文件")
+	}
+	return nil
 }
 
 func (r *PreflightReport) addCheck(name string, label string, status string, message string, detail string) {
@@ -1894,6 +2386,9 @@ func sanitizeLoadedTask(task *Task) {
 		task.LastMessage = "上次退出时任务仍在运行，已标记为停止"
 	}
 	task.Request.CustomProxy = clearRedactedProxyForRuntime(task.Request.CustomProxy)
+	task.Request.Keys = nil
+	task.Request.CustomHLSKey = ""
+	task.Request.CustomHLSIV = ""
 }
 
 func (a *App) saveStateLocked() error {
@@ -1908,6 +2403,9 @@ func (a *App) saveStateLocked() error {
 			snapshot.LastMessage = redactTaskLogLine(snapshot.LastMessage, task.Request)
 			snapshot.Logs = redactTaskLogLines(snapshot.Logs, task.Request)
 			snapshot.Request.Headers = nil
+			snapshot.Request.Keys = nil
+			snapshot.Request.CustomHLSKey = ""
+			snapshot.Request.CustomHLSIV = ""
 			snapshot.Request.CustomProxy = redactProxyForDisplay(snapshot.Request.CustomProxy)
 			snapshot.Args = nil
 			snapshot.CommandLine = ""
@@ -2004,6 +2502,90 @@ func readCLIVersion(cliPath string) (CoreInfo, error) {
 		Version:     strings.TrimSpace(strings.TrimPrefix(fullVersion, "m3u8dl-go")),
 		FullVersion: fullVersion,
 	}, nil
+}
+
+func readCLICapabilities(cliPath string) (cliCapabilitiesReport, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, cliPath, "--capabilities-json")
+	cmd.Env = desktopEnvironment()
+	out, err := cmd.Output()
+	if err != nil {
+		if ctx.Err() != nil {
+			return cliCapabilitiesReport{}, errors.New("读取下载核心能力超时")
+		}
+		return cliCapabilitiesReport{}, fmt.Errorf("读取下载核心能力失败: %w", err)
+	}
+	var report cliCapabilitiesReport
+	if err := json.Unmarshal([]byte(strings.TrimSpace(string(out))), &report); err != nil {
+		return cliCapabilitiesReport{}, fmt.Errorf("解析下载核心能力失败: %w", err)
+	}
+	return report, nil
+}
+
+func capabilityGroups(capabilities map[string][]string) []CoreCapabilityGroup {
+	if len(capabilities) == 0 {
+		return nil
+	}
+	order := []string{"protocols", "inputs", "hlsFeatures", "download", "decryption", "muxing", "subtitles", "live", "diagnostics", "languages"}
+	seen := map[string]bool{}
+	groups := make([]CoreCapabilityGroup, 0, len(capabilities))
+	for _, name := range order {
+		items, ok := capabilities[name]
+		if !ok {
+			continue
+		}
+		groups = append(groups, coreCapabilityGroup(name, items))
+		seen[name] = true
+	}
+	var rest []string
+	for name := range capabilities {
+		if !seen[name] {
+			rest = append(rest, name)
+		}
+	}
+	sort.Strings(rest)
+	for _, name := range rest {
+		groups = append(groups, coreCapabilityGroup(name, capabilities[name]))
+	}
+	return groups
+}
+
+func coreCapabilityGroup(name string, items []string) CoreCapabilityGroup {
+	copied := append([]string(nil), items...)
+	sort.Strings(copied)
+	return CoreCapabilityGroup{
+		Name:  name,
+		Label: coreCapabilityLabel(name),
+		Items: copied,
+	}
+}
+
+func coreCapabilityLabel(name string) string {
+	switch name {
+	case "protocols":
+		return "协议"
+	case "inputs":
+		return "输入"
+	case "hlsFeatures":
+		return "HLS 标签"
+	case "download":
+		return "下载"
+	case "decryption":
+		return "解密"
+	case "muxing":
+		return "合并"
+	case "subtitles":
+		return "字幕"
+	case "live":
+		return "直播"
+	case "diagnostics":
+		return "诊断"
+	case "languages":
+		return "语言"
+	default:
+		return name
+	}
 }
 
 func desktopToolCheckSpecs(ffmpegPath string) []toolCheckSpec {
@@ -2109,6 +2691,83 @@ func validateCLIArguments(cliPath string, args []string) error {
 	return nil
 }
 
+func probeCLIResource(cliPath string, args []string) (cliProbeReport, error) {
+	cliArgs := append([]string(nil), args...)
+	cliArgs = append(cliArgs, "--probe-json")
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, cliPath, cliArgs...)
+	cmd.Env = desktopEnvironment()
+	out, err := cmd.CombinedOutput()
+	if ctx.Err() != nil {
+		return cliProbeReport{}, errors.New("资源探测超时")
+	}
+	text := strings.TrimSpace(string(out))
+	if err != nil {
+		if text == "" {
+			return cliProbeReport{}, fmt.Errorf("资源探测失败: %w", err)
+		}
+		return cliProbeReport{}, fmt.Errorf("资源探测失败: %w: %s", err, firstNonEmptyLine(text))
+	}
+	var report cliProbeReport
+	if err := json.Unmarshal([]byte(text), &report); err != nil {
+		return cliProbeReport{}, fmt.Errorf("解析资源探测结果失败: %w", err)
+	}
+	return report, nil
+}
+
+func probeSummaryMessage(report cliProbeReport) string {
+	mode := "点播"
+	if report.Live {
+		mode = "直播"
+	}
+	kind := "Media"
+	if report.Master {
+		kind = "Master"
+	}
+	return fmt.Sprintf("%s %s，视频 %d / 音频 %d / 字幕 %d", mode, kind, report.TrackCounts.Video, report.TrackCounts.Audio, report.TrackCounts.Subtitles)
+}
+
+func probeSummaryDetail(report cliProbeReport) string {
+	lines := make([]string, 0, len(report.Tracks)+1)
+	lines = append(lines, fmt.Sprintf("总轨道 %d，视频 %d，音频 %d，字幕 %d", report.TrackCounts.Total, report.TrackCounts.Video, report.TrackCounts.Audio, report.TrackCounts.Subtitles))
+	for _, track := range report.Tracks {
+		extra := []string{
+			fmt.Sprintf("%d 分片", track.SegmentCount),
+			formatProbeDuration(track.DurationSeconds),
+		}
+		if track.Live {
+			extra = append(extra, "直播")
+		}
+		if track.Encrypted {
+			extra = append(extra, "加密 "+strings.Join(track.EncryptMethods, ","))
+		}
+		display := strings.TrimSpace(track.Display)
+		if display == "" {
+			display = track.Type
+		}
+		lines = append(lines, fmt.Sprintf("#%d %s · %s", track.ID, display, strings.Join(compactStrings(extra), " · ")))
+	}
+	return strings.Join(lines, "\n")
+}
+
+func formatProbeDuration(seconds float64) string {
+	if seconds <= 0 {
+		return "未知时长"
+	}
+	return formatTaskDuration(time.Duration(seconds * float64(time.Second)))
+}
+
+func compactStrings(items []string) []string {
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		if value := strings.TrimSpace(item); value != "" {
+			out = append(out, value)
+		}
+	}
+	return out
+}
+
 func redactPreflightError(text string, req DownloadRequest) string {
 	for _, header := range req.Headers {
 		name, value, ok := strings.Cut(header, ":")
@@ -2123,6 +2782,17 @@ func redactPreflightError(text string, req DownloadRequest) string {
 	}
 	if proxy := strings.TrimSpace(req.CustomProxy); proxy != "" {
 		text = strings.ReplaceAll(text, proxy, redactProxyForDisplay(proxy))
+	}
+	for _, key := range req.Keys {
+		if value := strings.TrimSpace(key); value != "" {
+			text = strings.ReplaceAll(text, value, "<redacted-key>")
+		}
+	}
+	if value := strings.TrimSpace(req.CustomHLSKey); value != "" {
+		text = strings.ReplaceAll(text, value, "<redacted-key>")
+	}
+	if value := strings.TrimSpace(req.CustomHLSIV); value != "" {
+		text = strings.ReplaceAll(text, value, "<redacted-iv>")
 	}
 	return text
 }
@@ -2250,11 +2920,28 @@ func desktopSearchPath() string {
 func shellPreview(args []string) string {
 	quoted := make([]string, 0, len(args))
 	for _, arg := range args {
-		if strings.ContainsAny(arg, " \t\n\"'") {
+		if !isShellPreviewSafe(arg) {
 			quoted = append(quoted, "'"+strings.ReplaceAll(arg, "'", "'\\''")+"'")
 			continue
 		}
 		quoted = append(quoted, arg)
 	}
 	return strings.Join(quoted, " ")
+}
+
+func isShellPreviewSafe(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, r := range value {
+		switch {
+		case r >= 'a' && r <= 'z':
+		case r >= 'A' && r <= 'Z':
+		case r >= '0' && r <= '9':
+		case strings.ContainsRune("_@%+=:,./-", r):
+		default:
+			return false
+		}
+	}
+	return true
 }

@@ -76,6 +76,76 @@ func TestCreateTaskCommandPreviewDoesNotPersistSensitiveHeaders(t *testing.T) {
 	}
 }
 
+func TestCreateTaskDoesNotPersistDecryptionSecrets(t *testing.T) {
+	app := newTestApp(t)
+	rawKey := "00112233445566778899aabbccddeeff"
+	hlsKey := "11223344556677889900aabbccddeeff"
+	hlsIV := "ffeeddccbbaa99887766554433221100"
+	task, err := app.CreateTask(DownloadRequest{
+		URL:          "https://example.com/index.m3u8",
+		SaveDir:      filepath.Join(t.TempDir(), "out"),
+		Keys:         []string{rawKey},
+		CustomHLSKey: hlsKey,
+		CustomHLSIV:  hlsIV,
+		AutoSelect:   true,
+		ThreadCount:  4,
+		RetryCount:   2,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(task.CommandLine, rawKey) || !strings.Contains(task.CommandLine, hlsKey) || !strings.Contains(task.CommandLine, hlsIV) {
+		t.Fatalf("runtime command should keep decryption inputs for current session, got %q", task.CommandLine)
+	}
+	app.appendTaskLog(task.ID, "$ "+task.CommandLine)
+
+	state, err := os.ReadFile(app.statePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stateText := string(state)
+	for _, secret := range []string{rawKey, hlsKey, hlsIV, "commandLine"} {
+		if strings.Contains(stateText, secret) {
+			t.Fatalf("persisted state should not contain decryption secret %q:\n%s", secret, stateText)
+		}
+	}
+
+	file, err := app.ExportTaskLog(task.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contentBytes, err := os.ReadFile(file.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := string(contentBytes)
+	for _, secret := range []string{rawKey, hlsKey, hlsIV} {
+		if strings.Contains(content, secret) {
+			t.Fatalf("exported log should redact decryption secret %q:\n%s", secret, content)
+		}
+	}
+	if !strings.Contains(content, "<redacted-key>") || !strings.Contains(content, "<redacted-iv>") {
+		t.Fatalf("exported log should show redacted decryption placeholders:\n%s", content)
+	}
+
+	reloaded := &App{
+		tasks:     map[string]*Task{},
+		running:   map[string]*runningTask{},
+		settings:  defaultSettings(),
+		statePath: app.statePath,
+	}
+	if err := reloaded.loadState(); err != nil {
+		t.Fatal(err)
+	}
+	loadedTask := reloaded.tasks[task.ID]
+	if loadedTask == nil {
+		t.Fatalf("loaded task missing: %#v", reloaded.tasks)
+	}
+	if len(loadedTask.Request.Keys) != 0 || loadedTask.Request.CustomHLSKey != "" || loadedTask.Request.CustomHLSIV != "" {
+		t.Fatalf("loaded task should not restore decryption secrets, got %#v", loadedTask.Request)
+	}
+}
+
 func TestSaveSettingsDoesNotPersistProxyPassword(t *testing.T) {
 	app := newTestApp(t)
 	saved, err := app.SaveSettings(Settings{
@@ -349,6 +419,133 @@ func TestPreviewCommandsExpandsBatchWithoutCreatingTasks(t *testing.T) {
 	}
 }
 
+func TestPreviewCommandsIncludesAdvancedCLIOptions(t *testing.T) {
+	app := newTestApp(t)
+	tmpDir := filepath.Join(t.TempDir(), "tmp")
+	commands, err := app.PreviewCommands(DownloadRequest{
+		URL:                     "https://example.com/index.m3u8",
+		SaveDir:                 filepath.Join(t.TempDir(), "out"),
+		SavePattern:             "Name_Date",
+		BaseURL:                 "https://cdn.example.com/hls/",
+		TmpDir:                  tmpDir,
+		HTTPRequestTimeout:      12.5,
+		SubFormat:               "VTT",
+		SelectVideo:             "res=1080p:for=best",
+		SelectAudio:             "lang=ja|en:for=best",
+		SelectSubtitle:          "lang=zh|en:for=all",
+		DropVideo:               "role=trickplay",
+		DropAudio:               "name=commentary",
+		DropSubtitle:            "name=forced",
+		Keys:                    []string{"00112233445566778899aabbccddeeff", "00000000000000000000000000000000:ffeeddccbbaa99887766554433221100"},
+		KeyTextFile:             filepath.Join(t.TempDir(), "keys.txt"),
+		DecryptionEngine:        "SHAKA_PACKAGER",
+		DecryptionBinaryPath:    filepath.Join(t.TempDir(), "packager"),
+		MP4RealTimeDecryption:   true,
+		CustomHLSMethod:         "AES_128",
+		CustomHLSKey:            "11223344556677889900aabbccddeeff",
+		CustomHLSIV:             "ffeeddccbbaa99887766554433221100",
+		AdKeywords:              []string{`/ad\d+\.ts$`, "BUMPER"},
+		TaskStartAt:             "20260627120000",
+		LiveRecordLimit:         "00:05:00",
+		LiveWaitTime:            6,
+		LiveTakeCount:           12,
+		MuxAfterDone:            "format=mkv:muxer=mkvmerge:keep=true",
+		MuxImports:              []string{"path=extra.srt:lang=eng:name=English"},
+		AppendURLParams:         true,
+		SubOnly:                 true,
+		DisableSubtitleFix:      true,
+		LivePerformAsVOD:        true,
+		LiveRealTimeMerge:       true,
+		DisableLiveKeepSegments: true,
+		LivePipeMux:             true,
+		LiveFixVTTByAudio:       true,
+		NoDateInfo:              true,
+		SkipDownload:            true,
+		SkipMerge:               true,
+		KeepSegments:            true,
+		DisableMetaJSON:         true,
+		DisableSegmentCheck:     true,
+		NoLog:                   true,
+		AutoSelect:              true,
+		ThreadCount:             4,
+		RetryCount:              2,
+		UseSystemProxy:          true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"--save-pattern Name_Date",
+		"--base-url https://cdn.example.com/hls/",
+		"--tmp-dir " + tmpDir,
+		"--http-request-timeout 12.5",
+		"--sub-format VTT",
+		"-sv res=1080p:for=best",
+		"-sa 'lang=ja|en:for=best'",
+		"-ss 'lang=zh|en:for=all'",
+		"-dv role=trickplay",
+		"-da name=commentary",
+		"-ds name=forced",
+		"--key 00112233445566778899aabbccddeeff",
+		"--key 00000000000000000000000000000000:ffeeddccbbaa99887766554433221100",
+		"--key-text-file",
+		"--decryption-engine SHAKA_PACKAGER",
+		"--decryption-binary-path",
+		"--mp4-real-time-decryption true",
+		"--custom-hls-method AES_128",
+		"--custom-hls-key 11223344556677889900aabbccddeeff",
+		"--custom-hls-iv ffeeddccbbaa99887766554433221100",
+		"--ad-keyword '/ad\\d+\\.ts$'",
+		"--ad-keyword BUMPER",
+		"--task-start-at 20260627120000",
+		"--live-perform-as-vod true",
+		"--live-real-time-merge true",
+		"--live-keep-segments false",
+		"--live-pipe-mux true",
+		"--live-record-limit 00:05:00",
+		"--live-wait-time 6",
+		"--live-take-count 12",
+		"--live-fix-vtt-by-audio true",
+		"-M format=mkv:muxer=mkvmerge:keep=true",
+		"--mux-import path=extra.srt:lang=eng:name=English",
+		"--no-date-info true",
+		"--append-url-params true",
+		"--sub-only true",
+		"--auto-subtitle-fix false",
+		"--skip-download true",
+		"--skip-merge true",
+		"--del-after-done false",
+		"--write-meta-json false",
+		"--check-segments-count false",
+		"--no-log true",
+	} {
+		if !strings.Contains(commands, want) {
+			t.Fatalf("preview command missing %q:\n%s", want, commands)
+		}
+	}
+	if strings.Contains(commands, "-M format=mp4:muxer=ffmpeg") {
+		t.Fatalf("explicit mux-after-done should override MP4 shortcut, got:\n%s", commands)
+	}
+}
+
+func TestShellPreviewQuotesShellOperators(t *testing.T) {
+	got := shellPreview([]string{
+		"m3u8dl-go-cli",
+		"-sa",
+		"lang=ja|en:for=best",
+		"-H",
+		"Cookie: session='secret'",
+	})
+	for _, want := range []string{
+		"-sa 'lang=ja|en:for=best'",
+		"-H 'Cookie: session='\\''secret'\\'''",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("shell preview should quote %q, got %q", want, got)
+		}
+	}
+}
+
 func TestPreflightDownloadChecksCoreOutputAndFFmpeg(t *testing.T) {
 	app := newTestApp(t)
 	fakeCLI := writeFakeCLI(t)
@@ -356,14 +553,21 @@ func TestPreflightDownloadChecksCoreOutputAndFFmpeg(t *testing.T) {
 	t.Setenv("M3U8DL_GO_CLI", fakeCLI)
 
 	report := app.PreflightDownload(DownloadRequest{
-		URL:            "https://example.com/index.m3u8",
-		SaveDir:        filepath.Join(t.TempDir(), "out"),
-		FFmpegPath:     fakeFFmpeg,
-		AutoSelect:     true,
-		MuxMP4:         true,
-		ThreadCount:    4,
-		RetryCount:     2,
-		UseSystemProxy: true,
+		URL:                "https://example.com/index.m3u8",
+		SaveDir:            filepath.Join(t.TempDir(), "out"),
+		BaseURL:            "https://cdn.example.com/hls/",
+		TmpDir:             filepath.Join(t.TempDir(), "tmp"),
+		SavePattern:        "Name_Date",
+		HTTPRequestTimeout: 12.5,
+		AppendURLParams:    true,
+		SkipMerge:          true,
+		KeepSegments:       true,
+		FFmpegPath:         fakeFFmpeg,
+		AutoSelect:         true,
+		MuxMP4:             true,
+		ThreadCount:        4,
+		RetryCount:         2,
+		UseSystemProxy:     true,
 	})
 	if report.Status != "ready" || report.TaskCount != 1 || len(report.CommandLines) != 1 {
 		t.Fatalf("preflight should pass, got %#v", report)
@@ -373,8 +577,101 @@ func TestPreflightDownloadChecksCoreOutputAndFFmpeg(t *testing.T) {
 			t.Fatalf("preflight check %s should be ready, got %#v in %#v", name, check, report.Checks)
 		}
 	}
-	if !strings.Contains(report.CommandLines[0], "--ffmpeg-binary-path") || !strings.Contains(report.CommandLines[0], fakeFFmpeg) {
-		t.Fatalf("preflight should expose preview command with ffmpeg path, got %#v", report.CommandLines)
+	source := preflightCheckByName(report, "source")
+	if source == nil || source.Status != "ready" || !strings.Contains(source.Message, "视频 1") || !strings.Contains(source.Detail, "AES-128") {
+		t.Fatalf("preflight should include source probe summary, got %#v in %#v", source, report.Checks)
+	}
+	for _, want := range []string{
+		"--ffmpeg-binary-path",
+		fakeFFmpeg,
+		"--base-url https://cdn.example.com/hls/",
+		"--save-pattern Name_Date",
+		"--http-request-timeout 12.5",
+		"--append-url-params true",
+		"--skip-merge true",
+		"--del-after-done false",
+	} {
+		if !strings.Contains(report.CommandLines[0], want) {
+			t.Fatalf("preflight should expose preview command with %q, got %#v", want, report.CommandLines)
+		}
+	}
+	if !strings.Contains(report.CommandLines[0], "--tmp-dir") {
+		t.Fatalf("preflight should expose preview command with tmp dir, got %#v", report.CommandLines)
+	}
+}
+
+func TestPreflightDownloadChecksLocalDependencyFiles(t *testing.T) {
+	app := newTestApp(t)
+	fakeCLI := writeFakeCLI(t)
+	t.Setenv("M3U8DL_GO_CLI", fakeCLI)
+	tmp := t.TempDir()
+	keyFile := filepath.Join(tmp, "keys.txt")
+	decryptionTool := filepath.Join(tmp, "mp4decrypt")
+	importTrack := filepath.Join(tmp, "extra.srt")
+	for path, content := range map[string]string{
+		keyFile:        "00112233445566778899aabbccddeeff",
+		decryptionTool: "#!/bin/sh\nexit 0\n",
+		importTrack:    "1\n00:00:00,000 --> 00:00:01,000\nhi\n",
+	} {
+		if err := os.WriteFile(path, []byte(content), 0755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	report := app.PreflightDownload(DownloadRequest{
+		URL:                  "https://example.com/index.m3u8",
+		SaveDir:              filepath.Join(t.TempDir(), "out"),
+		KeyTextFile:          keyFile,
+		DecryptionBinaryPath: decryptionTool,
+		MuxAfterDone:         "format=mkv:muxer=mkvmerge:keep=true",
+		MuxImports:           []string{"path=" + importTrack + ":lang=eng:name=English"},
+		AutoSelect:           true,
+		MuxMP4:               false,
+		ThreadCount:          4,
+		RetryCount:           2,
+		UseSystemProxy:       true,
+	})
+	if report.Status != "ready" {
+		t.Fatalf("preflight should pass local dependency check, got %#v", report)
+	}
+	check := preflightCheckByName(report, "local-files")
+	if check == nil || check.Status != "ready" || !strings.Contains(check.Detail, keyFile) || !strings.Contains(check.Detail, decryptionTool) || !strings.Contains(check.Detail, importTrack) {
+		t.Fatalf("local dependency check should list verified files, got %#v in %#v", check, report.Checks)
+	}
+}
+
+func TestPreflightDownloadReportsMissingLocalDependencyFiles(t *testing.T) {
+	app := newTestApp(t)
+	fakeCLI := writeFakeCLI(t)
+	t.Setenv("M3U8DL_GO_CLI", fakeCLI)
+	tmp := t.TempDir()
+	missingKey := filepath.Join(tmp, "missing-keys.txt")
+	missingImport := filepath.Join(tmp, "missing-extra.srt")
+
+	report := app.PreflightDownload(DownloadRequest{
+		URL:                  "https://example.com/index.m3u8",
+		SaveDir:              filepath.Join(t.TempDir(), "out"),
+		KeyTextFile:          missingKey,
+		DecryptionBinaryPath: tmp,
+		MuxAfterDone:         "format=mkv:muxer=mkvmerge:keep=true",
+		MuxImports:           []string{"path=" + missingImport + ":lang=eng:name=English"},
+		AutoSelect:           true,
+		MuxMP4:               false,
+		ThreadCount:          4,
+		RetryCount:           2,
+		UseSystemProxy:       true,
+	})
+	if report.Status != "error" {
+		t.Fatalf("preflight should fail for missing local dependencies, got %#v", report)
+	}
+	check := preflightCheckByName(report, "local-files")
+	if check == nil || check.Status != "error" {
+		t.Fatalf("local dependency check should fail, got %#v in %#v", check, report.Checks)
+	}
+	for _, want := range []string{"Key 文本文件", missingKey, "解密工具", "路径是目录", "外部轨道", missingImport} {
+		if !strings.Contains(check.Detail, want) {
+			t.Fatalf("local dependency error should mention %q, got %#v", want, check)
+		}
 	}
 }
 
@@ -420,6 +717,8 @@ func TestPreflightDownloadReportsCoreArgumentValidationError(t *testing.T) {
 		RetryCount:     2,
 		UseSystemProxy: true,
 		CustomProxy:    "http://user:secret@127.0.0.1:8888",
+		Keys:           []string{"00112233445566778899aabbccddeeff"},
+		CustomHLSKey:   "11223344556677889900aabbccddeeff",
 	})
 	if report.Status != "error" {
 		t.Fatalf("preflight should fail for core argument validation, got %#v", report)
@@ -428,7 +727,7 @@ func TestPreflightDownloadReportsCoreArgumentValidationError(t *testing.T) {
 	if check == nil || check.Status != "error" || !strings.Contains(check.Detail, "bad option") {
 		t.Fatalf("preflight should expose sanitized argument validation error, got %#v", report.Checks)
 	}
-	if strings.Contains(check.Detail, "session=secret") || strings.Contains(check.Detail, "user:secret") {
+	if strings.Contains(check.Detail, "session=secret") || strings.Contains(check.Detail, "user:secret") || strings.Contains(check.Detail, "00112233445566778899aabbccddeeff") || strings.Contains(check.Detail, "11223344556677889900aabbccddeeff") {
 		t.Fatalf("preflight argument error should be redacted, got %#v", check)
 	}
 }
@@ -601,6 +900,12 @@ func TestGetCoreInfoUsesVersionJSON(t *testing.T) {
 	if info.Status != "ready" || info.CLIPath != fakeCLI || info.Version != "9.9.9" || info.FullVersion != "m3u8dl-go 9.9.9" || info.Error != "" {
 		t.Fatalf("core info should read fake CLI version json, got %#v", info)
 	}
+	if info.Scope != "hls-only" || len(info.Unsupported) == 0 || len(info.Capabilities) == 0 {
+		t.Fatalf("core info should include capabilities, got %#v", info)
+	}
+	if info.Capabilities[0].Name != "protocols" || info.Capabilities[0].Label != "协议" || !containsString(info.Capabilities[0].Items, "HLS VOD") {
+		t.Fatalf("core capabilities should be ordered and labelled, got %#v", info.Capabilities)
+	}
 }
 
 func TestGetCoreInfoFallsBackToPlainVersion(t *testing.T) {
@@ -612,6 +917,18 @@ func TestGetCoreInfoFallsBackToPlainVersion(t *testing.T) {
 	if info.Status != "ready" || info.CLIPath != fakeCLI || info.Version != "8.8.8" || info.FullVersion != "m3u8dl-go 8.8.8" || info.Error != "" {
 		t.Fatalf("core info should fall back to plain --version, got %#v", info)
 	}
+	if info.CapabilityError == "" {
+		t.Fatalf("plain version fallback should keep a capability read error for UI hints, got %#v", info)
+	}
+}
+
+func containsString(items []string, want string) bool {
+	for _, item := range items {
+		if item == want {
+			return true
+		}
+	}
+	return false
 }
 
 func TestCheckFFmpegReadsVersion(t *testing.T) {
@@ -621,6 +938,26 @@ func TestCheckFFmpegReadsVersion(t *testing.T) {
 	info := app.CheckFFmpeg(fakeFFmpeg)
 	if info.Status != "ready" || info.Path != fakeFFmpeg || info.Version != "ffmpeg version 9.9.9" || info.Error != "" {
 		t.Fatalf("ffmpeg check mismatch: %#v", info)
+	}
+}
+
+func TestDialogDefaultDirectoryUsesFileParent(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "keys.txt")
+	if err := os.WriteFile(file, []byte("00112233445566778899aabbccddeeff"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if got := dialogDefaultDirectory(dir); got != dir {
+		t.Fatalf("existing directory should be used directly, got %q", got)
+	}
+	if got := dialogDefaultDirectory(file); got != dir {
+		t.Fatalf("file path should open from parent directory, got %q", got)
+	}
+	if got := dialogDefaultDirectory(filepath.Join(dir, "missing", "tool")); got != filepath.Join(dir, "missing") {
+		t.Fatalf("missing file path should still use textual parent directory, got %q", got)
+	}
+	if got := dialogDefaultDirectory("mp4decrypt"); got != "" {
+		t.Fatalf("bare command should not invent a dialog directory, got %q", got)
 	}
 }
 
@@ -904,6 +1241,16 @@ if [ "${1:-}" = "--version-json" ]; then
   echo '{"name":"m3u8dl-go","version":"9.9.9","fullVersion":"m3u8dl-go 9.9.9"}'
   exit 0
 fi
+if [ "${1:-}" = "--capabilities-json" ]; then
+  echo '{"scope":"hls-only","capabilities":{"protocols":["HLS VOD"],"download":["retry"]},"unsupported":["DASH"]}'
+  exit 0
+fi
+for arg in "$@"; do
+  if [ "$arg" = "--probe-json" ]; then
+    echo '{"version":{"name":"m3u8dl-go","version":"9.9.9","fullVersion":"m3u8dl-go 9.9.9"},"input":"https://example.com/index.m3u8","master":true,"live":false,"trackCounts":{"total":1,"video":1,"audio":0,"subtitles":0},"tracks":[{"id":0,"type":"VIDEO","display":"Vid 1080p | 2 Segments | ~00m02s","segmentCount":2,"durationSeconds":2,"encrypted":true,"encryptMethods":["AES-128"]}]}'
+    exit 0
+  fi
+done
 if [ "${1:-}" = "--version" ]; then
   echo "m3u8dl-go 9.9.9"
   exit 0
@@ -982,7 +1329,7 @@ if [ "${1:-}" = "--version-json" ]; then
 fi
 for arg in "$@"; do
   if [ "$arg" = "--print-effective-options" ]; then
-    echo '错误: bad option Cookie: session=secret http://user:secret@127.0.0.1:8888' >&2
+    echo '错误: bad option Cookie: session=secret http://user:secret@127.0.0.1:8888 00112233445566778899aabbccddeeff 11223344556677889900aabbccddeeff' >&2
     exit 2
   fi
 done

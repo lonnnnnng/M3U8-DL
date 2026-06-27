@@ -370,4 +370,5 @@ type Options struct {
 	AllowHLSMultiExtMap    bool
 	MaxSpeed               int64
 	PrintEffectiveOptions  bool
+	ProbeJSON              bool
 }

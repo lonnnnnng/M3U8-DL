@@ -36,7 +36,7 @@ func newHLSScanner(raw string) *bufio.Scanner {
 }
 
 func parseSource(ctx context.Context, client *http.Client, opt Options) ([]StreamSpec, *parser, error) {
-	fmt.Println(loadingURLMessage(opt, opt.Input))
+	parserLog(opt, loadingURLMessage(opt, opt.Input))
 	raw, finalURL, err := fetchText(ctx, client, opt.Input, opt.Headers)
 	if err != nil {
 		return nil, nil, err
@@ -59,26 +59,26 @@ func (p *parser) extract(ctx context.Context, raw string) ([]StreamSpec, *parser
 	if !strings.HasPrefix(raw, "#EXTM3U") {
 		switch {
 		case strings.Contains(raw, "</MPD>") && strings.Contains(raw, "<MPD"):
-			fmt.Println(tr(p.opt, "matchDASH"))
+			parserLog(p.opt, tr(p.opt, "matchDASH"))
 			p.rawFiles = map[string]string{"raw.mpd": raw}
 		case strings.Contains(raw, "</SmoothStreamingMedia>") && strings.Contains(raw, "<SmoothStreamingMedia"):
-			fmt.Println(tr(p.opt, "matchMSS"))
+			parserLog(p.opt, tr(p.opt, "matchMSS"))
 			p.rawFiles = map[string]string{"raw.ism": raw}
 		case raw == "<RE_LIVE_TS>":
-			fmt.Println(tr(p.opt, "matchTS"))
+			parserLog(p.opt, tr(p.opt, "matchTS"))
 			p.rawFiles = map[string]string{"raw.txt": raw}
 		case raw == "<RE_BINARY_DATA>":
-			fmt.Println(tr(p.opt, "matchBinaryData"))
+			parserLog(p.opt, tr(p.opt, "matchBinaryData"))
 			p.rawFiles = map[string]string{"raw.txt": raw}
 		}
 		// long: 原项目入口会先识别 DASH/MSS/TS/Binary 等输入类型；Go 复刻范围限定 HLS 时，也应保留同样的识别提示，再明确返回不支持。
 		return nil, p, fmt.Errorf("%s", tr(p.opt, "notSupported"))
 	}
-	fmt.Println(hlsMatchMessage(p.opt))
-	fmt.Println(parsingStreamMessage(p.opt))
+	parserLog(p.opt, hlsMatchMessage(p.opt))
+	parserLog(p.opt, parsingStreamMessage(p.opt))
 	if strings.Contains(raw, "#EXT-X-STREAM-INF") {
 		p.master = true
-		fmt.Println(masterM3u8FoundMessage(p.opt))
+		parserLog(p.opt, masterM3u8FoundMessage(p.opt))
 		streams, err := p.parseMaster(raw)
 		if err != nil {
 			return nil, p, err
@@ -119,6 +119,20 @@ func parsingStreamMessage(opt Options) string {
 
 func masterM3u8FoundMessage(opt Options) string {
 	return tr(opt, "masterM3u8Found")
+}
+
+func parserLog(opt Options, message string) {
+	if opt.ProbeJSON {
+		return
+	}
+	fmt.Println(message)
+}
+
+func parserPrintf(opt Options, format string, args ...any) {
+	if opt.ProbeJSON {
+		return
+	}
+	fmt.Printf(format, args...)
 }
 
 func (p *parser) parseMaster(raw string) ([]StreamSpec, error) {
@@ -238,7 +252,7 @@ func distinctStreamsByURL(streams []StreamSpec) []StreamSpec {
 }
 
 func (p *parser) fetchPlaylist(ctx context.Context, s *StreamSpec) error {
-	fmt.Println(parsingStreamMessage(p.opt))
+	parserLog(p.opt, parsingStreamMessage(p.opt))
 	raw, finalURL, err := fetchText(ctx, p.client, s.URL, p.opt.Headers)
 	if err != nil {
 		if !p.master {
@@ -336,7 +350,7 @@ func (p *parser) parseMedia(ctx context.Context, raw string) (*Playlist, error) 
 	}
 	if p.opt.AllowHLSMultiExtMap {
 		// long: 多 EXT-X-MAP 会把一个播放列表拆成多个 init 上下文；上游开启实验开关时会明确提示用户人工确认完整性。
-		fmt.Println(tr(p.opt, "allowHlsMultiExtMap"))
+		parserLog(p.opt, tr(p.opt, "allowHlsMultiExtMap"))
 	}
 	pl := &Playlist{}
 	current := EncryptInfo{Method: EncryptNone}
@@ -567,7 +581,7 @@ func (p *parser) parseKey(ctx context.Context, line string) (EncryptInfo, error)
 			key, err := p.loadHLSKey(ctx, uri)
 			if err != nil {
 				// long: 上游 key 加载失败时不会中断解析，而是把该加密标成 UNKNOWN，让下载阶段保留原始分片供后续外部处理。
-				fmt.Println(tr(p.opt, "cmd_loadKeyFailed") + ": " + err.Error())
+				parserLog(p.opt, tr(p.opt, "cmd_loadKeyFailed")+": "+err.Error())
 				ei.Method = EncryptUnknown
 			} else {
 				ei.Key = key
@@ -609,7 +623,7 @@ func (p *parser) loadHLSKey(ctx context.Context, uri string) ([]byte, error) {
 			}
 			lastErr = err
 			retryCount := hlsKeyRetryCount - try
-			fmt.Printf("%s retryCount: %d\n", err.Error(), retryCount)
+			parserPrintf(p.opt, "%s retryCount: %d\n", err.Error(), retryCount)
 			time.Sleep(hlsKeyRetryDelay)
 		}
 		return nil, lastErr

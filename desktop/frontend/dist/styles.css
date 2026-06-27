@@ -309,6 +309,60 @@ h1 {
   padding: 16px;
 }
 
+.form-section {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #ddddE4;
+  border-radius: 9px;
+  background: #ffffff;
+}
+
+.form-section summary {
+  min-height: 42px;
+  padding: 0 13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  list-style: none;
+  cursor: pointer;
+  background: var(--surface-subtle);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.form-section summary::-webkit-details-marker {
+  display: none;
+}
+
+.form-section summary::after {
+  width: 8px;
+  height: 8px;
+  content: "";
+  flex: 0 0 auto;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg);
+  transition: transform 0.16s ease;
+}
+
+.form-section[open] summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.form-section[open] summary::after {
+  transform: rotate(225deg);
+}
+
+.section-grid {
+  min-width: 0;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 14px;
+}
+
 .core-card {
   min-width: 0;
   padding: 12px;
@@ -381,6 +435,67 @@ h1 {
 
 #core-status.error {
   color: var(--red);
+}
+
+.capability-list {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.capability-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.capability-row > b {
+  min-width: 0;
+  padding-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.capability-tags {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.capability-tags span {
+  max-width: 100%;
+  padding: 3px 7px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 1px solid #d9e4f5;
+  border-radius: 999px;
+  background: #f4f8ff;
+  color: #174b7f;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.capability-tags span.unsupported {
+  border-color: #f1d1d1;
+  background: #fff6f6;
+  color: var(--red);
+}
+
+.capability-empty {
+  padding: 8px 10px;
+  border: 1px solid #e4e4ea;
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .field {
@@ -456,7 +571,15 @@ textarea:focus {
 }
 
 .tool-input {
-  grid-template-columns: minmax(0, 1fr) 72px;
+  grid-template-columns: minmax(0, 1fr) 66px 72px;
+}
+
+.mux-import-builder {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(96px, 0.28fr) minmax(140px, 0.42fr) 66px;
+  gap: 8px;
+  align-items: center;
 }
 
 .tool-result {
@@ -595,6 +718,10 @@ textarea:focus {
   background: #ffffff;
 }
 
+.preflight-row.source {
+  grid-column: 1 / -1;
+}
+
 .preflight-row b,
 .preflight-row span {
   display: block;
@@ -613,6 +740,18 @@ textarea:focus {
   color: var(--muted);
   font-size: 11px;
   font-weight: 600;
+}
+
+.preflight-row small {
+  display: block;
+  max-height: 84px;
+  margin-top: 7px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: #4f4f55;
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .preflight-row.ready b {
@@ -642,7 +781,7 @@ textarea:focus {
 
 .switches {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
   gap: 9px;
 }
 
@@ -984,7 +1123,8 @@ textarea:focus {
   .dashboard-grid,
   .output-grid,
   .form-grid,
-  .settings-grid {
+  .settings-grid,
+  .section-grid {
     height: auto;
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1030,6 +1170,10 @@ textarea:focus {
   .switches,
   .switches.compact {
     display: grid;
+  }
+
+  .mux-import-builder {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .file-row {

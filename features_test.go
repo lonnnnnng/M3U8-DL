@@ -932,9 +932,11 @@ func TestUsageUsesUpstreamCommandDescriptionResources(t *testing.T) {
 		"-h, --help, -?",
 		"--version",
 		"--version-json",
+		"--capabilities-json",
 		"--doctor",
 		"--doctor-json",
 		"--print-effective-options",
+		"--probe-json",
 		"--ui-language <zh-CN|zh-TW|en-US>",
 		"--progress-json",
 		"--auto-select",
@@ -942,9 +944,11 @@ func TestUsageUsesUpstreamCommandDescriptionResources(t *testing.T) {
 		"Show help information",
 		"Show version information",
 		"Show machine-readable version information",
+		"Show machine-readable core capabilities",
 		"Check external tools such as ffmpeg",
 		"Show external tool diagnostics as JSON",
 		"Show parsed effective options as JSON",
+		"Probe the source and output stream summary as JSON without downloading segments",
 		"Output machine-readable download progress, summary, and errors as JSON lines",
 		"Set UI language",
 		"Set output directory",
@@ -977,7 +981,7 @@ func TestUsageUsesUpstreamCommandDescriptionResources(t *testing.T) {
 		}
 	}
 	simplified := usage()
-	for _, want := range []string{"自动选择所有类型的最佳轨道", "查看某个选项的详细帮助信息", "示例:", "更多帮助主题:"} {
+	for _, want := range []string{"自动选择所有类型的最佳轨道", "以 JSON 输出当前核心能力清单", "解析资源并以 JSON 输出轨道摘要", "查看某个选项的详细帮助信息", "示例:", "更多帮助主题:"} {
 		if !strings.Contains(simplified, want) {
 			t.Fatalf("default usage missing %q:\n%s", want, simplified)
 		}
@@ -1019,6 +1023,68 @@ func TestMainVersionJSON(t *testing.T) {
 	if payload != want {
 		t.Fatalf("version json mismatch: want %#v got %#v", want, payload)
 	}
+}
+
+func TestMainCapabilitiesJSON(t *testing.T) {
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+	os.Args = []string{"m3u8dl-go", "--capabilities-json"}
+	output := captureStdout(t, main)
+	var payload capabilitiesReport
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("capabilities json should be valid JSON: %v\n%s", err, output)
+	}
+	if payload.Version != currentVersionInfo() || payload.Scope != "hls-only" {
+		t.Fatalf("capabilities should include current version and scope, got %#v", payload)
+	}
+	for _, group := range []string{"protocols", "download", "decryption", "muxing", "diagnostics"} {
+		if len(payload.Capabilities[group]) == 0 {
+			t.Fatalf("capabilities group %s should not be empty: %#v", group, payload.Capabilities)
+		}
+	}
+	if !stringSliceContains(payload.Capabilities["diagnostics"], "capabilities json") || !stringSliceContains(payload.Capabilities["diagnostics"], "probe json") || !stringSliceContains(payload.Unsupported, "DASH") {
+		t.Fatalf("capabilities should expose diagnostics and unsupported boundaries: %#v", payload)
+	}
+}
+
+func TestMainProbeJSONReportsMediaPlaylist(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/main.m3u8":
+			w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
+			fmt.Fprint(w, "#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:4,\nseg0.ts\n#EXTINF:5,\nseg1.ts\n#EXT-X-ENDLIST\n")
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	oldArgs := os.Args
+	defer func() { os.Args = oldArgs }()
+	os.Args = []string{"m3u8dl-go", srv.URL + "/main.m3u8", "--probe-json", "--auto-select", "true", "--disable-update-check", "true"}
+	output := captureStdout(t, main)
+	if strings.Contains(output, "Loading") || strings.Contains(output, "匹配") {
+		t.Fatalf("probe json stdout should not contain human log lines:\n%s", output)
+	}
+	var payload probeReport
+	if err := json.Unmarshal([]byte(output), &payload); err != nil {
+		t.Fatalf("probe json should be valid JSON: %v\n%s", err, output)
+	}
+	if payload.Input != srv.URL+"/main.m3u8" || payload.Master || payload.Live || payload.TrackCounts.Video != 1 || len(payload.Tracks) != 1 {
+		t.Fatalf("probe report summary mismatch: %#v", payload)
+	}
+	if payload.Tracks[0].SegmentCount != 2 || payload.Tracks[0].DurationSeconds != 9 || payload.Tracks[0].Type != "VIDEO" || !payload.Tracks[0].Selected {
+		t.Fatalf("probe track mismatch: %#v", payload.Tracks[0])
+	}
+}
+
+func stringSliceContains(items []string, want string) bool {
+	for _, item := range items {
+		if item == want {
+			return true
+		}
+	}
+	return false
 }
 
 func TestMainPrintEffectiveOptionsJSONRedactsSensitiveValues(t *testing.T) {

@@ -80,7 +80,9 @@
                 <span id="detail-title">任务详情</span>
                 <div class="detail-actions">
                   <button id="copy-command" type="button">复制命令</button>
+                  <button id="copy-url" type="button">复制地址</button>
                   <button id="copy-log" type="button">复制日志</button>
+                  <button id="clone-selected" type="button">复制为新任务</button>
                   <button id="start-selected" type="button">开始</button>
                   <button id="stop-selected" type="button">停止</button>
                   <button id="retry-selected" type="button">重试</button>
@@ -99,56 +101,268 @@
               <div class="actions">
                 <button id="preflight-task" type="button">预检查</button>
                 <button id="copy-form-command" type="button">复制命令</button>
+                <button id="save-form-settings" type="button">保存默认</button>
+                <button id="reset-form" type="button">重置表单</button>
                 <button id="create-only" type="button">仅创建</button>
                 <button id="create-start" form="task-form" type="submit">创建并下载</button>
               </div>
             </div>
 
             <form id="task-form" class="form-grid">
-              <label class="field field-wide">
-                <span>m3u8 地址</span>
-                <textarea id="url" rows="7" placeholder="https://example.com/index.m3u8" required></textarea>
-              </label>
+              <details class="form-section field-wide" open>
+                <summary>基础与输出</summary>
+                <div class="section-grid">
+                  <label class="field field-wide">
+                    <span>m3u8 地址</span>
+                    <textarea id="url" rows="7" placeholder="https://example.com/index.m3u8" required></textarea>
+                  </label>
 
-              <label class="field field-wide">
-                <span>输出目录</span>
-                <div class="inline-input">
-                  <input id="saveDir" type="text" />
-                  <button id="choose-dir" type="button">选择</button>
+                  <label class="field field-wide">
+                    <span>BaseURL</span>
+                    <input id="baseURL" type="url" placeholder="https://cdn.example.com/path/" />
+                  </label>
+
+                  <label class="field field-wide">
+                    <span>输出目录</span>
+                    <div class="inline-input">
+                      <input id="saveDir" type="text" />
+                      <button id="choose-dir" type="button">选择</button>
+                    </div>
+                  </label>
+
+                  <label class="field field-wide">
+                    <span>临时目录</span>
+                    <div class="inline-input">
+                      <input id="tmpDir" type="text" />
+                      <button id="choose-tmp-dir" type="button">选择</button>
+                    </div>
+                  </label>
+
+                  <label class="field">
+                    <span>保存名称</span>
+                    <input id="saveName" type="text" placeholder="可选" />
+                  </label>
+
+                  <label class="field">
+                    <span>保存模板</span>
+                    <input id="savePattern" type="text" placeholder="Name_Date" />
+                  </label>
+
+                  <label class="field">
+                    <span>名称分隔符</span>
+                    <input id="linkNameSeparator" type="text" value="|" placeholder="|" />
+                  </label>
+
+                  <label class="field">
+                    <span>下载范围</span>
+                    <input id="customRange" type="text" placeholder="0-20" />
+                  </label>
+
+                  <label class="field">
+                    <span>限速</span>
+                    <input id="maxSpeed" type="text" placeholder="2M / 500K" />
+                  </label>
+
+                  <label class="field">
+                    <span>HTTP 超时（秒）</span>
+                    <input id="httpRequestTimeout" type="number" min="0.1" step="0.1" placeholder="100" />
+                  </label>
+
+                  <label class="field field-wide">
+                    <span>请求头</span>
+                    <textarea id="headers" rows="5" placeholder="Cookie: xxx&#10;Referer: https://example.com"></textarea>
+                  </label>
                 </div>
-              </label>
+              </details>
 
-              <label class="field">
-                <span>保存名称</span>
-                <input id="saveName" type="text" placeholder="可选" />
-              </label>
+              <details class="form-section field-wide" open>
+                <summary>轨道与字幕</summary>
+                <div class="section-grid">
+                  <label class="field">
+                    <span>选择视频</span>
+                    <input id="selectVideo" type="text" placeholder="res=1080p:for=best" />
+                  </label>
 
-              <label class="field">
-                <span>名称分隔符</span>
-                <input id="linkNameSeparator" type="text" value="|" placeholder="|" />
-              </label>
+                  <label class="field">
+                    <span>丢弃视频</span>
+                    <input id="dropVideo" type="text" placeholder="role=trickplay" />
+                  </label>
 
-              <label class="field">
-                <span>下载范围</span>
-                <input id="customRange" type="text" placeholder="0-20" />
-              </label>
+                  <label class="field">
+                    <span>选择音频</span>
+                    <input id="selectAudio" type="text" placeholder="lang=ja|en:for=best" />
+                  </label>
 
-              <label class="field">
-                <span>限速</span>
-                <input id="maxSpeed" type="text" placeholder="2M / 500K" />
-              </label>
+                  <label class="field">
+                    <span>丢弃音频</span>
+                    <input id="dropAudio" type="text" placeholder="lang=commentary" />
+                  </label>
 
-              <label class="field field-wide">
-                <span>请求头</span>
-                <textarea id="headers" rows="5" placeholder="Cookie: xxx&#10;Referer: https://example.com"></textarea>
-              </label>
+                  <label class="field">
+                    <span>选择字幕</span>
+                    <input id="selectSubtitle" type="text" placeholder="lang=zh|en:for=all" />
+                  </label>
 
-              <div class="switches field-wide">
-                <label><input id="autoSelect" type="checkbox" /> 自动选轨</label>
-                <label><input id="muxMP4" type="checkbox" /> 混流 MP4</label>
-                <label><input id="binaryMerge" type="checkbox" /> 二进制直拼</label>
-                <label><input id="concurrentDownload" type="checkbox" /> 多轨并发</label>
-              </div>
+                  <label class="field">
+                    <span>丢弃字幕</span>
+                    <input id="dropSubtitle" type="text" placeholder="name=forced" />
+                  </label>
+
+                  <label class="field">
+                    <span>字幕格式</span>
+                    <select id="subFormat">
+                      <option value="SRT">SRT</option>
+                      <option value="VTT">VTT</option>
+                    </select>
+                  </label>
+
+                  <div class="switches field-wide">
+                    <label><input id="autoSelect" type="checkbox" /> 自动选轨</label>
+                    <label><input id="subOnly" type="checkbox" /> 只下载字幕</label>
+                    <label><input id="autoSubtitleFix" type="checkbox" /> 自动修复字幕</label>
+                    <label><input id="concurrentDownload" type="checkbox" /> 多轨并发</label>
+                  </div>
+                </div>
+              </details>
+
+              <details class="form-section field-wide">
+                <summary>解密与密钥</summary>
+                <div class="section-grid">
+                  <label class="field field-wide">
+                    <span>解密 Key</span>
+                    <textarea id="keys" rows="3" placeholder="每行一个 KEY 或 KID:KEY"></textarea>
+                  </label>
+
+                  <label class="field">
+                    <span>Key 文本文件</span>
+                    <div class="inline-input">
+                      <input id="keyTextFile" type="text" placeholder="/path/to/keys.txt" />
+                      <button id="choose-key-file" type="button">选择</button>
+                    </div>
+                  </label>
+
+                  <label class="field">
+                    <span>解密引擎</span>
+                    <select id="decryptionEngine">
+                      <option value="MP4DECRYPT">MP4DECRYPT</option>
+                      <option value="SHAKA_PACKAGER">SHAKA_PACKAGER</option>
+                      <option value="FFMPEG">FFMPEG</option>
+                    </select>
+                  </label>
+
+                  <label class="field">
+                    <span>解密工具路径</span>
+                    <div class="inline-input">
+                      <input id="decryptionBinaryPath" type="text" placeholder="/opt/homebrew/bin/mp4decrypt" />
+                      <button id="choose-decryption-binary" type="button">选择</button>
+                    </div>
+                  </label>
+
+                  <label class="field">
+                    <span>自定义 HLS Method</span>
+                    <select id="customHLSMethod">
+                      <option value="">自动</option>
+                      <option value="AES_128">AES_128</option>
+                      <option value="AES_128_ECB">AES_128_ECB</option>
+                      <option value="CENC">CENC</option>
+                      <option value="CHACHA20">CHACHA20</option>
+                      <option value="NONE">NONE</option>
+                      <option value="SAMPLE_AES">SAMPLE_AES</option>
+                      <option value="SAMPLE_AES_CTR">SAMPLE_AES_CTR</option>
+                      <option value="UNKNOWN">UNKNOWN</option>
+                    </select>
+                  </label>
+
+                  <label class="field">
+                    <span>自定义 HLS Key</span>
+                    <input id="customHLSKey" type="password" placeholder="file / hex / base64" autocomplete="off" />
+                  </label>
+
+                  <label class="field">
+                    <span>自定义 HLS IV</span>
+                    <input id="customHLSIV" type="password" placeholder="file / hex / base64" autocomplete="off" />
+                  </label>
+
+                  <div class="switches field-wide">
+                    <label><input id="mp4RealTimeDecryption" type="checkbox" /> MP4 实时解密</label>
+                  </div>
+                </div>
+              </details>
+
+              <details class="form-section field-wide">
+                <summary>直播与过滤</summary>
+                <div class="section-grid">
+                  <label class="field field-wide">
+                    <span>广告分片关键字</span>
+                    <textarea id="adKeywords" rows="3" placeholder="/ad\d+\.ts$&#10;BUMPER"></textarea>
+                  </label>
+
+                  <label class="field">
+                    <span>定时开始</span>
+                    <input id="taskStartAt" type="text" placeholder="yyyyMMddHHmmss" />
+                  </label>
+
+                  <label class="field">
+                    <span>直播录制时长</span>
+                    <input id="liveRecordLimit" type="text" placeholder="00:05:00" />
+                  </label>
+
+                  <label class="field">
+                    <span>直播刷新间隔（秒）</span>
+                    <input id="liveWaitTime" type="number" min="1" step="1" />
+                  </label>
+
+                  <label class="field">
+                    <span>直播首取分片数</span>
+                    <input id="liveTakeCount" type="number" min="1" step="1" />
+                  </label>
+
+                  <div class="switches field-wide">
+                    <label><input id="livePerformAsVOD" type="checkbox" /> 直播当点播</label>
+                    <label><input id="liveRealTimeMerge" type="checkbox" /> 直播实时合并</label>
+                    <label><input id="discardLiveSegments" type="checkbox" /> 直播丢弃分片</label>
+                    <label><input id="livePipeMux" type="checkbox" /> 直播 PipeMux</label>
+                    <label><input id="liveFixVTTByAudio" type="checkbox" /> 直播字幕对齐</label>
+                    <label><input id="appendURLParams" type="checkbox" /> 追加 URL 参数</label>
+                  </div>
+                </div>
+              </details>
+
+              <details class="form-section field-wide">
+                <summary>混流与任务控制</summary>
+                <div class="section-grid">
+                  <label class="field field-wide">
+                    <span>最终混流参数</span>
+                    <input id="muxAfterDone" type="text" placeholder="format=mp4:muxer=ffmpeg" />
+                  </label>
+
+                  <label class="field field-wide">
+                    <span>导入外部轨道</span>
+                    <div class="mux-import-builder">
+                      <div class="inline-input">
+                        <input id="muxImportPath" type="text" placeholder="/path/to/subtitle.srt" />
+                        <button id="choose-mux-import-file" type="button">选择</button>
+                      </div>
+                      <input id="muxImportLang" type="text" placeholder="lang=eng" />
+                      <input id="muxImportName" type="text" placeholder="name=English" />
+                      <button id="add-mux-import" type="button">添加</button>
+                    </div>
+                    <textarea id="muxImports" rows="3" placeholder="path=zh-Hans.srt:lang=chi:name=Chinese"></textarea>
+                  </label>
+
+                  <div class="switches field-wide">
+                    <label><input id="muxMP4" type="checkbox" /> 混流 MP4</label>
+                    <label><input id="noDateInfo" type="checkbox" /> 不写日期 metadata</label>
+                    <label><input id="binaryMerge" type="checkbox" /> 二进制直拼</label>
+                    <label><input id="skipDownload" type="checkbox" /> 只解析资源</label>
+                    <label><input id="skipMerge" type="checkbox" /> 跳过合并</label>
+                    <label><input id="checkSegmentsCount" type="checkbox" /> 校验分片数</label>
+                    <label><input id="writeMetaJSON" type="checkbox" /> 写 meta JSON</label>
+                    <label><input id="keepSegments" type="checkbox" /> 保留临时文件</label>
+                    <label><input id="noLog" type="checkbox" /> 关闭日志文件</label>
+                  </div>
+                </div>
+              </details>
 
               <section id="preflight-result" class="preflight-card field-wide empty">尚未预检查。</section>
             </form>
@@ -182,12 +396,14 @@
                     <strong id="core-path">-</strong>
                   </div>
                 </div>
+                <div id="core-capabilities" class="capability-list">正在读取核心能力...</div>
               </section>
 
               <label class="field field-wide">
                 <span>FFmpeg 路径</span>
                 <div class="inline-input tool-input">
                   <input id="ffmpegPath" type="text" placeholder="/opt/homebrew/bin/ffmpeg" />
+                  <button id="choose-ffmpeg" type="button">选择</button>
                   <button id="check-ffmpeg" type="button">检测</button>
                 </div>
                 <strong id="ffmpeg-check" class="tool-result">尚未检测</strong>

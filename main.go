@@ -61,6 +61,9 @@ func main() {
 				b, _ := json.Marshal(currentVersionInfo())
 				fmt.Println(string(b))
 				return
+			case "capabilities-json":
+				fmt.Print(runCapabilitiesJSON())
+				return
 			case "doctor":
 				fmt.Print(runDoctorText(controlErr.opt))
 				return
@@ -102,6 +105,14 @@ func runWithContext(ctx context.Context, args []string, command []string) (err e
 	}
 	if opt.PrintEffectiveOptions {
 		output, err := runPrintEffectiveOptions(opt, command, time.Now())
+		if err != nil {
+			return err
+		}
+		fmt.Print(output)
+		return nil
+	}
+	if opt.ProbeJSON {
+		output, err := runProbeJSON(ctx, opt, time.Now())
 		if err != nil {
 			return err
 		}

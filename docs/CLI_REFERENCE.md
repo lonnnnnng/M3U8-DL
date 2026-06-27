@@ -1,6 +1,6 @@
 # m3u8dl-go 功能、用法与参数参考
 
-更新时间：2026-06-23（北京时间）
+更新时间：2026-06-27（北京时间）
 
 `m3u8dl-go` 是基于 `nilaoda/N_m3u8DL-RE` 源码行为复刻的 Go 版 HLS 下载器。本项目只实现 HLS/m3u8；DASH、MSS 和 Live TS 只做输入类型识别并返回不支持。
 
@@ -16,6 +16,12 @@ go run . "https://example.com/index.m3u8" --auto-select true --save-dir ./downlo
 
 ```zsh
 go run . "https://example.com/index.m3u8" --skip-download true --save-name probe
+```
+
+只探测资源并输出机器可读轨道摘要，不写文件、不下载分片：
+
+```zsh
+go run . "https://example.com/index.m3u8" --probe-json --auto-select true
 ```
 
 下载前 3 个分片并二进制直拼为 TS：
@@ -55,10 +61,11 @@ go run . "https://example.com/live.m3u8" --live-real-time-merge true --live-reco
 - KID/PSSH：解析 `tenc`、`schm`、Widevine PSSH、PlayReady PSSH，支持 key file 按 KID 查找。
 - 轨道选择：自动选择、交互选择、视频/音频/字幕选择过滤、丢弃过滤、只选字幕。
 - 输出：保存目录、临时目录、保存名、保存模板、raw/meta JSON、日志文件。
+- 资源探测：`--probe-json` 可解析 m3u8/master/子 playlist，并输出视频、音频、字幕轨道数量、直播/点播、分片数、时长、加密方式和自动选择结果。
 - 合并：二进制合并、ffmpeg concat 协议、ffmpeg concat demuxer、最终 ffmpeg/mkvmerge 混流。
 - 字幕：VTT 修复、VTT 转 SRT、TTML、MP4 WebVTT/TTML 基础抽取、图形字幕 PNG 落盘。
 - 直播：刷新轮询、新分片追加、录制时长限制、实时合并、PipeMux、直播 VTT 音频时间轴修正。
-- 多语言：`zh-CN`、`zh-TW`、`en-US`，未指定时按系统语言推断。
+- 多语言：`zh-CN`、`zh-TW`、`en-US`，未指定时默认简体中文，繁中系统默认繁中。
 - 更新检查：GitHub latest release，可关闭。
 
 ## 合并方式选择
@@ -94,9 +101,11 @@ ffmpeg 单轨合并：
 | `-h, --help, -?` | 显示帮助信息。 |
 | `--version` | 显示版本信息。 |
 | `--version-json` | 以 JSON 输出版本信息，供桌面端或脚本识别当前下载核心。 |
+| `--capabilities-json` | 以 JSON 输出当前核心能力清单，包含 HLS 范围、输入类型、下载/解密/合并/字幕/直播/诊断能力和明确不支持项，供桌面端或脚本按当前 CLI 能力渲染界面。 |
 | `--doctor` | 检测 `ffmpeg`、`ffprobe`、`mkvmerge`、`mp4decrypt`、`shaka-packager` 等外部工具；如果指定了 `--ffmpeg-binary-path`，会优先检测同目录 `ffprobe`。 |
 | `--doctor-json` | 以 JSON 输出外部工具检测结果，适合脚本或客户端集成。 |
 | `--print-effective-options` | 以 JSON 输出解析、校验和派生后的有效参数；会隐藏 Cookie、Authorization、代理密码和 key 原文。 |
+| `--probe-json` | 解析资源并以 JSON 输出轨道摘要，不下载分片、不写 meta 文件；stdout 保持纯 JSON，适合桌面端预检查或脚本探测资源。 |
 | `--ui-language <zh-CN\|zh-TW\|en-US>` | 设置 UI 语言；不传时默认简体中文，繁中系统默认繁中。 |
 
 ### 输入与网络
