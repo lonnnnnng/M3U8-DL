@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -280,12 +281,33 @@ func localFileURL(path string) (string, error) {
 		return "", err
 	}
 	// long: 上游把普通本地路径提升为绝对 file URI；这样 m3u8 内的相对分片和 key URI 才会以清单所在目录为基准解析。
-	return (&url.URL{Scheme: "file", Path: filepath.ToSlash(abs)}).String(), nil
+	slashPath := filepath.ToSlash(abs)
+	if runtime.GOOS == "windows" && filepath.VolumeName(abs) != "" && !strings.HasPrefix(slashPath, "/") {
+		// long: Windows 盘符路径需要编码成 file:///C:/...；少了这个前导斜杠时 C 会被 URL 解析成 host，后续本地分片读取会误走 UNC 路径。
+		slashPath = "/" + slashPath
+	}
+	return (&url.URL{Scheme: "file", Path: slashPath}).String(), nil
 }
 
 func fileURLPath(u *url.URL) string {
 	if u.Host != "" && u.Host != "localhost" {
+		if runtime.GOOS == "windows" {
+			// long: Windows 的 file://server/share 表示 UNC 路径，直接拼成网络路径才能让本地文件分片和 key 被正确读取。
+			return `\\` + u.Host + filepath.FromSlash(u.Path)
+		}
 		return "//" + u.Host + u.Path
 	}
-	return u.Path
+	path := u.Path
+	if runtime.GOOS == "windows" {
+		if len(path) >= 3 && path[0] == '/' && path[2] == ':' && isASCIIAlpha(path[1]) {
+			// long: file:///C:/... 解析后会多一个前导斜杠；Windows 打开本地盘符路径前必须移除它，否则会变成无效的 /C:/...。
+			path = path[1:]
+		}
+		return filepath.FromSlash(path)
+	}
+	return path
+}
+
+func isASCIIAlpha(b byte) bool {
+	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
 }

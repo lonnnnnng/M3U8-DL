@@ -358,7 +358,7 @@ func defaultSettings() Settings {
 		SubFormat:          "SRT",
 		DecryptionEngine:   "MP4DECRYPT",
 		AutoSelect:         true,
-		MuxMP4:             true,
+		BinaryMerge:        true,
 		UseSystemProxy:     true,
 		ConcurrentDownload: false,
 	}
@@ -480,6 +480,14 @@ func normalizeSettings(settings Settings) Settings {
 	}
 	if strings.TrimSpace(settings.DecryptionEngine) == "" {
 		settings.DecryptionEngine = "MP4DECRYPT"
+	}
+	if strings.TrimSpace(settings.FFmpegPath) == "" && strings.TrimSpace(settings.MuxAfterDone) == "" {
+		settings.MuxMP4 = false
+		settings.BinaryMerge = true
+	}
+	if strings.TrimSpace(settings.FFmpegPath) != "" && strings.TrimSpace(settings.MuxAfterDone) == "" {
+		settings.MuxMP4 = true
+		settings.BinaryMerge = false
 	}
 	return settings
 }
@@ -1282,6 +1290,22 @@ func (a *App) applyRequestDefaults(req DownloadRequest) DownloadRequest {
 	if strings.TrimSpace(req.CustomProxy) == "" {
 		req.CustomProxy = settings.CustomProxy
 	}
+	return applyDesktopMergeMode(req)
+}
+
+func applyDesktopMergeMode(req DownloadRequest) DownloadRequest {
+	if strings.TrimSpace(req.MuxAfterDone) != "" {
+		return req
+	}
+	if strings.TrimSpace(req.FFmpegPath) == "" {
+		// long: 桌面端普通任务没有配置 FFmpeg 时默认保真直拼，避免无外部工具的 Windows 环境创建任务就失败。
+		req.MuxMP4 = false
+		req.BinaryMerge = true
+		return req
+	}
+	// long: 用户配置了 FFmpeg 后，普通下载默认交给 FFmpeg 输出 MP4；高级 -M 参数仍由用户显式控制。
+	req.MuxMP4 = true
+	req.BinaryMerge = false
 	return req
 }
 
@@ -1872,14 +1896,16 @@ func buildCLIArgs(req DownloadRequest) []string {
 	if req.NoDateInfo {
 		args = append(args, "--no-date-info", "true")
 	}
-	if req.MuxMP4 && strings.TrimSpace(req.MuxAfterDone) == "" {
+	if req.MuxMP4 && strings.TrimSpace(req.MuxAfterDone) == "" && strings.TrimSpace(req.FFmpegPath) != "" {
 		args = append(args, "-M", "format=mp4:muxer=ffmpeg")
 	}
 	if value := strings.TrimSpace(req.CustomProxy); value != "" {
 		args = append(args, "--custom-proxy", value)
 	}
-	if value := strings.TrimSpace(req.FFmpegPath); value != "" {
-		args = append(args, "--ffmpeg-binary-path", value)
+	if strings.TrimSpace(req.FFmpegPath) != "" {
+		if value := resolveFFmpegPathForCLI(req.FFmpegPath); value != "" {
+			args = append(args, "--ffmpeg-binary-path", value)
+		}
 	}
 	for _, header := range req.Headers {
 		if value := strings.TrimSpace(header); value != "" {
@@ -2590,11 +2616,8 @@ func coreCapabilityLabel(name string) string {
 
 func desktopToolCheckSpecs(ffmpegPath string) []toolCheckSpec {
 	ffmpegPath = strings.TrimSpace(ffmpegPath)
-	ffmpegCommands := []string{"ffmpeg"}
-	if ffmpegPath != "" {
-		ffmpegCommands = []string{ffmpegPath}
-	}
-	ffprobeCommands := []string{"ffprobe"}
+	ffmpegCommands := toolCommandCandidates(ffmpegPath, "ffmpeg")
+	ffprobeCommands := toolCommandCandidates(ffmpegPath, "ffprobe")
 	if candidate := ffprobeCommandFromFFmpegPath(ffmpegPath); candidate != "" {
 		ffprobeCommands = append([]string{candidate}, ffprobeCommands...)
 	}
@@ -2611,6 +2634,9 @@ func ffprobeCommandFromFFmpegPath(ffmpegPath string) string {
 	if ffmpegPath == "" {
 		return ""
 	}
+	if info, err := os.Stat(ffmpegPath); err == nil && info.IsDir() {
+		return ""
+	}
 	dir := filepath.Dir(ffmpegPath)
 	base := filepath.Base(ffmpegPath)
 	if strings.HasPrefix(base, "ffmpeg") && dir != "." {
@@ -2620,11 +2646,36 @@ func ffprobeCommandFromFFmpegPath(ffmpegPath string) string {
 }
 
 func probeToolVersion(path string, fallbackName string, args []string) (ToolInfo, error) {
-	command := strings.TrimSpace(path)
-	if command == "" {
-		command = fallbackName
+	return probeToolCandidates(toolCommandCandidates(path, fallbackName), args)
+}
+
+func toolCommandCandidates(path string, fallbackName string) []string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return []string{fallbackName}
 	}
-	return probeToolCandidates([]string{command}, args)
+	if info, err := os.Stat(path); err == nil && info.IsDir() {
+		candidates := make([]string, 0, 5)
+		for _, base := range []string{
+			filepath.Join(path, fallbackName),
+			filepath.Join(path, "bin", fallbackName),
+		} {
+			candidates = append(candidates, executableCandidates(base)...)
+		}
+		candidates = append(candidates, fallbackName)
+		return candidates
+	}
+	return executableCandidates(path)
+}
+
+func resolveFFmpegPathForCLI(path string) string {
+	for _, candidate := range toolCommandCandidates(path, "ffmpeg") {
+		resolved, err := lookPathDesktop(candidate)
+		if err == nil {
+			return resolved
+		}
+	}
+	return strings.TrimSpace(path)
 }
 
 func probeToolCandidates(commands []string, args []string) (ToolInfo, error) {

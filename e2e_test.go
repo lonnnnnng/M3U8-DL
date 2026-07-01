@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -163,14 +162,22 @@ func TestDownloadLiveRealTimeMergeUsesAppendPath(t *testing.T) {
 	if err := os.WriteFile(segB, []byte("live-b"), 0644); err != nil {
 		t.Fatal(err)
 	}
+	segAURL, err := localFileURL(segA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segBURL, err := localFileURL(segB)
+	if err != nil {
+		t.Fatal(err)
+	}
 	video := MediaVideo
 	stream := StreamSpec{
 		ID:        1,
 		Extension: "ts",
 		MediaType: &video,
 		Playlist: &Playlist{IsLive: true, Parts: []MediaPart{{Segments: []Segment{
-			{Index: 1, URL: (&url.URL{Scheme: "file", Path: segA}).String(), Duration: 1},
-			{Index: 2, URL: (&url.URL{Scheme: "file", Path: segB}).String(), Duration: 1},
+			{Index: 1, URL: segAURL, Duration: 1},
+			{Index: 2, URL: segBURL, Duration: 1},
 		}}}},
 	}
 	opt := defaultOptions()
@@ -211,13 +218,17 @@ func TestDownloadLiveRealTimeMergeAudioMP4KeepsMP4ExtensionLikeUpstream(t *testi
 	if err := os.WriteFile(seg, []byte("audio-mp4"), 0644); err != nil {
 		t.Fatal(err)
 	}
+	segURL, err := localFileURL(seg)
+	if err != nil {
+		t.Fatal(err)
+	}
 	audio := MediaAudio
 	stream := StreamSpec{
 		ID:        1,
 		Extension: "mp4",
 		MediaType: &audio,
 		Playlist: &Playlist{IsLive: true, Parts: []MediaPart{{Segments: []Segment{
-			{Index: 1, URL: (&url.URL{Scheme: "file", Path: seg}).String(), Duration: 1},
+			{Index: 1, URL: segURL, Duration: 1},
 		}}}},
 	}
 	opt := defaultOptions()
@@ -260,6 +271,14 @@ func TestDownloadWasLiveFMP4UsesProgramDateTimeNamesDespiteInit(t *testing.T) {
 	if err := os.WriteFile(segFile, []byte("media"), 0644); err != nil {
 		t.Fatal(err)
 	}
+	initURL, err := localFileURL(initFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	segURL, err := localFileURL(segFile)
+	if err != nil {
+		t.Fatal(err)
+	}
 	video := MediaVideo
 	pdt := time.Unix(1781784000, 0).UTC()
 	stream := StreamSpec{
@@ -268,9 +287,9 @@ func TestDownloadWasLiveFMP4UsesProgramDateTimeNamesDespiteInit(t *testing.T) {
 		MediaType: &video,
 		Playlist: &Playlist{
 			WasLive:   true,
-			MediaInit: &Segment{Index: -1, URL: (&url.URL{Scheme: "file", Path: initFile}).String()},
+			MediaInit: &Segment{Index: -1, URL: initURL},
 			Parts: []MediaPart{{Segments: []Segment{
-				{Index: 7, URL: (&url.URL{Scheme: "file", Path: segFile}).String(), DateTime: &pdt, Duration: 1},
+				{Index: 7, URL: segURL, DateTime: &pdt, Duration: 1},
 			}}},
 		},
 	}
@@ -1468,11 +1487,10 @@ func TestDownloadFileURLByteRangeUsesLocalPathLikeUpstream(t *testing.T) {
 	if err := os.WriteFile(source, []byte("0123456789"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	abs, err := filepath.Abs(source)
+	sourceURL, err := localFileURL(source)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sourceURL := (&url.URL{Scheme: "file", Host: "localhost", Path: filepath.ToSlash(abs)}).String()
 	out := filepath.Join(tmp, "seg.ts")
 	start := int64(2)
 	length := int64(4)
@@ -2017,7 +2035,7 @@ func TestDownloadUndefinedNumericHLSEncryptionKeepsRawLikeUpstream(t *testing.T)
 }
 
 func TestRealtimeExternalDecrypt(t *testing.T) {
-	if os.Getenv("GOOS") == "windows" {
+	if runtime.GOOS == "windows" {
 		t.Skip("shell helper is unix-only")
 	}
 	kidBytes := []byte{0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f, 0x20}

@@ -44,7 +44,7 @@ function Test-DesktopArchive {
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $zip = [System.IO.Compression.ZipFile]::OpenRead($Archive)
     try {
-        $entries = @($zip.Entries | ForEach-Object { $_.FullName })
+        $entries = @($zip.Entries | ForEach-Object { $_.FullName.Replace("\", "/") })
     } finally {
         $zip.Dispose()
     }
@@ -64,7 +64,15 @@ function Test-DesktopArchive {
     Write-Output "桌面包结构检查通过: $Archive"
 }
 
-if (-not $IsWindows) {
+function Test-RunningOnWindows {
+    $isWindowsVariable = Get-Variable -Name IsWindows -ErrorAction SilentlyContinue
+    if ($isWindowsVariable) {
+        return [bool]$isWindowsVariable.Value
+    }
+    return [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
+}
+
+if (-not (Test-RunningOnWindows)) {
     throw "Windows desktop package must be built on Windows."
 }
 

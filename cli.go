@@ -609,6 +609,10 @@ func validSaveName(input string) string {
 }
 
 func parseLogFilePathOption(input string) (string, error) {
+	if validSaveName(filepath.Base(input)) == "" {
+		// long: Windows 会在 Abs/Clean 阶段吞掉尾部点号，日志文件名必须先按用户原始输入校验，才能保持上游对 "..." 这类空文件名的拒绝行为。
+		return "", errors.New("Invalid log file name!")
+	}
 	path, err := filepath.Abs(input)
 	if err != nil {
 		return "", errors.New("Invalid log path!")

@@ -954,9 +954,9 @@ function applySettings(nextSettings) {
   el.discardLiveSegments.checked = Boolean(field(settings, "disableLiveKeepSegments", "DisableLiveKeepSegments", false));
   el.livePipeMux.checked = Boolean(field(settings, "livePipeMux", "LivePipeMux", false));
   el.liveFixVTTByAudio.checked = Boolean(field(settings, "liveFixVTTByAudio", "LiveFixVTTByAudio", false));
-  el.muxMP4.checked = Boolean(field(settings, "muxMP4", "MuxMP4", true));
+  el.muxMP4.checked = Boolean(field(settings, "muxMP4", "MuxMP4", false));
   el.noDateInfo.checked = Boolean(field(settings, "noDateInfo", "NoDateInfo", false));
-  el.binaryMerge.checked = Boolean(field(settings, "binaryMerge", "BinaryMerge", false));
+  el.binaryMerge.checked = Boolean(field(settings, "binaryMerge", "BinaryMerge", true));
   el.appendURLParams.checked = Boolean(field(settings, "appendURLParams", "AppendURLParams", false));
   el.skipDownload.checked = Boolean(field(settings, "skipDownload", "SkipDownload", false));
   el.skipMerge.checked = Boolean(field(settings, "skipMerge", "SkipMerge", false));
@@ -967,6 +967,16 @@ function applySettings(nextSettings) {
   el.concurrentDownload.checked = Boolean(field(settings, "concurrentDownload", "ConcurrentDownload", false));
   el.useSystemProxy.checked = Boolean(field(settings, "useSystemProxy", "UseSystemProxy", true));
   el.customProxy.value = field(settings, "customProxy", "CustomProxy", "");
+  syncMergeModeFromFFmpegPath();
+}
+
+function syncMergeModeFromFFmpegPath() {
+  if (el.muxAfterDone.value.trim()) {
+    return;
+  }
+  const hasFFmpegPath = el.ffmpegPath.value.trim() !== "";
+  el.muxMP4.checked = hasFFmpegPath;
+  el.binaryMerge.checked = !hasFFmpegPath;
 }
 
 function applyCoreInfo(info = {}) {
@@ -1022,7 +1032,7 @@ function applyToolCheck(node, info = {}) {
   const error = field(info, "error", "Error", "");
   node.classList.toggle("ok", status === "ready");
   node.classList.toggle("error", status !== "ready");
-  node.textContent = status === "ready" ? `${version || "可用"} · ${path}` : (error || "检测失败");
+  node.textContent = status === "ready" ? `${version || "可用"} | ${path}` : (error || "检测失败");
   node.title = node.textContent;
 }
 
@@ -1410,11 +1420,18 @@ el.chooseFFmpeg.addEventListener("click", async () => {
       const selected = await api().ChooseFile(el.ffmpegPath.value.trim());
       if (selected) {
         el.ffmpegPath.value = selected;
+        syncMergeModeFromFFmpegPath();
       }
     } catch (error) {
       reportError(error);
     }
   });
+});
+el.ffmpegPath.addEventListener("input", syncMergeModeFromFFmpegPath);
+el.muxAfterDone.addEventListener("input", () => {
+  if (!el.muxAfterDone.value.trim()) {
+    syncMergeModeFromFFmpegPath();
+  }
 });
 el.checkTools.addEventListener("click", async () => {
   await withBusy(el.checkTools, "检测中", async () => {

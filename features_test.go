@@ -11,7 +11,6 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -29,22 +28,35 @@ func captureStdout(t *testing.T, fn func()) string {
 	if err != nil {
 		t.Fatal(err)
 	}
+	type readResult struct {
+		text string
+		err  error
+	}
+	readDone := make(chan readResult, 1)
+	go func() {
+		out, err := io.ReadAll(r)
+		readDone <- readResult{text: string(out), err: err}
+	}()
 	os.Stdout = w
+	closed := false
 	defer func() {
 		os.Stdout = old
+		if !closed {
+			_ = w.Close()
+		}
 		_ = r.Close()
-		_ = w.Close()
 	}()
 	fn()
 	if err := w.Close(); err != nil {
 		t.Fatal(err)
 	}
+	closed = true
 	os.Stdout = old
-	out, err := io.ReadAll(r)
-	if err != nil {
-		t.Fatal(err)
+	result := <-readDone
+	if result.err != nil {
+		t.Fatal(result.err)
 	}
-	return string(out)
+	return result.text
 }
 
 func TestAppendURLParams(t *testing.T) {
@@ -1159,7 +1171,7 @@ func TestDoctorToolSpecsIncludeFFprobeNextToCustomFFmpeg(t *testing.T) {
 	if specs[0].Name != "ffmpeg" || specs[0].Command != "/opt/media/bin/ffmpeg" {
 		t.Fatalf("ffmpeg spec mismatch: %#v", specs[0])
 	}
-	if specs[1].Name != "ffprobe" || specs[1].Command != "/opt/media/bin/ffprobe" {
+	if specs[1].Name != "ffprobe" || specs[1].Command != filepath.FromSlash("/opt/media/bin/ffprobe") {
 		t.Fatalf("ffprobe should be derived from custom ffmpeg path, got %#v", specs[1])
 	}
 }
@@ -5232,12 +5244,14 @@ func TestBuildLivePipeMuxArgsMatchesUpstreamDefaults(t *testing.T) {
 	now := time.Date(2026, 6, 18, 12, 0, 0, 123, time.UTC)
 	args := buildLivePipeMuxArgs([]string{"v.pipe", "a.pipe"}, "/out/live.ts", now, livePipeEnv{TmpDir: "/tmp/re-pipes"}, false)
 	joined := "\n" + strings.Join(args, "\n") + "\n"
+	videoPipePath := filepath.Join("/tmp/re-pipes", "v.pipe")
+	audioPipePath := filepath.Join("/tmp/re-pipes", "a.pipe")
 	for _, want := range []string{
 		"\n-y\n",
 		"\n-fflags\n+genpts\n",
 		"\n-loglevel\nquiet\n",
-		"\n-i\n/tmp/re-pipes/v.pipe\n",
-		"\n-i\n/tmp/re-pipes/a.pipe\n",
+		"\n-i\n" + videoPipePath + "\n",
+		"\n-i\n" + audioPipePath + "\n",
 		"\n-map\n0\n",
 		"\n-map\n1\n",
 		"\n-strict\nunofficial\n",
@@ -5512,6 +5526,14 @@ func TestLiveRealtimeDownloadStateWritesBatchesToPipe(t *testing.T) {
 	if err := os.WriteFile(srcB, []byte("b"), 0644); err != nil {
 		t.Fatal(err)
 	}
+	srcAURL, err := localFileURL(srcA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srcBURL, err := localFileURL(srcB)
+	if err != nil {
+		t.Fatal(err)
+	}
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
@@ -5537,8 +5559,8 @@ func TestLiveRealtimeDownloadStateWritesBatchesToPipe(t *testing.T) {
 		Extension: "ts",
 		MediaType: &video,
 		Playlist: &Playlist{WasLive: true, Parts: []MediaPart{{Segments: []Segment{
-			{Index: 1, URL: (&url.URL{Scheme: "file", Path: srcA}).String(), Duration: 1},
-			{Index: 2, URL: (&url.URL{Scheme: "file", Path: srcB}).String(), Duration: 1},
+			{Index: 1, URL: srcAURL, Duration: 1},
+			{Index: 2, URL: srcBURL, Duration: 1},
 		}}}},
 	}
 	state, _, err := newLiveRealtimeDownloadState(client, stream, opt, newRateLimiter(0))
@@ -5577,6 +5599,14 @@ func TestLiveRealtimeSegmentNamesUseCurrentBatchProgramDateTime(t *testing.T) {
 	if err := os.WriteFile(newSrc, []byte("new"), 0644); err != nil {
 		t.Fatal(err)
 	}
+	oldSrcURL, err := localFileURL(oldSrc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	newSrcURL, err := localFileURL(newSrc)
+	if err != nil {
+		t.Fatal(err)
+	}
 	video := MediaVideo
 	pdt := time.Unix(1781784000, 0).UTC()
 	opt := defaultOptions()
@@ -5593,8 +5623,8 @@ func TestLiveRealtimeSegmentNamesUseCurrentBatchProgramDateTime(t *testing.T) {
 		Extension: "ts",
 		MediaType: &video,
 		Playlist: &Playlist{WasLive: true, Parts: []MediaPart{{Segments: []Segment{
-			{Index: 1, URL: (&url.URL{Scheme: "file", Path: oldSrc}).String(), Duration: 1},
-			{Index: 2, URL: (&url.URL{Scheme: "file", Path: newSrc}).String(), DateTime: &pdt, Duration: 1},
+			{Index: 1, URL: oldSrcURL, Duration: 1},
+			{Index: 2, URL: newSrcURL, DateTime: &pdt, Duration: 1},
 		}}}},
 	}
 	state, _, err := newLiveRealtimeDownloadState(client, stream, opt, newRateLimiter(0))

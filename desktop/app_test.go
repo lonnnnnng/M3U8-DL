@@ -477,7 +477,7 @@ func TestPreviewCommandsIncludesAdvancedCLIOptions(t *testing.T) {
 	for _, want := range []string{
 		"--save-pattern Name_Date",
 		"--base-url https://cdn.example.com/hls/",
-		"--tmp-dir " + tmpDir,
+		shellPreview([]string{"--tmp-dir", tmpDir}),
 		"--http-request-timeout 12.5",
 		"--sub-format VTT",
 		"-sv res=1080p:for=best",
@@ -799,7 +799,18 @@ func TestAppendTaskLogHandlesSummaryJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	app.appendTaskLog(task.ID, `{"type":"summary","timestamp":"2026-06-25 12:00:00","status":"completed","outputs":[{"path":"`+mediaPath+`","size":5}]}`)
+	summaryPayload, err := json.Marshal(cliSummaryEvent{
+		Type:      "summary",
+		Timestamp: "2026-06-25 12:00:00",
+		Status:    "completed",
+		Outputs: []cliSummaryOutput{
+			{Path: mediaPath, Size: 5},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.appendTaskLog(task.ID, string(summaryPayload))
 	updated := app.tasks[task.ID]
 	if len(updated.Files) != 1 || updated.Files[0].Path != mediaPath || updated.Files[0].Size != 5 {
 		t.Fatalf("task should use summary files, got %#v", updated.Files)
@@ -850,6 +861,57 @@ func TestBuildCLIArgsEnablesProgressJSON(t *testing.T) {
 	joined := " " + strings.Join(args, " ") + " "
 	if !strings.Contains(joined, " --progress-json true ") {
 		t.Fatalf("desktop CLI args should enable progress json: %#v", args)
+	}
+}
+
+func TestDesktopMergeModeDefaultsToBinaryWithoutFFmpeg(t *testing.T) {
+	app := newTestApp(t)
+	req := app.applyRequestDefaults(DownloadRequest{
+		URL:            "https://example.com/index.m3u8",
+		SaveDir:        filepath.Join(t.TempDir(), "out"),
+		AutoSelect:     true,
+		ThreadCount:    4,
+		RetryCount:     2,
+		UseSystemProxy: true,
+	})
+	if !req.BinaryMerge || req.MuxMP4 {
+		t.Fatalf("missing FFmpeg path should default to binary merge, got %#v", req)
+	}
+	args := buildCLIArgs(req)
+	joined := "\x00" + strings.Join(args, "\x00") + "\x00"
+	if !strings.Contains(joined, "\x00--binary-merge\x00true\x00") {
+		t.Fatalf("binary merge args missing: %#v", args)
+	}
+	if strings.Contains(joined, "\x00-M\x00") || strings.Contains(joined, "\x00--ffmpeg-binary-path\x00") {
+		t.Fatalf("missing FFmpeg path should not enable ffmpeg mux: %#v", args)
+	}
+}
+
+func TestDesktopMergeModeUsesConfiguredFFmpegDirectory(t *testing.T) {
+	app := newTestApp(t)
+	ffmpegRoot, ffmpegExe := writeFakeFFmpegTree(t)
+	app.settings.FFmpegPath = ffmpegRoot
+	req := app.applyRequestDefaults(DownloadRequest{
+		URL:            "https://example.com/index.m3u8",
+		SaveDir:        filepath.Join(t.TempDir(), "out"),
+		AutoSelect:     true,
+		ThreadCount:    4,
+		RetryCount:     2,
+		UseSystemProxy: true,
+	})
+	if req.BinaryMerge || !req.MuxMP4 {
+		t.Fatalf("configured FFmpeg path should default to MP4 mux, got %#v", req)
+	}
+	args := buildCLIArgs(req)
+	joined := "\x00" + strings.Join(args, "\x00") + "\x00"
+	if !strings.Contains(joined, "\x00-M\x00format=mp4:muxer=ffmpeg\x00") {
+		t.Fatalf("ffmpeg mux args missing: %#v", args)
+	}
+	if !strings.Contains(strings.ToLower(joined), strings.ToLower("\x00--ffmpeg-binary-path\x00"+ffmpegExe+"\x00")) {
+		t.Fatalf("ffmpeg directory should resolve to executable %q, got %#v", ffmpegExe, args)
+	}
+	if strings.Contains(joined, "\x00--binary-merge\x00true\x00") {
+		t.Fatalf("configured FFmpeg path should not force binary merge: %#v", args)
 	}
 }
 
@@ -938,6 +1000,16 @@ func TestCheckFFmpegReadsVersion(t *testing.T) {
 	info := app.CheckFFmpeg(fakeFFmpeg)
 	if info.Status != "ready" || info.Path != fakeFFmpeg || info.Version != "ffmpeg version 9.9.9" || info.Error != "" {
 		t.Fatalf("ffmpeg check mismatch: %#v", info)
+	}
+}
+
+func TestCheckFFmpegAcceptsDirectoryPath(t *testing.T) {
+	app := newTestApp(t)
+	ffmpegRoot, ffmpegExe := writeFakeFFmpegTree(t)
+
+	info := app.CheckFFmpeg(ffmpegRoot)
+	if info.Status != "ready" || info.Path != ffmpegExe || info.Version != "ffmpeg version 9.9.9" || info.Error != "" {
+		t.Fatalf("ffmpeg directory check mismatch: %#v", info)
 	}
 }
 
@@ -1410,6 +1482,37 @@ exit 2
 		t.Fatal(err)
 	}
 	return path
+}
+
+func writeFakeFFmpegTree(t *testing.T) (string, string) {
+	t.Helper()
+	root := t.TempDir()
+	bin := filepath.Join(root, "bin")
+	if err := os.MkdirAll(bin, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if runtime.GOOS == "windows" {
+		path := filepath.Join(bin, "ffmpeg.cmd")
+		script := "@echo off\r\nif \"%1\"==\"-version\" (\r\n  echo ffmpeg version 9.9.9\r\n  exit /b 0\r\n)\r\nexit /b 2\r\n"
+		// long: Windows 测试要生成真正可执行的 cmd 脚本，才能覆盖目录探测后读取版本号的完整链路。
+		if err := os.WriteFile(path, []byte(script), 0755); err != nil {
+			t.Fatal(err)
+		}
+		return root, path
+	}
+	path := filepath.Join(bin, "ffmpeg")
+	script := `#!/bin/sh
+set -eu
+if [ "${1:-}" = "-version" ]; then
+  echo "ffmpeg version 9.9.9"
+  exit 0
+fi
+exit 2
+`
+	if err := os.WriteFile(path, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	return root, path
 }
 
 func writeFakeTool(t *testing.T, dir string, name string, versionArg string, output string) string {

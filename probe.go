@@ -46,7 +46,7 @@ type probeTrack struct {
 }
 
 func runProbeJSON(ctx context.Context, opt Options, now time.Time) (string, error) {
-	if err := validateOptions(opt); err != nil {
+	if err := validateProbeOptions(opt); err != nil {
 		return "", err
 	}
 	opt.ProbeJSON = true
@@ -74,6 +74,12 @@ func runProbeJSON(ctx context.Context, opt Options, now time.Time) (string, erro
 		return "", err
 	}
 	return string(b) + "\n", nil
+}
+
+func validateProbeOptions(opt Options) error {
+	// long: 资源探测只解析 m3u8 和轨道摘要，不会下载、合并或混流；清掉默认 ffmpeg 路径可以避免无 ffmpeg 的 Windows 桌面预检被误拦截。
+	opt.FFmpegBinaryPath = ""
+	return validateOptions(opt)
 }
 
 func fetchProbePlaylists(ctx context.Context, p *parser, streams []StreamSpec) ([]StreamSpec, error) {

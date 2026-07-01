@@ -460,6 +460,11 @@ func splitComplexParts(input string, sep rune) []string {
 	for _, r := range input {
 		if r == sep {
 			current := b.String()
+			if sep == ':' && complexPartEndsWithWindowsDrive(current) {
+				// long: mux-import/bin_path 等复杂参数经常携带 Windows 盘符路径，C: 里的冒号属于路径值而不是下一个键值段的分隔符。
+				b.WriteRune(r)
+				continue
+			}
 			if strings.HasSuffix(current, `\`) {
 				// long: 上游复杂参数允许用 \: 表示值里的冒号，例如外部轨道标题或工具路径，不能在这里误拆成下一个参数。
 				b.Reset()
@@ -475,4 +480,13 @@ func splitComplexParts(input string, sep rune) []string {
 	}
 	res = append(res, b.String())
 	return res
+}
+
+func complexPartEndsWithWindowsDrive(part string) bool {
+	_, value, ok := strings.Cut(part, "=")
+	if !ok {
+		return false
+	}
+	value = strings.TrimLeft(strings.TrimSpace(value), "\"'")
+	return len(value) == 1 && isASCIIAlpha(value[0])
 }

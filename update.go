@@ -111,16 +111,16 @@ func validateOptions(opt Options) error {
 			return errors.New("path empty or file not exists!")
 		}
 	}
-	if err := validateFFmpegTool(opt); err != nil {
-		return err
-	}
-	if err := validateMuxTool(opt); err != nil {
-		return err
-	}
 	if err := validateAdKeywords(opt); err != nil {
 		return err
 	}
 	if err := validateFilters(opt); err != nil {
+		return err
+	}
+	if err := validateFFmpegTool(opt); err != nil {
+		return err
+	}
+	if err := validateMuxTool(opt); err != nil {
 		return err
 	}
 	if err := validateDecryptionTool(opt); err != nil {
