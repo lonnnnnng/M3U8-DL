@@ -1,6 +1,6 @@
 # M3U8-DL 桌面版
 
-桌面版使用 Wails v2 构建，目标是复用同一套 Go 下载核心，在 macOS、Windows、Linux 上保持一致的桌面操作入口。发布流水线会生成 macOS amd64/arm64、Linux amd64、Windows amd64 桌面包。
+桌面版使用 Wails v2 构建，目标是复用同一套 Go 下载核心，在 macOS、Windows、Linux 上保持一致的桌面操作入口。当前发布版为 [`M3U8-DL v1.0.5`](https://github.com/lonnnnnng/M3U8-DL/releases/tag/v1.0.5)。仓库发布流水线已配置 macOS amd64/arm64、Linux amd64、Windows amd64 桌面构建；当前 `v1.0.5` 手工 Release 实际提供 macOS amd64/arm64 和 Windows amd64 桌面包。
 
 ## 功能
 
@@ -13,7 +13,7 @@
 - 输出目录、默认输出目录、临时目录、Key 文本文件、解密工具路径和外部轨道文件可直接从系统对话框选择。
 - 外部轨道导入支持通过文件、语言码和轨道名结构化追加到 `--mux-import` 参数列表，仍保留原始文本框方便编辑复杂参数。
 - 设置页支持更贴近 CLI 的常用默认参数：`BaseURL`、临时目录、保存模板、HTTP 请求超时、追加 URL 参数、限速、自动选轨、视频/音频/字幕选择过滤、丢弃过滤、只下载字幕、字幕格式、自动修复字幕、key 文本文件、外部解密引擎、解密工具路径、MP4 实时解密、自定义 HLS method、广告关键字、直播当点播、直播实时合并、直播分片保留策略、直播 PipeMux、直播录制时长、直播刷新间隔、首取分片数、直播字幕对齐、最终混流参数、最终保存格式、是否使用 FFmpeg 合并、外部轨道导入、多轨并发、只解析资源、跳过合并、校验分片数、写 meta JSON、保留临时文件和关闭日志文件。
-- 右上角主题按钮按浅色、深色、自动循环切换并持久化选择；自动模式会实时跟随 macOS 系统外观变化。
+- 右上角主题按钮按浅色、深色、自动循环切换并持久化选择；自动模式会实时跟随系统外观变化。
 - 设置页可把当前默认参数保存到用户配置目录；保存后再次启动桌面端会自动填入这些默认下载参数。
 - 新建任务弹窗可一键重置为已保存默认参数，并清空地址、请求头、密钥、定时开始、外部轨道构建器和上一次预检查结果。
 - 新建任务弹窗把预检查、复制命令和重置表单放在独立工具区，把加入队列、创建并下载放在固定底部操作区；批量地址输入时会实时显示有效地址数量。
@@ -42,9 +42,13 @@
 
 桌面版不会重新实现下载协议，所有下载、解密、合并和字幕逻辑仍由内置 `m3u8dl-go-cli` 执行。
 
+桌面任务会固定向内置核心传入 `--disable-update-check true`，避免每个队列任务重复访问 GitHub；应用版本以桌面包内置核心和 Release 版本为准。
+
 常用键盘操作：`Command/Ctrl + N` 打开新建任务，`Command/Ctrl + Enter` 在新建弹窗中创建并下载，`Command/Ctrl + S` 保存设置，`Esc` 关闭菜单或弹窗；新建表单已有内容时会先确认是否放弃。弹窗和任务菜单关闭后会把焦点恢复到打开前的控件。
 
 ## 本地构建
+
+源码要求 Go 1.25 或更高版本；桌面模块依赖 Wails v2.12.0，三个平台脚本默认安装该版本的 Wails CLI。Linux 构建还需要 `build-essential`、`pkg-config`、`libgtk-3-dev` 和 `libwebkit2gtk-4.0-dev`。
 
 macOS `.app`：
 
@@ -58,7 +62,7 @@ macOS `.app`：
 - 使用 Wails v2 构建 macOS `.app`。
 - 将 `m3u8dl-go-cli` 放入 `.app/Contents/Resources/`。
 - 对内置 CLI 和 `.app` 重新做本机自签名，并执行 `codesign --verify --deep --strict` 校验，避免注入 CLI 后破坏 macOS 应用密封。
-- 生成 `dist/M3U8-DL_<version>_desktop_macos_<arch>.zip`。
+- 生成 `dist/M3U8-DL_v<version>_desktop_macos_<arch>.zip`。
 - 打包后调用 `scripts/verify_desktop_archive.sh` 校验 `.app`、桌面可执行和内置 `m3u8dl-go-cli` 都在包内，且没有 `.sha256` 文件。
 
 Linux 桌面包需要在 Linux 上构建：
@@ -67,7 +71,7 @@ Linux 桌面包需要在 Linux 上构建：
 ./scripts/build_desktop_linux.sh
 ```
 
-脚本会构建桌面程序和同版本 `m3u8dl-go-cli`，并打包为 `dist/M3U8-DL_<version>_desktop_linux_<arch>.tar.gz`。构建环境需要 GTK/WebKitGTK 开发库；发布流水线使用 Ubuntu 22.04 和 `libgtk-3-dev`、`libwebkit2gtk-4.0-dev`。
+脚本会构建桌面程序和同版本 `m3u8dl-go-cli`，并打包为 `dist/M3U8-DL_v<version>_desktop_linux_<arch>.tar.gz`。构建环境需要 GTK/WebKitGTK 开发库；发布流水线使用 Ubuntu 22.04 和 `libgtk-3-dev`、`libwebkit2gtk-4.0-dev`。
 打包后同样会调用 `scripts/verify_desktop_archive.sh` 校验包内桌面程序、内置 CLI 和 `.sha256` 排除规则。
 
 Windows 桌面包需要在 Windows PowerShell 上构建：
@@ -76,7 +80,7 @@ Windows 桌面包需要在 Windows PowerShell 上构建：
 ./scripts/build_desktop_windows.ps1
 ```
 
-脚本会构建桌面程序和同版本 `m3u8dl-go-cli.exe`，并打包为 `dist/M3U8-DL_<version>_desktop_windows_<arch>.zip`。
+脚本会构建桌面程序和同版本 `m3u8dl-go-cli.exe`，并打包为 `dist/M3U8-DL_v<version>_desktop_windows_<arch>.zip`。
 打包后会在 PowerShell 脚本内校验包内桌面程序、内置 CLI 和 `.sha256` 排除规则。
 
 ## 运行要求
@@ -121,11 +125,13 @@ xattr -dr com.apple.quarantine /Applications/M3U8-DL.app
 
 ## 发布产物
 
-Release 会同时包含 CLI 和桌面端：
+发布流水线预期同时生成 CLI 和桌面端：
 
-- CLI：`M3U8-DL_<version>_<os>_<arch>`，覆盖 darwin/linux/windows 的 amd64/arm64。
-- 桌面端：`M3U8-DL_<version>_desktop_macos_amd64.zip`、`M3U8-DL_<version>_desktop_macos_arm64.zip`、`M3U8-DL_<version>_desktop_linux_amd64.tar.gz`、`M3U8-DL_<version>_desktop_windows_amd64.zip`。
+- CLI：`M3U8-DL_v<version>_<os>_<arch>`，覆盖 darwin/linux/windows 的 amd64/arm64。
+- 桌面端：`M3U8-DL_v<version>_desktop_macos_amd64.zip`、`M3U8-DL_v<version>_desktop_macos_arm64.zip`、`M3U8-DL_v<version>_desktop_linux_amd64.tar.gz`、`M3U8-DL_v<version>_desktop_windows_amd64.zip`。
 - 构建产物不包含 `.sha256` 文件。
+
+当前 `v1.0.5` Release 实际包含 6 个 CLI 包、2 个 macOS 桌面包和 1 个 Windows amd64 桌面包，共 9 个资产；Linux desktop 尚未发布。
 
 Release workflow 的桌面包 job 依赖两个门禁：
 

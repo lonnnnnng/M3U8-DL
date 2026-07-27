@@ -1,8 +1,8 @@
 # M3U8-DL CLI 功能、用法与参数参考
 
-更新时间：2026-06-27（北京时间）
+更新时间：2026-07-27（北京时间）
 
-`m3u8dl-go` 是基于 `nilaoda/N_m3u8DL-RE` 源码行为复刻的 Go 版 HLS 下载器。本项目只实现 HLS/m3u8；DASH、MSS 和 Live TS 只做输入类型识别并返回不支持。
+`m3u8dl-go` 是 `M3U8-DL` 的命令行入口，基于 `nilaoda/N_m3u8DL-RE` 源码行为复刻。本项目只实现 HLS/m3u8；DASH、MSS 和 Live TS 只做输入类型识别并返回不支持。当前版本和归档见 [`M3U8-DL v1.0.5`](https://github.com/lonnnnnng/M3U8-DL/releases/tag/v1.0.5)。
 
 ## 快速开始
 
@@ -64,9 +64,9 @@ go run . "https://example.com/live.m3u8" --live-real-time-merge true --live-reco
 - 资源探测：`--probe-json` 可解析 m3u8/master/子 playlist，并输出视频、音频、字幕轨道数量、直播/点播、分片数、时长、加密方式和自动选择结果。
 - 合并：二进制合并、ffmpeg concat 协议、ffmpeg concat demuxer、最终 ffmpeg/mkvmerge 混流。
 - 字幕：VTT 修复、VTT 转 SRT、TTML、MP4 WebVTT/TTML 基础抽取、图形字幕 PNG 落盘。
-- 直播：刷新轮询、新分片追加、录制时长限制、实时合并、PipeMux、直播 VTT 音频时间轴修正。
+- 直播：每条轨道独立刷新和追加，慢轨不会阻塞其他轨道；按毫秒级 `PROGRAM-DATE-TIME` 或分片序号去重，避免同一秒内多个分片相互覆盖；每轮刷新都会重新过滤广告分片及匹配的广告 `EXT-X-MAP` init；支持录制时长限制、实时合并、PipeMux 和直播 VTT 音频时间轴修正。
 - 多语言：`zh-CN`、`zh-TW`、`en-US`，未指定时默认简体中文，繁中系统默认繁中。
-- 更新检查：GitHub latest release，可关闭。
+- 更新检查：检查 `lonnnnnng/M3U8-DL` 的 GitHub latest release，可通过 `--disable-update-check` 关闭。
 
 ## 合并方式选择
 
@@ -168,7 +168,7 @@ ffmpeg 单轨合并：
 | `-dv, --drop-video <filter>` | 丢弃匹配的视频轨。 |
 | `-da, --drop-audio <filter>` | 丢弃匹配的音频轨。 |
 | `-ds, --drop-subtitle <filter>` | 丢弃匹配的字幕轨。 |
-| `--ad-keyword <regex>` | 按 URL 正则清理广告分片，可重复传入。 |
+| `--ad-keyword <regex>` | 按 URL 正则清理广告分片，可重复传入；直播每轮刷新都会重新过滤，并同步排除匹配的广告 `EXT-X-MAP` init。 |
 | `--custom-range <range>` | 只下载部分分片或时间范围，详情见 `--morehelp custom-range`。 |
 
 过滤器常用字段包括 `id`、`lang`、`name`、`codec`、`res`、`frame`、`channels`、`url`、`segsMin`、`segsMax`、`plistDurMin`、`plistDurMax`、`bwMin`、`bwMax`、`role`、`for=best|bestN|worstN|all`。

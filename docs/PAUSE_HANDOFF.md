@@ -1,61 +1,55 @@
-# 暂停交接记录
+# M3U8-DL 当前项目状态
 
-更新时间：2026-06-19 09:29:13（北京时间）
+更新时间：2026-07-27（北京时间）
 
 ## 当前目标
 
-使用 Go 复刻 `nilaoda/N_m3u8DL-RE` 的 HLS 能力，要求尽量与原版行为等价；DASH、MSS 不在本复刻范围。
+使用 Go 复刻 [`nilaoda/N_m3u8DL-RE`](https://github.com/nilaoda/N_m3u8DL-RE) 的 HLS 能力，尽量保持命令行语义和处理行为等价。DASH、MSS 不在本复刻范围，只保留输入类型识别和不支持提示。
 
-## 当前仓库状态
+## 仓库与发布
 
+- 项目仓库：[`lonnnnnng/M3U8-DL`](https://github.com/lonnnnnng/M3U8-DL)
+- 当前版本：[`v1.0.5`](https://github.com/lonnnnnng/M3U8-DL/releases/tag/v1.0.5)
 - 原版源码目录：`../N_m3u8DL-RE`
 - Go 复刻目录：`../m3u8dl-go`
-- 父目录 `/Users/long/Documents/CodexProjects/m3u8` 保持非 git 仓库。
-- Go 复刻仓库远端：`https://github.com/lonnnnnng/M3U8-DL.git`
-- 原版仓库远端：`https://github.com/nilaoda/N_m3u8DL-RE.git`
+- 用户可见应用、仓库和发布归档统一使用 `M3U8-DL`；CLI、内置核心和兼容日志名称继续使用 `m3u8dl-go`。
+- 远端 `main` 已清理为单一根提交；最新提交以远端 `main` 为准。
+- `v1.0.5` 为手工发布，包含 6 个 CLI 包、2 个 macOS 桌面包和 1 个 Windows amd64 桌面包，共 9 个资产；Linux 桌面包已配置构建流程，但尚未进入该 Release。
 
-## 已完成的主要进度
+## 当前已完成重点
 
-- 已整理原版和复刻版为两个独立目录，并保持远端隔离。
-- 已完成 HLS Master/Media 解析、HLS 内容预处理、HLS key 多来源加载、AES-128/AES-128-ECB/CHACHA20、CENC/SAMPLE-AES 外部工具入口、下载/合并/字幕/直播基础流程等大量主干能力。
-- 已补齐多项上游边缘语义：子 playlist 预处理、Dolby Vision 禁用最终混流、直播录制上限按媒体时长累计、CENC/MuxAfterDone 自动二进制合并提示资源、HLS key 加载失败提示。
-- 已建立本地门禁和 GitHub Actions：测试、多平台构建、tag release workflow。
+- HLS Master/Media 解析、HTTP 加载和重试、轨道选择、并发下载、限速、断点复用、Range 和 BYTERANGE。
+- AES-128、AES-128-ECB、CHACHA20 内置解密，以及 CENC、SAMPLE-AES、SAMPLE-AES-CTR 外部工具入口。
+- 二进制合并、FFmpeg 单轨合并、FFmpeg/mkvmerge 最终混流、字幕修复和抽取。
+- 直播录制、实时合并和 PipeMux 基础路径。
+- 三项直播正确性修复：
+  - 每条直播轨道使用独立 parser 和刷新循环，慢轨不会阻塞其他轨道。
+  - 使用毫秒级 `PROGRAM-DATE-TIME` 或分片序号去重，同一秒内多个分片不会相互覆盖。
+  - 每轮直播刷新都会重新过滤广告分片，并同步排除匹配的广告 `EXT-X-MAP` init。
+- Wails 桌面端任务队列、预检查、设置持久化、外部工具检测、敏感信息脱敏和完成文件管理。
+- 桌面端浅色、深色、自动三态主题；自动模式跟随系统外观，选择会持久化。
+- CLI 更新检查已迁移到 `lonnnnnng/M3U8-DL`；桌面任务禁用逐任务更新检查，避免重复联网。
 
-## 本次暂停前的最后改动
+## 当前能力边界
 
-本轮正在收口 HLS key HTTP 加载重试提示：
+- 不实现 DASH/MSS 下载，也不解析 Bilibili 页面；需要用户提供真实 m3u8 URL 和必要的 headers、cookies、key。
+- 复杂 DRM/CENC/PSSH/KID、SAMPLE-AES/SAMPLE-AES-CTR 仍缺系统性真实样本验证。
+- MP4 实时解密尚未覆盖上游直播状态机的所有边缘分支。
+- 直播完整多轨收尾仍弱于原版；Windows PipeMux 已实现和交叉编译，但未在真实 Windows 环境运行验证。
+- 未完整复刻原版 Spectre Console 动态进度 UI。
 
-- 原版 `DefaultHLSKeyProcessor` 在每次 HTTP key 加载失败时输出错误和 `retryCount: N`。
-- 原版会按 3、2、1、0 的顺序提示，最后输出 `cmd_loadKeyFailed` 并把加密方式降级为 `UNKNOWN`。
-- Go 版已新增同等 retryCount 输出，并保留最终 `cmd_loadKeyFailed` 降级行为。
-- 测试已扩展 `TestParseMediaKeyLoadRetriesBeforeDowngrade` 和 `TestParseMediaKeyLoadFailureUsesUpstreamRetryCount`，用零延迟避免单测等待 1 秒重试。
+完整差距和源码对比见 [`FEATURE_COMPARISON.md`](FEATURE_COMPARISON.md)，历史真实样本证据见 [`REAL_SAMPLE_VALIDATION.md`](REAL_SAMPLE_VALIDATION.md)。
 
-## 下次继续优先级
+## 继续开发前检查
 
-1. 优先从 `docs/FEATURE_COMPARISON.md` 的“当前最需要继续补齐的 HLS 差距”继续。
-2. 下一块建议处理“真实证据不足”的能力：
-   - 复杂 DRM/CENC/PSSH/KID 样本验证。
-   - SAMPLE-AES/SAMPLE-AES-CTR 真实样本覆盖。
-   - MP4 实时解密在直播状态机里的完整边缘分支。
-3. 如果暂时没有真实媒体样本，则继续补可由源码证明的行为：
-   - CLI 帮助的完整展示形态与原版仍有差距；`StaticText.cs` 资源 key 已全部登记到 Go 版资源表。
-   - 直播 producer/consumer 多轨收尾细节。
-   - PipeMux Windows 实机验证计划与可执行脚本。
-
-## 下次恢复建议命令
-
-```bash
+```zsh
 cd /Users/long/Documents/CodexProjects/m3u8/m3u8dl-go
 git status --short --branch
 git log --oneline -5
 go test -count=1 ./...
-```
-
-完成代码改动后继续使用当前门禁：
-
-```bash
+(cd desktop && go test -count=1 ./...)
+node --check desktop/frontend/dist/app.js
 git diff --check
-go test -count=1 ./...
-go build -o /tmp/m3u8dl-go-check .
-GOOS=windows GOARCH=amd64 go test -c -o /tmp/m3u8dl-go-windows.test.exe .
 ```
+
+这些门禁只能证明当前自动化覆盖的 HLS 和桌面行为通过，不能证明已经与原版完整等价。
