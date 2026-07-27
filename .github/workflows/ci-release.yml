@@ -1,0 +1,238 @@
+name: CI and Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run tests
+        run: go test -count=1 ./...
+
+  desktop-test:
+    name: Desktop Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: desktop/go.mod
+          cache: true
+
+      - name: Run desktop tests
+        working-directory: desktop
+        run: go test -count=1 ./...
+
+      - name: Check frontend script syntax
+        run: node --check desktop/frontend/dist/app.js
+
+  build:
+    name: Build ${{ matrix.goos }}-${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build archive
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          version="$(sed -nE 's/^const version = "m3u8dl-go ([^"]+)"$/v\1/p' main.go | head -n1)"
+          if [ -z "${version}" ]; then
+            echo "无法从 main.go 中解析版本号" >&2
+            exit 1
+          fi
+
+          target="M3U8-DL_${version}_${{ matrix.goos }}_${{ matrix.goarch }}"
+          bin="m3u8dl-go"
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            bin="${bin}.exe"
+          fi
+
+          mkdir -p "build/${target}" dist
+          cp README.md "build/${target}/"
+          CGO_ENABLED=0 GOOS="${{ matrix.goos }}" GOARCH="${{ matrix.goarch }}" \
+            go build -trimpath -ldflags="-s -w" -o "build/${target}/${bin}" .
+
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            archive="dist/${target}.zip"
+            (cd build && zip -qr "../${archive}" "${target}")
+          else
+            archive="dist/${target}.tar.gz"
+            tar -C build -czf "${archive}" "${target}"
+          fi
+
+      - name: Upload archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: M3U8-DL_${{ matrix.goos }}_${{ matrix.goarch }}
+          path: dist/*
+          if-no-files-found: error
+
+  desktop-macos:
+    name: Desktop macOS ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    needs:
+      - test
+      - desktop-test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15-intel
+            arch: amd64
+          - runner: macos-15
+            arch: arm64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build desktop app
+        run: ./scripts/build_desktop_macos.sh
+
+      - name: Upload desktop archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: M3U8-DL_desktop_macos_${{ matrix.arch }}
+          path: |
+            dist/M3U8-DL_*_desktop_macos_${{ matrix.arch }}.zip
+          if-no-files-found: error
+
+  desktop-linux:
+    name: Desktop Linux amd64
+    runs-on: ubuntu-22.04
+    needs:
+      - test
+      - desktop-test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install Linux desktop dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libgtk-3-dev libwebkit2gtk-4.0-dev
+
+      - name: Build desktop app
+        run: ./scripts/build_desktop_linux.sh
+
+      - name: Upload desktop archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: M3U8-DL_desktop_linux_amd64
+          path: |
+            dist/M3U8-DL_*_desktop_linux_amd64.tar.gz
+          if-no-files-found: error
+
+  desktop-windows:
+    name: Desktop Windows amd64
+    runs-on: windows-latest
+    needs:
+      - test
+      - desktop-test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build desktop app
+        shell: pwsh
+        run: ./scripts/build_desktop_windows.ps1
+
+      - name: Upload desktop archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: M3U8-DL_desktop_windows_amd64
+          path: |
+            dist/M3U8-DL_*_desktop_windows_amd64.zip
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    needs:
+      - build
+      - desktop-macos
+      - desktop-linux
+      - desktop-windows
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download archives
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" dist/* --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" dist/* --title "${GITHUB_REF_NAME}" --generate-notes
+          fi

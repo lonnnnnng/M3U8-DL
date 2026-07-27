@@ -1,0 +1,15 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "m3u8dl-go",
+  "outputfilename": "m3u8dl-go-desktop",
+  "frontend:install": "",
+  "frontend:build": "",
+  "frontend:dev:watcher": "",
+  "frontend:dev:serverUrl": "auto",
+  "info": {
+    "productName": "M3U8-DL"
+  },
+  "author": {
+    "name": "long"
+  }
+}

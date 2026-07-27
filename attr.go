@@ -1,0 +1,492 @@
+package main
+
+import (
+	"fmt"
+	"net/url"
+	"regexp"
+	"strconv"
+	"strings"
+	"unicode/utf8"
+)
+
+func attr(line, key string) string {
+	line = strings.TrimSpace(line)
+	if key == "" {
+		if i := strings.IndexByte(line, ':'); i >= 0 {
+			return line[i+1:]
+		}
+		return ""
+	}
+	quotedPrefix := key + "=\""
+	if i := strings.Index(line, quotedPrefix); i >= 0 {
+		rest := line[i+len(quotedPrefix):]
+		end := strings.IndexByte(rest, '"')
+		if end < 0 {
+			return rest
+		}
+		// long: 上游 ParserUtil.GetAttribute 会先查找带引号的 key，再查找裸 key；当 KEYFORMATURI=foo,URI="..." 同行出现时，真正的 quoted URI 应优先于前面的后缀属性。
+		return rest[:end]
+	}
+	prefix := key + "="
+	i := strings.Index(line, prefix)
+	if i < 0 {
+		return ""
+	}
+	rest := line[i+len(prefix):]
+	if strings.HasPrefix(rest, "\"") {
+		rest = rest[1:]
+		end := strings.IndexByte(rest, '"')
+		if end < 0 {
+			return rest
+		}
+		return rest[:end]
+	}
+	end := strings.IndexByte(rest, ',')
+	if end < 0 {
+		return rest
+	}
+	return rest[:end]
+}
+
+func attrExists(line, key string) bool {
+	prefix := key + "="
+	for start := 0; start < len(line); {
+		i := strings.Index(line[start:], prefix)
+		if i < 0 {
+			return false
+		}
+		idx := start + i
+		if idx == 0 || line[idx-1] == ':' || line[idx-1] == ',' {
+			return true
+		}
+		start = idx + len(prefix)
+	}
+	return false
+}
+
+func attrExistsLoose(line, key string) bool {
+	return strings.Contains(strings.TrimSpace(line), key+"=")
+}
+
+func malformedQuotedAttr(line, key string) bool {
+	prefix := key + "=\""
+	i := strings.Index(line, prefix)
+	if i < 0 {
+		return false
+	}
+	rest := line[i+len(prefix):]
+	return !strings.Contains(rest, "\"")
+}
+
+func ensureQuotedAttrsClosed(line string, keys ...string) error {
+	for _, key := range keys {
+		if malformedQuotedAttr(line, key) {
+			// long: 原版 ParserUtil.GetAttribute 在被读取属性缺少闭合引号时会切片越界并中断；这里显式报错，避免坏 Master 被继续解析。
+			return fmt.Errorf("%s quoted attribute is not closed", key)
+		}
+	}
+	return nil
+}
+
+func parseByteRange(input string) (length int64, start *int64, err error) {
+	parts := strings.Split(input, "@")
+	if len(parts) > 2 {
+		// long: 上游 GetRange 对多个 @ 的 BYTERANGE 直接返回 0/null；不能默默取第二段，否则会下载错误字节窗口。
+		return 0, nil, nil
+	}
+	length, err = strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 64)
+	if err != nil {
+		return 0, nil, err
+	}
+	if len(parts) > 1 {
+		v, e := strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 64)
+		if e != nil {
+			return 0, nil, e
+		}
+		start = &v
+	}
+	return length, start, nil
+}
+
+func combineURL(baseURL, ref string) string {
+	if strings.TrimSpace(baseURL) == "" {
+		return ref
+	}
+	// long: 上游 new Uri(base, ref) 会吞掉相对地址两侧空白；清单分片行被 CDN 插入空格时仍应解析到同一个媒体资源。
+	ref = strings.TrimSpace(ref)
+	ref = normalizeRelativeURIPathSeparators(ref)
+	b, err := url.Parse(baseURL)
+	if err != nil {
+		return ref
+	}
+	ref = normalizeSameSchemeRelativeURI(ref, b.Scheme)
+	r, err := url.Parse(ref)
+	if err != nil {
+		return ref
+	}
+	return upstreamURIString(b.ResolveReference(r))
+}
+
+func upstreamURIString(u *url.URL) string {
+	return decodeUpstreamDisplayEscapes(u.String())
+}
+
+func decodeUpstreamDisplayEscapes(input string) string {
+	if !strings.Contains(input, "%") {
+		return input
+	}
+	var out strings.Builder
+	out.Grow(len(input))
+	for i := 0; i < len(input); {
+		if input[i] != '%' || i+2 >= len(input) {
+			out.WriteByte(input[i])
+			i++
+			continue
+		}
+		var decoded []byte
+		var encoded strings.Builder
+		j := i
+		for j+2 < len(input) && input[j] == '%' {
+			b, ok := parseHexByte(input[j+1], input[j+2])
+			if !ok || !displayEscapedByteCanDecode(b) {
+				break
+			}
+			decoded = append(decoded, b)
+			encoded.WriteString(input[j : j+3])
+			j += 3
+		}
+		if len(decoded) == 0 {
+			out.WriteString(input[i : i+3])
+			i += 3
+			continue
+		}
+		// long: 上游 Uri.ToString 会展示可读的空格、ASCII 非结构字符和 UTF-8 字符；保留会改变 URL 结构的保留字符转义。
+		if utf8.Valid(decoded) {
+			out.WriteString(string(decoded))
+		} else {
+			out.WriteString(encoded.String())
+		}
+		i = j
+	}
+	return out.String()
+}
+
+func displayEscapedByteCanDecode(b byte) bool {
+	if b == ' ' || b >= utf8.RuneSelf {
+		return true
+	}
+	if b >= 'A' && b <= 'Z' || b >= 'a' && b <= 'z' || b >= '0' && b <= '9' {
+		return true
+	}
+	switch b {
+	case '-', '.', '_', '~':
+		return true
+	default:
+		return false
+	}
+}
+
+func parseHexByte(a, b byte) (byte, bool) {
+	hi, ok := hexDigit(a)
+	if !ok {
+		return 0, false
+	}
+	lo, ok := hexDigit(b)
+	if !ok {
+		return 0, false
+	}
+	return hi<<4 | lo, true
+}
+
+func hexDigit(b byte) (byte, bool) {
+	switch {
+	case b >= '0' && b <= '9':
+		return b - '0', true
+	case b >= 'A' && b <= 'F':
+		return b - 'A' + 10, true
+	case b >= 'a' && b <= 'f':
+		return b - 'a' + 10, true
+	default:
+		return 0, false
+	}
+}
+
+func normalizeSameSchemeRelativeURI(ref, baseScheme string) string {
+	if baseScheme == "" || ref == "" {
+		return ref
+	}
+	prefix := baseScheme + ":"
+	if !strings.HasPrefix(ref, prefix) || strings.HasPrefix(ref, prefix+"//") {
+		return ref
+	}
+	// long: .NET Uri 会把 https:seg.ts / https:/seg.ts 这类同 scheme 非 // 地址按相对路径解析；Go 会把它保留成 opaque URL，导致后续下载器拿到不可请求地址。
+	return ref[len(prefix):]
+}
+
+func normalizeRelativeURIPathSeparators(ref string) string {
+	if ref == "" {
+		return ref
+	}
+	cut := len(ref)
+	if i := strings.IndexAny(ref, "?#"); i >= 0 {
+		cut = i
+	}
+	// long: .NET Uri 只把相对地址路径里的反斜杠当目录分隔符；query/fragment 中的授权值可能含反斜杠，必须原样保留。
+	path := strings.ReplaceAll(ref[:cut], "\\", "/")
+	if cut == len(ref) {
+		return path
+	}
+	return path + ref[cut:]
+}
+
+func appendURLParams(target, source string) (string, error) {
+	if !strings.HasPrefix(target, "http://") && !strings.HasPrefix(target, "https://") {
+		return target, nil
+	}
+	tu, err := url.Parse(target)
+	if err != nil {
+		return target, err
+	}
+	su, err := url.Parse(source)
+	if err != nil {
+		return target, err
+	}
+	targetQuery := parseOrderedQuery(tu.RawQuery)
+	sourceQuery := parseOrderedQuery(su.RawQuery)
+	for _, sourceEntry := range sourceQuery {
+		joined := strings.Join(sourceEntry.values, ",")
+		if targetEntry := targetQuery.findByKindAndKey(sourceEntry.kind, sourceEntry.key); targetEntry != nil {
+			// long: 上游 NameValueCollection.Set 会在原 key 位置替换，并把重复源参数通过 Get 合成逗号字符串。
+			targetEntry.values = []string{joined}
+		} else {
+			targetQuery = append(targetQuery, orderedQueryEntry{kind: sourceEntry.kind, key: sourceEntry.key, values: []string{joined}})
+		}
+	}
+	encoded := targetQuery.encode()
+	if encoded == "" {
+		return target, nil
+	}
+	out := *tu
+	out.RawQuery = encoded
+	out.Fragment = ""
+	return out.String(), nil
+}
+
+type orderedQueryEntry struct {
+	kind   queryKeyKind
+	key    string
+	values []string
+}
+
+type orderedQuery []orderedQueryEntry
+
+type queryKeyKind int
+
+const (
+	queryKeyNormal queryKeyKind = iota
+	queryKeyMissing
+	queryKeyEmpty
+)
+
+func parseOrderedQuery(raw string) orderedQuery {
+	if raw == "" {
+		return nil
+	}
+	var out orderedQuery
+	for _, part := range strings.Split(raw, "&") {
+		key, value, hasEqual := strings.Cut(part, "=")
+		kind := queryKeyNormal
+		if !hasEqual {
+			kind = queryKeyMissing
+			value = key
+			key = ""
+		} else if key == "" {
+			kind = queryKeyEmpty
+		}
+		decodedKey, err := url.QueryUnescape(key)
+		if err != nil {
+			decodedKey = key
+		}
+		decodedValue, err := url.QueryUnescape(value)
+		if err != nil {
+			decodedValue = value
+		}
+		if entry := out.findByKindAndKey(kind, decodedKey); entry != nil {
+			entry.values = append(entry.values, decodedValue)
+			continue
+		}
+		out = append(out, orderedQueryEntry{kind: kind, key: decodedKey, values: []string{decodedValue}})
+	}
+	return out
+}
+
+func (q orderedQuery) findByKindAndKey(kind queryKeyKind, key string) *orderedQueryEntry {
+	for i := range q {
+		if q[i].kind == kind && q[i].key == key {
+			return &q[i]
+		}
+	}
+	return nil
+}
+
+func (q orderedQuery) encode() string {
+	parts := make([]string, 0, len(q))
+	for _, entry := range q {
+		value := strings.Join(entry.values, ",")
+		if entry.kind == queryKeyMissing || entry.kind == queryKeyEmpty {
+			parts = append(parts, queryEscapeLower(value))
+			continue
+		}
+		parts = append(parts, queryEscapeLower(entry.key)+"="+queryEscapeLower(value))
+	}
+	return strings.Join(parts, "&")
+}
+
+func queryEscapeLower(value string) string {
+	escaped := url.QueryEscape(value)
+	var b strings.Builder
+	b.Grow(len(escaped))
+	for i := 0; i < len(escaped); i++ {
+		if escaped[i] == '%' && i+2 < len(escaped) {
+			b.WriteByte('%')
+			b.WriteByte(byte(strings.ToLower(string(escaped[i+1]))[0]))
+			b.WriteByte(byte(strings.ToLower(string(escaped[i+2]))[0]))
+			i += 2
+			continue
+		}
+		b.WriteByte(escaped[i])
+	}
+	return b.String()
+}
+
+func preProcessHLSContent(content, m3u8URL string) string {
+	if strings.Contains(content, "\r") && !strings.Contains(content, "\n") {
+		content = strings.ReplaceAll(content, "\r", "\n")
+	}
+	if strings.Contains(m3u8URL, "tlivecloud-playback-cdn.ysp.cctv.cn") && strings.Contains(m3u8URL, "endtime=") {
+		// long: 原版对 YSP 回放会无条件补 ENDLIST，即使源内容已经带有结束标记；这里保留重复标记以贴近上游预处理输出。
+		content += "\n#EXT-X-ENDLIST"
+	}
+	if strings.Contains(content, "#EXT-X-DISCONTINUITY") && strings.Contains(content, "#EXT-X-MAP") && strings.Contains(content, "ott.cibntv.net") && strings.Contains(content, "ccode=") {
+		yk := regexp.MustCompile(`#EXT-X-DISCONTINUITY\s+#EXT-X-MAP:URI="(.*?)",BYTERANGE="(.*?)"`)
+		content = yk.ReplaceAllString(content, "#EXTINF:0.000000,\n#EXT-X-BYTERANGE:$2\n$1")
+	}
+	if strings.Contains(content, "#EXT-X-DISCONTINUITY") && strings.Contains(content, "#EXT-X-MAP") && strings.Contains(m3u8URL, "media.dssott.com/") {
+		dnsp := regexp.MustCompile(`#EXT-X-MAP:URI=".*?BUMPER/[\s\S]+?#EXT-X-DISCONTINUITY`)
+		content = replaceFirstRegexp(content, dnsp, "#XXX")
+	}
+	if strings.Contains(content, "#EXT-X-DISCONTINUITY") && strings.Contains(content, "seg_00000.vtt") && strings.Contains(m3u8URL, "media.dssott.com/") {
+		dnspSub := regexp.MustCompile(`#EXTINF:.*?,\s+.*BUMPER.*\s+?#EXT-X-DISCONTINUITY`)
+		content = replaceFirstRegexp(content, dnspSub, "#XXX")
+	}
+	if strings.Contains(content, "#EXT-X-DISCONTINUITY") && strings.Contains(content, "#EXT-X-MAP") && (strings.Contains(m3u8URL, ".apple.com/") || regexp.MustCompile(`#EXT-X-MAP.*\.apple\.com/`).MatchString(content)) {
+		atv := regexp.MustCompile(`(#EXT-X-KEY:[\s\S]*?)(#EXT-X-DISCONTINUITY|#EXT-X-ENDLIST)`)
+		if m := atv.FindStringSubmatch(content); len(m) > 1 {
+			// long: 原版 AppleTV 裁剪分支显式插入 CRLF，raw.m3u8 落盘和后续逐行读取都应保留这个混合换行形态。
+			content = "#EXTM3U\r\n" + m[1] + "\r\n#EXT-X-ENDLIST"
+		}
+	}
+	// long: 上游先完成 YK/Disney/AppleTV 等站点修正，最后才修复 KEY/EXTINF 顺序；顺序不同会改变 AppleTV 裁剪后的内容。
+	re := regexp.MustCompile(`(#EXTINF[^\n\r]*)(\s+)(#EXT-X-KEY[^\n\r]*)`)
+	content = re.ReplaceAllString(content, "$3$2$1")
+	return content
+}
+
+func replaceFirstRegexp(input string, re *regexp.Regexp, replacement string) string {
+	match := re.FindStringSubmatchIndex(input)
+	if match == nil {
+		return input
+	}
+	out := make([]byte, 0, len(input))
+	out = append(out, input[:match[0]]...)
+	// long: 上游 Disney+ 修正规则只替换第一个 Match，后续 BUMPER 块应保持原样，避免把原版不会动的内容一并删掉。
+	out = re.ExpandString(out, replacement, input, match)
+	out = append(out, input[match[1]:]...)
+	return string(out)
+}
+
+func splitComplex(input string) map[string]string {
+	out := map[string]string{}
+	for _, part := range splitComplexParts(input, ':') {
+		if part == "" {
+			continue
+		}
+		k, v, ok := strings.Cut(part, "=")
+		if !ok {
+			out[part] = part
+			continue
+		}
+		out[strings.TrimSpace(k)] = strings.Trim(strings.TrimSpace(v), "\"'")
+	}
+	return out
+}
+
+func complexParamValue(input, key string) (string, bool) {
+	if input == "" || key == "" {
+		return "", false
+	}
+	start := strings.Index(input, key+"=")
+	if start < 0 {
+		if strings.Contains(input, key) && strings.HasSuffix(input, key) {
+			return "true", true
+		}
+		return "", false
+	}
+	var b strings.Builder
+	var last rune
+	for _, r := range input[start+len(key)+1:] {
+		if r == ':' {
+			if last == '\\' {
+				s := b.String()
+				b.Reset()
+				// long: 原版 ComplexParamParser 遇到 \: 会移除当前结果里已有的反斜杠，再把冒号作为值的一部分保留。
+				b.WriteString(strings.ReplaceAll(s, `\`, ""))
+				b.WriteRune(r)
+				last = r
+				continue
+			}
+			break
+		}
+		last = r
+		b.WriteRune(r)
+	}
+	value := strings.Trim(strings.TrimSpace(b.String()), "\"'")
+	return value, true
+}
+
+func splitComplexParts(input string, sep rune) []string {
+	var res []string
+	var b strings.Builder
+	for _, r := range input {
+		if r == sep {
+			current := b.String()
+			if sep == ':' && complexPartEndsWithWindowsDrive(current) {
+				// long: mux-import/bin_path 等复杂参数经常携带 Windows 盘符路径，C: 里的冒号属于路径值而不是下一个键值段的分隔符。
+				b.WriteRune(r)
+				continue
+			}
+			if strings.HasSuffix(current, `\`) {
+				// long: 上游复杂参数允许用 \: 表示值里的冒号，例如外部轨道标题或工具路径，不能在这里误拆成下一个参数。
+				b.Reset()
+				b.WriteString(strings.TrimSuffix(current, `\`))
+				b.WriteRune(r)
+				continue
+			}
+			res = append(res, b.String())
+			b.Reset()
+			continue
+		}
+		b.WriteRune(r)
+	}
+	res = append(res, b.String())
+	return res
+}
+
+func complexPartEndsWithWindowsDrive(part string) bool {
+	_, value, ok := strings.Cut(part, "=")
+	if !ok {
+		return false
+	}
+	value = strings.TrimLeft(strings.TrimSpace(value), "\"'")
+	return len(value) == 1 && isASCIIAlpha(value[0])
+}

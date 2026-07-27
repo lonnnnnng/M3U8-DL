@@ -1,0 +1,607 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>M3U8-DL</title>
+    <script>
+      (() => {
+        // long: 在样式表加载前确定有效主题，避免桌面窗口启动时先闪过浅色界面再切换。
+        const themeKey = "m3u8dl-theme";
+        const allowedThemes = ["light", "dark", "auto"];
+        let themeMode = "auto";
+        try {
+          const storedTheme = window.localStorage.getItem(themeKey);
+          if (allowedThemes.includes(storedTheme)) themeMode = storedTheme;
+        } catch (_) {
+          // WebView 禁用持久化时仍可使用当前会话的自动主题。
+        }
+        const systemDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches === true;
+        document.documentElement.dataset.themeMode = themeMode;
+        document.documentElement.dataset.theme = themeMode === "dark" || (themeMode === "auto" && systemDark) ? "dark" : "light";
+      })();
+    </script>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="/wails/runtime.js"></script>
+  </head>
+  <body>
+    <svg class="icon-sprite" aria-hidden="true">
+      <symbol id="icon-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+      <symbol id="icon-sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3"/><path d="M1 14h6M9 8h6M17 16h6"/></symbol>
+      <symbol id="icon-files" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v6h6M8 13h8M8 17h8"/></symbol>
+      <symbol id="icon-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 0-15-6.7L3 8"/><path d="M3 3v5h5M3 12a9 9 0 0 0 15 6.7L21 16"/><path d="M16 16h5v5"/></symbol>
+      <symbol id="icon-play" viewBox="0 0 24 24"><path d="m6 3 14 9-14 9z"/></symbol>
+      <symbol id="icon-stop" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/></symbol>
+      <symbol id="icon-retry" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></symbol>
+      <symbol id="icon-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6M10 11v6M14 11v6"/></symbol>
+      <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="icon-x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+      <symbol id="icon-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+      <symbol id="icon-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.1.1l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.1-.1l-2 2A5 5 0 0 0 12 20l1.1-1.1"/></symbol>
+      <symbol id="icon-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+      <symbol id="icon-check" viewBox="0 0 24 24"><path d="m20 6-11 11-5-5"/></symbol>
+      <symbol id="icon-save" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></symbol>
+      <symbol id="icon-folder" viewBox="0 0 24 24"><path d="M3 7h5l2 3h11l-2 10H5z"/><path d="M3 7V5a2 2 0 0 1 2-2h4l2 3h8a2 2 0 0 1 2 2v2"/></symbol>
+      <symbol id="icon-download" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></symbol>
+      <symbol id="icon-search-check" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3M8 11l2 2 4-4"/></symbol>
+      <symbol id="icon-theme-light" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+      <symbol id="icon-theme-dark" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></symbol>
+      <symbol id="icon-theme-auto" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+    </svg>
+    <main class="app-shell">
+      <header class="toolbar">
+        <div class="window-brand">
+          <h1>M3U8-DL</h1>
+          <span id="running-count">0 个运行中</span>
+        </div>
+
+        <nav class="segmented-nav" aria-label="主导航">
+          <button class="nav-item active" type="button" data-view="dashboard"><svg class="button-icon"><use href="#icon-list" /></svg><span class="button-label">任务</span></button>
+          <button class="nav-item" type="button" data-view="settings"><svg class="button-icon"><use href="#icon-sliders" /></svg><span class="button-label">设置</span></button>
+          <button class="nav-item" type="button" data-view="output"><svg class="button-icon"><use href="#icon-files" /></svg><span class="button-label">文件与日志</span></button>
+        </nav>
+
+        <div class="toolbar-actions">
+          <button id="refresh-tasks" class="icon-button" type="button" aria-label="刷新任务" data-tooltip="刷新任务" title="刷新任务"><svg class="button-icon"><use href="#icon-refresh" /></svg></button>
+          <button id="start-pending" type="button" aria-label="开始等待任务" data-tooltip="开始等待任务"><svg class="button-icon"><use href="#icon-play" /></svg><span class="button-label">开始等待</span></button>
+          <button id="stop-running" type="button" aria-label="停止运行任务" data-tooltip="停止运行任务"><svg class="button-icon"><use href="#icon-stop" /></svg><span class="button-label">停止运行</span></button>
+          <button id="retry-failed" type="button" aria-label="重试失败任务" data-tooltip="重试失败任务"><svg class="button-icon"><use href="#icon-retry" /></svg><span class="button-label">重试失败</span></button>
+          <button id="clear-finished" type="button" aria-label="清理已结束任务" data-tooltip="清理已结束任务"><svg class="button-icon"><use href="#icon-trash" /></svg><span class="button-label">清理完成</span></button>
+          <button id="theme-toggle" class="icon-button theme-toggle" type="button" aria-label="主题：自动；点击切换为浅色" data-tooltip="主题：自动；点击切换为浅色" title="主题：自动；点击切换为浅色"><svg class="button-icon" aria-hidden="true"><use href="#icon-theme-auto" /></svg></button>
+        </div>
+      </header>
+
+      <section class="status-strip">
+        <div>
+          <span>任务总数</span>
+          <strong id="task-count">0</strong>
+        </div>
+        <div>
+          <span>当前速度</span>
+          <strong id="active-speed">0 B/s</strong>
+        </div>
+        <div>
+          <span id="view-kicker">任务监控</span>
+          <strong id="view-title">下载任务</strong>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <section id="view-dashboard" class="view active">
+          <div class="dashboard-grid">
+            <section class="panel task-panel">
+              <div class="panel-title task-list-head">
+                <span>任务队列</span>
+                <div class="task-tools">
+                  <input id="task-search" type="search" placeholder="搜索任务" aria-label="搜索任务" />
+                  <select id="task-status-filter" aria-label="筛选任务状态">
+                    <option value="all">全部</option>
+                    <option value="running">下载中</option>
+                    <option value="pending">等待</option>
+                    <option value="completed">完成</option>
+                    <option value="failed">失败</option>
+                    <option value="stopped">已停止</option>
+                  </select>
+                  <select id="task-sort" aria-label="任务排序">
+                    <option value="newest">最新</option>
+                    <option value="oldest">最旧</option>
+                    <option value="status">状态</option>
+                    <option value="progress">进度</option>
+                    <option value="title">名称</option>
+                  </select>
+                </div>
+              </div>
+              <div id="task-list" class="task-list" role="listbox" aria-label="任务队列"></div>
+            </section>
+
+            <section class="panel detail-panel">
+              <div class="panel-title">
+                <span id="detail-title">任务详情</span>
+                <div id="detail-actions" class="detail-actions" hidden>
+                  <button id="copy-command" type="button"><svg class="button-icon"><use href="#icon-copy" /></svg><span class="button-label">复制命令</span></button>
+                  <button id="copy-url" class="icon-button" type="button" aria-label="复制地址" title="复制地址"><svg class="button-icon"><use href="#icon-link" /></svg></button>
+                  <button id="start-selected" class="primary-action" type="button" hidden><svg class="button-icon"><use href="#icon-play" /></svg><span class="button-label">开始</span></button>
+                  <button id="stop-selected" type="button" hidden><svg class="button-icon"><use href="#icon-stop" /></svg><span class="button-label">停止</span></button>
+                  <button id="retry-selected" class="primary-action" type="button" hidden><svg class="button-icon"><use href="#icon-retry" /></svg><span class="button-label">重试</span></button>
+                  <details id="task-more-actions" class="action-menu">
+                    <summary aria-label="更多任务操作"><svg class="button-icon"><use href="#icon-more" /></svg><span>更多</span></summary>
+                    <div class="action-menu-popover">
+                      <button id="copy-log" type="button">复制日志</button>
+                      <button id="clone-selected" type="button">复制为新任务</button>
+                      <button id="remove-selected" class="danger-action" type="button">移除任务</button>
+                    </div>
+                  </details>
+                </div>
+              </div>
+              <div id="task-summary" class="summary empty">请选择一个任务。</div>
+              <div class="detail-create-bar">
+                <button id="new-task-fab" class="new-task-fab" type="button" aria-keyshortcuts="Meta+N Control+N"><svg class="button-icon"><use href="#icon-plus" /></svg><span class="button-label">新建任务</span></button>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <div id="create-dialog" class="modal-backdrop" hidden>
+          <section class="panel create-panel create-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="create-dialog-title">
+            <div class="panel-title create-dialog-titlebar">
+              <span id="create-dialog-title">新建下载任务</span>
+              <button id="close-create-dialog" class="modal-close icon-button" type="button" aria-label="关闭新建任务" title="关闭"><svg class="button-icon"><use href="#icon-x" /></svg></button>
+            </div>
+
+            <div class="create-dialog-tools" aria-label="任务工具">
+              <button id="preflight-task" type="button"><svg class="button-icon"><use href="#icon-search-check" /></svg><span class="button-label">预检查</span></button>
+              <button id="copy-form-command" type="button"><svg class="button-icon"><use href="#icon-copy" /></svg><span class="button-label">复制命令</span></button>
+              <button id="reset-form" type="button"><svg class="button-icon"><use href="#icon-retry" /></svg><span class="button-label">重置表单</span></button>
+            </div>
+
+            <form id="task-form" class="form-grid">
+              <details class="form-section field-wide" open>
+                <summary>任务内容</summary>
+                <div class="section-grid">
+                  <label class="field field-wide">
+                    <span class="field-label-row">
+                      <span>m3u8 地址</span>
+                      <small id="url-count">0 个地址</small>
+                    </span>
+                    <textarea id="url" rows="6" required></textarea>
+                  </label>
+
+                  <label class="field field-wide">
+                    <span>输出目录</span>
+                    <div class="inline-input">
+                      <input id="saveDir" type="text" />
+                      <button id="choose-dir" type="button">选择</button>
+                    </div>
+                  </label>
+
+                  <label class="field">
+                    <span>保存名称</span>
+                    <input id="saveName" type="text" placeholder="可选" />
+                  </label>
+
+                  <label class="field field-wide">
+                    <span>请求头</span>
+                    <textarea id="headers" rows="5" placeholder="Cookie: xxx&#10;Referer: https://example.com"></textarea>
+                  </label>
+                </div>
+              </details>
+
+              <details class="form-section field-wide">
+                <summary>本次覆盖</summary>
+                <div class="section-grid">
+                  <label class="field">
+                    <span>下载范围</span>
+                    <input id="customRange" type="text" placeholder="0-20" />
+                  </label>
+
+                  <label class="field">
+                    <span>HTTP 超时（秒）</span>
+                    <input id="taskHttpRequestTimeout" type="number" min="0.1" step="0.1" placeholder="默认设置" />
+                  </label>
+
+                  <label class="field">
+                    <span>失败重试次数</span>
+                    <input id="taskRetryCount" type="number" min="0" step="1" placeholder="默认设置" />
+                  </label>
+
+                  <label class="field">
+                    <span>定时开始</span>
+                    <input id="taskStartAt" type="text" placeholder="yyyyMMddHHmmss" />
+                  </label>
+
+                  <label class="field field-wide">
+                    <span>解密 Key</span>
+                    <textarea id="keys" rows="3" placeholder="每行一个 KEY 或 KID:KEY"></textarea>
+                  </label>
+
+                  <label class="field">
+                    <span>自定义 HLS Key</span>
+                    <input id="customHLSKey" type="password" placeholder="file / hex / base64" autocomplete="off" />
+                  </label>
+
+                  <label class="field">
+                    <span>自定义 HLS IV</span>
+                    <input id="customHLSIV" type="password" placeholder="file / hex / base64" autocomplete="off" />
+                  </label>
+                </div>
+              </details>
+
+              <section id="preflight-result" class="preflight-card field-wide empty">尚未预检查。</section>
+            </form>
+
+            <footer class="create-dialog-footer">
+              <button id="cancel-create-dialog" type="button">取消</button>
+              <button id="create-only" type="button"><svg class="button-icon"><use href="#icon-list" /></svg><span class="button-label">加入队列</span></button>
+              <button id="create-start" class="primary-action" form="task-form" type="submit" aria-keyshortcuts="Meta+Enter Control+Enter"><svg class="button-icon"><use href="#icon-download" /></svg><span class="button-label">创建并下载</span></button>
+            </footer>
+          </section>
+        </div>
+
+        <section id="view-settings" class="view">
+          <section class="panel settings-panel">
+            <div class="panel-title">
+              <span>下载参数</span>
+              <div class="settings-save-actions">
+                <span id="settings-save-state" class="settings-save-state" aria-live="polite">正在读取</span>
+                <button id="save-settings" class="primary-action" type="button" aria-keyshortcuts="Meta+S Control+S" disabled><svg class="button-icon"><use href="#icon-save" /></svg><span class="button-label">保存设置</span></button>
+              </div>
+            </div>
+
+            <div class="settings-tabs" role="tablist" aria-label="设置分类">
+              <button class="settings-tab active" id="settings-tab-basic" data-settings-tab="basic" type="button" role="tab" aria-selected="true" aria-controls="settings-panel-basic">基础</button>
+              <button class="settings-tab" id="settings-tab-tools" data-settings-tab="tools" type="button" role="tab" aria-selected="false" aria-controls="settings-panel-tools" tabindex="-1">核心工具</button>
+              <button class="settings-tab" id="settings-tab-tracks" data-settings-tab="tracks" type="button" role="tab" aria-selected="false" aria-controls="settings-panel-tracks" tabindex="-1">轨道字幕</button>
+              <button class="settings-tab" id="settings-tab-decrypt" data-settings-tab="decrypt" type="button" role="tab" aria-selected="false" aria-controls="settings-panel-decrypt" tabindex="-1">解密</button>
+              <button class="settings-tab" id="settings-tab-live" data-settings-tab="live" type="button" role="tab" aria-selected="false" aria-controls="settings-panel-live" tabindex="-1">直播过滤</button>
+              <button class="settings-tab" id="settings-tab-mux" data-settings-tab="mux" type="button" role="tab" aria-selected="false" aria-controls="settings-panel-mux" tabindex="-1">混流任务</button>
+            </div>
+
+            <div class="settings-grid">
+              <section id="settings-panel-basic" class="settings-tab-panel active" data-settings-panel="basic" role="tabpanel" aria-labelledby="settings-tab-basic">
+              <section class="form-section settings-section field-wide">
+                <div class="settings-section-title">基础默认</div>
+                <div class="section-grid">
+                  <label class="field field-wide">
+                    <span>默认输出目录</span>
+                    <div class="inline-input">
+                      <input id="defaultSaveDir" type="text" />
+                      <button id="choose-default-dir" type="button">选择</button>
+                    </div>
+                  </label>
+
+                  <label class="field field-wide">
+                    <span>BaseURL</span>
+                    <input id="baseURL" type="url" placeholder="https://cdn.example.com/path/" />
+                  </label>
+
+                  <label class="field field-wide">
+                    <span>临时目录</span>
+                    <div class="inline-input">
+                      <input id="tmpDir" type="text" />
+                      <button id="choose-tmp-dir" type="button">选择</button>
+                    </div>
+                  </label>
+
+                  <label class="field">
+                    <span>保存模板</span>
+                    <input id="savePattern" type="text" placeholder="Name_Date" />
+                  </label>
+
+                  <label class="field">
+                    <span>名称分隔符</span>
+                    <input id="linkNameSeparator" type="text" value="|" placeholder="例如 |、=>、::" />
+                  </label>
+
+                  <label class="field">
+                    <span>限速</span>
+                    <input id="maxSpeed" type="text" placeholder="2M / 500K" />
+                  </label>
+
+                  <label class="field">
+                    <span>HTTP 超时（秒）</span>
+                    <input id="httpRequestTimeout" type="number" min="0.1" step="0.1" placeholder="100" />
+                  </label>
+
+                  <label class="field">
+                    <span>同时运行任务数</span>
+                    <input id="maxActiveTasks" type="number" min="1" step="1" />
+                  </label>
+
+                  <label class="field">
+                    <span>线程数</span>
+                    <input id="threadCount" type="number" min="1" step="1" />
+                  </label>
+
+                  <label class="field">
+                    <span>失败重试次数</span>
+                    <input id="retryCount" type="number" min="0" step="1" />
+                  </label>
+
+                  <label class="field">
+                    <span>代理</span>
+                    <input id="customProxy" type="text" placeholder="http://127.0.0.1:7890" />
+                  </label>
+
+                  <div class="switches field-wide compact">
+                    <label><input id="useSystemProxy" type="checkbox" /> 使用系统代理</label>
+                  </div>
+                </div>
+              </section>
+              </section>
+
+              <section id="settings-panel-tools" class="settings-tab-panel" data-settings-panel="tools" role="tabpanel" aria-labelledby="settings-tab-tools" hidden>
+              <section class="core-card field-wide">
+                <div class="core-card-head">
+                  <span>下载核心</span>
+                  <button id="refresh-core" type="button">刷新</button>
+                </div>
+                <div class="core-grid">
+                  <div>
+                    <span>状态</span>
+                    <strong id="core-status">检查中</strong>
+                  </div>
+                  <div>
+                    <span>版本</span>
+                    <strong id="core-version">-</strong>
+                  </div>
+                  <div class="core-path">
+                    <span>路径</span>
+                    <strong id="core-path">-</strong>
+                  </div>
+                </div>
+                <div id="core-capabilities" class="capability-list">正在读取核心能力...</div>
+              </section>
+
+              <label class="field field-wide">
+                <span>FFmpeg 路径</span>
+                <div class="inline-input tool-input">
+                  <input id="ffmpegPath" type="text" placeholder="D:\ffmpeg 或 D:\ffmpeg\bin\ffmpeg.exe" />
+                  <button id="choose-ffmpeg" type="button">选择</button>
+                  <button id="check-ffmpeg" type="button">检测</button>
+                </div>
+                <strong id="ffmpeg-check" class="tool-result">尚未检测</strong>
+              </label>
+
+              <section class="tools-card field-wide">
+                <div class="tools-card-head">
+                  <span>外部工具</span>
+                  <button id="check-tools" type="button">检测全部</button>
+                </div>
+                <div id="tool-list" class="tool-list"></div>
+              </section>
+              </section>
+
+              <section id="settings-panel-tracks" class="settings-tab-panel" data-settings-panel="tracks" role="tabpanel" aria-labelledby="settings-tab-tracks" hidden>
+              <section class="form-section settings-section field-wide">
+                <div class="settings-section-title">轨道与字幕</div>
+                <div class="section-grid">
+                  <label class="field">
+                    <span>选择视频</span>
+                    <input id="selectVideo" type="text" placeholder="res=1080p:for=best" />
+                  </label>
+
+                  <label class="field">
+                    <span>丢弃视频</span>
+                    <input id="dropVideo" type="text" placeholder="role=trickplay" />
+                  </label>
+
+                  <label class="field">
+                    <span>选择音频</span>
+                    <input id="selectAudio" type="text" placeholder="lang=ja|en:for=best" />
+                  </label>
+
+                  <label class="field">
+                    <span>丢弃音频</span>
+                    <input id="dropAudio" type="text" placeholder="lang=commentary" />
+                  </label>
+
+                  <label class="field">
+                    <span>选择字幕</span>
+                    <input id="selectSubtitle" type="text" placeholder="lang=zh|en:for=all" />
+                  </label>
+
+                  <label class="field">
+                    <span>丢弃字幕</span>
+                    <input id="dropSubtitle" type="text" placeholder="name=forced" />
+                  </label>
+
+                  <label class="field">
+                    <span>字幕格式</span>
+                    <select id="subFormat">
+                      <option value="SRT">SRT</option>
+                      <option value="VTT">VTT</option>
+                    </select>
+                  </label>
+
+                  <div class="switches field-wide">
+                    <label><input id="autoSelect" type="checkbox" /> 自动选轨</label>
+                    <label><input id="subOnly" type="checkbox" /> 只下载字幕</label>
+                    <label><input id="autoSubtitleFix" type="checkbox" /> 自动修复字幕</label>
+                    <label><input id="concurrentDownload" type="checkbox" /> 多轨并发</label>
+                  </div>
+                </div>
+              </section>
+              </section>
+
+              <section id="settings-panel-decrypt" class="settings-tab-panel" data-settings-panel="decrypt" role="tabpanel" aria-labelledby="settings-tab-decrypt" hidden>
+              <section class="form-section settings-section field-wide">
+                <div class="settings-section-title">解密工具</div>
+                <div class="section-grid">
+                  <label class="field">
+                    <span>Key 文本文件</span>
+                    <div class="inline-input">
+                      <input id="keyTextFile" type="text" placeholder="/path/to/keys.txt" />
+                      <button id="choose-key-file" type="button">选择</button>
+                    </div>
+                  </label>
+
+                  <label class="field">
+                    <span>解密引擎</span>
+                    <select id="decryptionEngine">
+                      <option value="MP4DECRYPT">MP4DECRYPT</option>
+                      <option value="SHAKA_PACKAGER">SHAKA_PACKAGER</option>
+                      <option value="FFMPEG">FFMPEG</option>
+                    </select>
+                  </label>
+
+                  <label class="field field-wide">
+                    <span>解密工具路径</span>
+                    <div class="inline-input">
+                      <input id="decryptionBinaryPath" type="text" placeholder="/opt/homebrew/bin/mp4decrypt" />
+                      <button id="choose-decryption-binary" type="button">选择</button>
+                    </div>
+                  </label>
+
+                  <label class="field">
+                    <span>自定义 HLS Method</span>
+                    <select id="customHLSMethod">
+                      <option value="">自动</option>
+                      <option value="AES_128">AES_128</option>
+                      <option value="AES_128_ECB">AES_128_ECB</option>
+                      <option value="CENC">CENC</option>
+                      <option value="CHACHA20">CHACHA20</option>
+                      <option value="NONE">NONE</option>
+                      <option value="SAMPLE_AES">SAMPLE_AES</option>
+                      <option value="SAMPLE_AES_CTR">SAMPLE_AES_CTR</option>
+                      <option value="UNKNOWN">UNKNOWN</option>
+                    </select>
+                  </label>
+
+                  <div class="switches">
+                    <label><input id="mp4RealTimeDecryption" type="checkbox" /> MP4 实时解密</label>
+                  </div>
+                </div>
+              </section>
+              </section>
+
+              <section id="settings-panel-live" class="settings-tab-panel" data-settings-panel="live" role="tabpanel" aria-labelledby="settings-tab-live" hidden>
+              <section class="form-section settings-section field-wide">
+                <div class="settings-section-title">直播与过滤</div>
+                <div class="section-grid">
+                  <label class="field field-wide">
+                    <span>广告分片关键字</span>
+                    <textarea id="adKeywords" rows="3" placeholder="/ad\d+\.ts$&#10;BUMPER"></textarea>
+                  </label>
+
+                  <label class="field">
+                    <span>直播录制时长</span>
+                    <input id="liveRecordLimit" type="text" placeholder="00:05:00" />
+                  </label>
+
+                  <label class="field">
+                    <span>直播刷新间隔（秒）</span>
+                    <input id="liveWaitTime" type="number" min="1" step="1" />
+                  </label>
+
+                  <label class="field">
+                    <span>直播首取分片数</span>
+                    <input id="liveTakeCount" type="number" min="1" step="1" />
+                  </label>
+
+                  <div class="switches field-wide">
+                    <label><input id="livePerformAsVOD" type="checkbox" /> 直播当点播</label>
+                    <label><input id="liveRealTimeMerge" type="checkbox" /> 直播实时合并</label>
+                    <label><input id="discardLiveSegments" type="checkbox" /> 直播丢弃分片</label>
+                    <label><input id="livePipeMux" type="checkbox" /> 直播 PipeMux</label>
+                    <label><input id="liveFixVTTByAudio" type="checkbox" /> 直播字幕对齐</label>
+                    <label><input id="appendURLParams" type="checkbox" /> 追加 URL 参数</label>
+                  </div>
+                </div>
+              </section>
+              </section>
+
+              <section id="settings-panel-mux" class="settings-tab-panel" data-settings-panel="mux" role="tabpanel" aria-labelledby="settings-tab-mux" hidden>
+              <section class="form-section settings-section field-wide">
+                <div class="settings-section-title">混流与任务控制</div>
+                <div class="section-grid">
+                  <label class="field field-wide">
+                    <span>最终混流参数</span>
+                    <input id="muxAfterDone" type="text" placeholder="format=mp4:muxer=ffmpeg" />
+                  </label>
+
+                  <label class="field">
+                    <span>最终保存格式</span>
+                    <select id="outputFormat">
+                      <option value="mp4">MP4</option>
+                      <option value="ts">TS</option>
+                    </select>
+                  </label>
+
+                  <label class="field field-wide">
+                    <span>导入外部轨道</span>
+                    <div class="mux-import-builder">
+                      <div class="inline-input">
+                        <input id="muxImportPath" type="text" placeholder="/path/to/subtitle.srt" />
+                        <button id="choose-mux-import-file" type="button">选择</button>
+                      </div>
+                      <input id="muxImportLang" type="text" placeholder="lang=eng" />
+                      <input id="muxImportName" type="text" placeholder="name=English" />
+                      <button id="add-mux-import" type="button">添加</button>
+                    </div>
+                    <textarea id="muxImports" rows="3" placeholder="path=zh-Hans.srt:lang=chi:name=Chinese"></textarea>
+                  </label>
+
+                  <div class="switches field-wide">
+                    <label><input id="useFFmpegMerge" type="checkbox" /> 使用 FFmpeg 合并</label>
+                    <label><input id="noDateInfo" type="checkbox" /> 不写日期 metadata</label>
+                    <label><input id="skipDownload" type="checkbox" /> 只解析资源</label>
+                    <label><input id="skipMerge" type="checkbox" /> 跳过合并</label>
+                    <label><input id="checkSegmentsCount" type="checkbox" /> 校验分片数</label>
+                    <label><input id="writeMetaJSON" type="checkbox" /> 写 meta JSON</label>
+                    <label><input id="keepSegments" type="checkbox" /> 保留临时文件</label>
+                    <label><input id="noLog" type="checkbox" /> 关闭日志文件</label>
+                  </div>
+                </div>
+              </section>
+              </section>
+            </div>
+          </section>
+        </section>
+
+        <section id="view-output" class="view">
+          <div class="output-grid">
+            <section class="panel files-panel">
+              <div class="files-head">
+                <span>完成文件</span>
+                <div>
+                  <button id="refresh-files" type="button"><svg class="button-icon"><use href="#icon-refresh" /></svg><span class="button-label">刷新文件</span></button>
+                  <button id="open-folder" type="button"><svg class="button-icon"><use href="#icon-folder" /></svg><span class="button-label">打开目录</span></button>
+                </div>
+              </div>
+              <div id="file-list" class="file-list empty">暂无文件。</div>
+            </section>
+
+            <section class="panel log-panel">
+              <div class="log-head">
+                <span>任务日志</span>
+                <div>
+                  <button id="export-log" type="button"><svg class="button-icon"><use href="#icon-download" /></svg><span class="button-label">导出日志</span></button>
+                  <button id="clear-log" type="button"><svg class="button-icon"><use href="#icon-trash" /></svg><span class="button-label">清空日志</span></button>
+                </div>
+              </div>
+              <pre id="log"></pre>
+            </section>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <div id="toast-host" class="toast-host" aria-live="polite" aria-atomic="true"></div>
+    <div id="confirm-dialog" class="modal-backdrop confirm-backdrop" hidden aria-hidden="true">
+      <section class="panel confirm-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-message">
+        <div class="confirm-dialog-body">
+          <div class="confirm-dialog-copy">
+            <strong id="confirm-dialog-title">确认操作</strong>
+            <p id="confirm-dialog-message"></p>
+          </div>
+          <div class="confirm-dialog-actions">
+            <button id="confirm-dialog-cancel" type="button">取消</button>
+            <button id="confirm-dialog-ok" class="danger-primary" type="button">确定</button>
+          </div>
+        </div>
+      </section>
+    </div>
+    <div id="task-context-menu" class="task-context-menu" role="menu" hidden></div>
+    <script src="./app.js"></script>
+  </body>
+</html>
