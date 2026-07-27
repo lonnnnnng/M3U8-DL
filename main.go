@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const version = "m3u8dl-go 1.0.5"
+const version = "m3u8dl-go 1.0.6"
 
 type versionInfo struct {
 	Name        string `json:"name"`

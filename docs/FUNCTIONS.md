@@ -2,7 +2,7 @@
 
 更新时间：2026-07-27（北京时间）
 
-当前产品与发布品牌为 `M3U8-DL`，CLI 和桌面内置核心名称为 `m3u8dl-go`；当前版本为 [`v1.0.5`](https://github.com/lonnnnnng/M3U8-DL/releases/tag/v1.0.5)。
+当前产品与发布品牌为 `M3U8-DL`，CLI 和桌面内置核心名称为 `m3u8dl-go`；当前版本为 [`v1.0.6`](https://github.com/lonnnnnng/M3U8-DL/releases/tag/v1.0.6)。
 
 来源：已读取上游 `README.md`、`Program.cs`、`CommandInvoker.cs`、`StreamExtractor.cs`、`HLSExtractor.cs`、`SimpleDownloadManager.cs`、`SimpleDownloader.cs`、`AESUtil.cs`、`MergeUtil.cs`。
 

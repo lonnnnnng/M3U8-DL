@@ -6,7 +6,7 @@ DIST_DIR="${ROOT_DIR}/dist"
 DESKTOP_DIR="${ROOT_DIR}/desktop"
 WAILS_VERSION="${WAILS_VERSION:-v2.12.0}"
 WAILS_BIN="${WAILS_BIN:-$(go env GOPATH)/bin/wails}"
-ARCH_NAME="$(uname -m)"
+HOST_ARCH="$(uname -m)"
 
 resolve_release_version() {
   local raw_version
@@ -29,10 +29,14 @@ resolve_release_version() {
 
 RELEASE_VERSION="$(resolve_release_version)"
 
-if [[ "${ARCH_NAME}" == "arm64" ]]; then
-  ARCH_SUFFIX="arm64"
-else
+# long: Apple Silicon 可以使用同一套 macOS SDK 交叉构建 Intel 包，发布时允许显式指定目标架构补齐双架构产物。
+ARCH_SUFFIX="${TARGET_ARCH:-${HOST_ARCH}}"
+if [[ "${ARCH_SUFFIX}" == "x86_64" ]]; then
   ARCH_SUFFIX="amd64"
+fi
+if [[ "${ARCH_SUFFIX}" != "arm64" && "${ARCH_SUFFIX}" != "amd64" ]]; then
+  echo "不支持的 macOS 目标架构: ${ARCH_SUFFIX}" >&2
+  exit 1
 fi
 
 TARGET_NAME="M3U8-DL_${RELEASE_VERSION}_desktop_macos_${ARCH_SUFFIX}"
@@ -45,10 +49,13 @@ TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "${TMP_DIR}"' EXIT
 
 CLI_HELPER="${TMP_DIR}/m3u8dl-go-cli"
-go build -trimpath -ldflags="-s -w" -o "${CLI_HELPER}" "${ROOT_DIR}"
+CGO_ENABLED=0 GOOS=darwin GOARCH="${ARCH_SUFFIX}" go build -trimpath -ldflags="-s -w" -o "${CLI_HELPER}" "${ROOT_DIR}"
 
 rm -rf "${DESKTOP_DIR}/build"
-(cd "${DESKTOP_DIR}" && "${WAILS_BIN}" build -clean)
+mkdir -p "${DESKTOP_DIR}/build"
+# long: Wails 的默认图标容易和其他应用混淆，每次清理构建目录后都恢复项目专用图标。
+cp "${DESKTOP_DIR}/assets/appicon.png" "${DESKTOP_DIR}/build/appicon.png"
+(cd "${DESKTOP_DIR}" && "${WAILS_BIN}" build -clean -platform "darwin/${ARCH_SUFFIX}")
 
 APP_PATH="$(find "${DESKTOP_DIR}/build/bin" -maxdepth 1 -name '*.app' -print -quit)"
 if [[ -z "${APP_PATH}" ]]; then

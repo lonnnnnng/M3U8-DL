@@ -2,7 +2,7 @@
 
 `M3U8-DL` 是基于上游 [`nilaoda/N_m3u8DL-RE`](https://github.com/nilaoda/N_m3u8DL-RE) 源码行为复刻的 Go 版 HLS 下载器，命令行入口继续使用 `m3u8dl-go`。
 
-- 当前版本：[`v1.0.5`](https://github.com/lonnnnnng/M3U8-DL/releases/tag/v1.0.5)
+- 当前版本：[`v1.0.6`](https://github.com/lonnnnnng/M3U8-DL/releases/tag/v1.0.6)
 - 项目仓库：[`lonnnnnng/M3U8-DL`](https://github.com/lonnnnnng/M3U8-DL)
 - 品牌与兼容边界：应用、仓库和发布归档使用 `M3U8-DL`；CLI、桌面内置核心和日志兼容名称继续使用 `m3u8dl-go`。
 
@@ -85,7 +85,7 @@ Linux/Windows 桌面包在对应系统上构建：
 ./scripts/build_desktop_windows.ps1
 ```
 
-当前 `v1.0.5` 为本地构建后手工发布，包含 6 个 CLI 包、2 个 macOS 桌面包和 1 个 Windows amd64 桌面包，共 9 个资产；Linux 桌面包尚未进入该 Release。仓库发布流水线已配置 6 个 CLI 包以及 macOS amd64/arm64、Linux amd64、Windows amd64 桌面包，共 10 个预期资产。发布归档统一使用 `M3U8-DL_v<version>_...` 前缀，包内 CLI 仍名为 `m3u8dl-go`。
+当前 `v1.0.6` 为本地构建后手工发布，包含 6 个 CLI 包、2 个 macOS 桌面包和 1 个 Windows amd64 桌面包，共 9 个资产；Linux 桌面包尚未进入该 Release。仓库发布流水线已配置 6 个 CLI 包以及 macOS amd64/arm64、Linux amd64、Windows amd64 桌面包，共 10 个预期资产。发布归档统一使用 `M3U8-DL_v<version>_...` 前缀，包内 CLI 仍名为 `m3u8dl-go`。
 
 ## 已实现主能力
 

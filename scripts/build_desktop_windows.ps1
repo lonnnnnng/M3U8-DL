@@ -87,6 +87,9 @@ try {
     & go build -trimpath -ldflags="-s -w" -o $CliHelper $RootDir
 
     Remove-Item -Recurse -Force (Join-Path $DesktopDir "build") -ErrorAction SilentlyContinue
+    New-Item -ItemType Directory -Path (Join-Path $DesktopDir "build") -Force | Out-Null
+    # long: Windows 打包前恢复项目专用图标，防止清理目录后重新使用 Wails 默认图标。
+    Copy-Item (Join-Path $DesktopDir "assets/appicon.png") (Join-Path $DesktopDir "build/appicon.png")
     Push-Location $DesktopDir
     try {
         & $WailsBin build -clean

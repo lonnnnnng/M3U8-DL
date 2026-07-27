@@ -46,6 +46,9 @@ CLI_HELPER="${TMP_DIR}/m3u8dl-go-cli"
 go build -trimpath -ldflags="-s -w" -o "${CLI_HELPER}" "${ROOT_DIR}"
 
 rm -rf "${DESKTOP_DIR}/build"
+mkdir -p "${DESKTOP_DIR}/build"
+# long: Linux 构建同样从受版本控制的图标源恢复资源，避免清理后回落到 Wails 默认图标。
+cp "${DESKTOP_DIR}/assets/appicon.png" "${DESKTOP_DIR}/build/appicon.png"
 (cd "${DESKTOP_DIR}" && "${WAILS_BIN}" build -clean)
 
 APP_BIN="$(find "${DESKTOP_DIR}/build/bin" -maxdepth 1 -type f -perm -111 -name 'm3u8dl-go*' -print -quit)"

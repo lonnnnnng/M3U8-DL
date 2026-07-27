@@ -121,7 +121,7 @@ const el = {
   preflightResult: document.querySelector("#preflight-result"),
   taskList: document.querySelector("#task-list"),
   taskCount: document.querySelector("#task-count"),
-  runningCount: document.querySelector("#running-count"),
+  versionLabel: document.querySelector("#running-count"),
   activeSpeed: document.querySelector("#active-speed"),
   viewTitle: document.querySelector("#view-title"),
   viewKicker: document.querySelector("#view-kicker"),
@@ -191,8 +191,85 @@ const taskContextActions = [
 const viewMeta = {
   dashboard: ["任务监控", "下载任务"],
   settings: ["参数设置", "下载参数"],
-  output: ["输出与日志", "文件日志"]
+  output: ["输出文件", "完成文件"]
 };
+
+const previewTasks = [
+  {
+    id: "preview-live",
+    title: "直播频道录制",
+    status: "running",
+    progress: 0.64,
+    progressText: "64%",
+    speedText: "8.03 MiB/s",
+    elapsedText: "01:26",
+    remainingText: "00:48",
+    lastMessage: "正在下载新分片",
+    createdAt: "2026-07-27T12:00:00+08:00",
+    startedAt: "2026-07-27T12:00:03+08:00",
+    request: {
+      url: "https://example.com/live/index.m3u8",
+      saveDir: "~/Downloads/M3U8-DL",
+      saveName: "直播频道录制",
+      autoSelect: true,
+      useFFmpegMerge: true,
+      outputFormat: "mp4"
+    },
+    commandLine: "M3U8-DL https://example.com/live/index.m3u8 -M format=mp4:muxer=ffmpeg",
+    logs: [
+      "$ M3U8-DL https://example.com/live/index.m3u8",
+      "读取播放列表成功，检测到直播流",
+      "已选择视频 1920x1080 AVC / 音频 AAC",
+      "开始下载分片，线程数 16",
+      "已下载 652.80 MiB",
+      "当前速度 8.03 MiB/s"
+    ]
+  },
+  {
+    id: "preview-done",
+    title: "示例课程 - 第一集",
+    status: "completed",
+    progress: 1,
+    progressText: "100%",
+    elapsedText: "03:18",
+    lastMessage: "下载与混流完成",
+    createdAt: "2026-07-27T11:40:00+08:00",
+    startedAt: "2026-07-27T11:40:02+08:00",
+    finishedAt: "2026-07-27T11:43:20+08:00",
+    request: {
+      url: "https://media.example.com/course/01/master.m3u8",
+      saveDir: "~/Downloads/M3U8-DL",
+      saveName: "示例课程-第一集",
+      autoSelect: true,
+      useFFmpegMerge: true,
+      outputFormat: "mp4"
+    },
+    commandLine: "M3U8-DL https://media.example.com/course/01/master.m3u8 -M format=mp4:muxer=ffmpeg",
+    logs: ["任务完成，输出示例课程-第一集.mp4"]
+  },
+  {
+    id: "preview-failed",
+    title: "加密媒体测试",
+    status: "failed",
+    progress: 0.18,
+    progressText: "18%",
+    elapsedText: "00:22",
+    lastMessage: "密钥请求返回 403",
+    createdAt: "2026-07-27T11:30:00+08:00",
+    startedAt: "2026-07-27T11:30:01+08:00",
+    finishedAt: "2026-07-27T11:30:23+08:00",
+    request: {
+      url: "https://media.example.com/encrypted/master.m3u8",
+      saveDir: "~/Downloads/M3U8-DL",
+      saveName: "加密媒体测试",
+      autoSelect: true,
+      useFFmpegMerge: true,
+      outputFormat: "mp4"
+    },
+    commandLine: "M3U8-DL https://media.example.com/encrypted/master.m3u8",
+    logs: ["读取播放列表成功", "下载密钥失败: HTTP 403"]
+  }
+];
 
 const defaultLinkNameSeparator = "|";
 const defaultOutputFormat = "mp4";
@@ -816,8 +893,20 @@ function openCreateDialog(options = {}) {
   }, 0);
 }
 
+function createPanelIsInline() {
+  return el.createDialog?.classList.contains("inline-create-panel") === true;
+}
+
 function closeCreateDialog() {
   if (!el.createDialog) return;
+  if (createPanelIsInline()) {
+    // long: 创建表单现在是任务工作台的固定左栏，完成任务后只更新草稿基线，不能像旧弹窗一样从布局中移除。
+    el.createDialog.hidden = false;
+    el.createDialog.setAttribute("aria-hidden", "false");
+    el.createDialog.classList.remove("open");
+    createDialogBaseline = createDraftSnapshot();
+    return;
+  }
   const wasOpen = !el.createDialog.hidden;
   const returnFocus = createDialogReturnFocus;
   el.createDialog.classList.remove("open");
@@ -843,6 +932,7 @@ function createDraftIsDirty() {
 }
 
 async function requestCloseCreateDialog() {
+  if (createPanelIsInline()) return;
   if (!el.createDialog || el.createDialog.hidden) return;
   if (!createDraftIsDirty()) {
     closeCreateDialog();
@@ -967,7 +1057,6 @@ function renderTasks() {
     selectedTaskId = visibleTasks[0].id;
   }
   el.taskCount.textContent = visibleTasks.length === tasks.length ? `${tasks.length}` : `${visibleTasks.length}/${tasks.length}`;
-  el.runningCount.textContent = `${running.length} 个运行中`;
   el.activeSpeed.textContent = running.find((task) => task.speedText)?.speedText || "0 B/s";
   updateToolbarActionStates();
   if (!tasks.length) {
@@ -1079,20 +1168,28 @@ function renderDetail() {
   el.detailTitle.textContent = task.title;
   const commandLine = task.commandLine || "任务开始后生成";
   const advancedSummary = taskAdvancedSummary(task.request);
+  const progressText = task.progressText || `${Math.round(task.progress * 100)}%`;
   el.taskSummary.className = "summary";
   el.taskSummary.innerHTML = `
-    <div><span>状态</span><strong>${taskDisplayStatusText(task)}</strong></div>
-    <div><span>进度</span><strong>${task.progressText || `${Math.round(task.progress * 100)}%`}</strong></div>
-    <div><span>速度</span><strong>${escapeHTML(task.speedText || "0 B/s")}</strong></div>
-    <div><span>耗时</span><strong>${escapeHTML(task.elapsedText || "-")}</strong></div>
-    <div><span>预计剩余</span><strong>${escapeHTML(task.remainingText || "-")}</strong></div>
-    <div><span>输出目录</span><strong>${escapeHTML(task.request.saveDir)}</strong></div>
-    <div><span>保存名</span><strong>${escapeHTML(task.request.saveName || "自动")}</strong></div>
-    <div><span>参数</span><strong>${task.request.autoSelect ? "自动选轨" : "手动选轨"} / ${task.request.useFFmpegMerge ? `FFmpeg ${String(task.request.outputFormat || "mp4").toUpperCase()}` : "二进制 TS"}</strong></div>
-    <div><span>高级参数</span><strong title="${escapeHTML(advancedSummary)}">${escapeHTML(advancedSummary)}</strong></div>
-    <div><span>开始时间</span><strong>${formatDate(task.startedAt || task.createdAt)}</strong></div>
-    <div><span>结束时间</span><strong>${formatDate(task.finishedAt)}</strong></div>
-    <div class="summary-command"><span>命令</span><code title="${escapeHTML(commandLine)}">${escapeHTML(commandLine)}</code></div>
+    <section class="summary-progress">
+      <div class="summary-progress-heading"><strong>${escapeHTML(progressText)}</strong><span>${taskDisplayStatusText(task)}</span></div>
+      <div class="progress"><span style="width:${Math.round(task.progress * 100)}%"></span></div>
+    </section>
+    <section class="summary-metrics">
+      <div><span>当前速度</span><strong>${escapeHTML(task.speedText || "0 B/s")}</strong></div>
+      <div><span>耗时</span><strong>${escapeHTML(task.elapsedText || "-")}</strong></div>
+      <div><span>预计剩余</span><strong>${escapeHTML(task.remainingText || "-")}</strong></div>
+      <div><span>输出格式</span><strong>${task.request.useFFmpegMerge ? `FFmpeg ${String(task.request.outputFormat || "mp4").toUpperCase()}` : "二进制 TS"}</strong></div>
+    </section>
+    <section class="summary-facts">
+      <div><span>输出目录</span><strong>${escapeHTML(task.request.saveDir)}</strong></div>
+      <div><span>保存名</span><strong>${escapeHTML(task.request.saveName || "自动")}</strong></div>
+      <div><span>选轨</span><strong>${task.request.autoSelect ? "自动选轨" : "手动选轨"}</strong></div>
+      <div><span>开始时间</span><strong>${formatDate(task.startedAt || task.createdAt)}</strong></div>
+      <div><span>结束时间</span><strong>${formatDate(task.finishedAt)}</strong></div>
+      <div><span>高级参数</span><strong title="${escapeHTML(advancedSummary)}">${escapeHTML(advancedSummary)}</strong></div>
+    </section>
+    <section class="summary-command"><span>命令</span><code title="${escapeHTML(commandLine)}">${escapeHTML(commandLine)}</code></section>
   `;
   renderFiles(task.files);
   el.log.textContent = (task.logs || []).join("\n");
@@ -1540,10 +1637,15 @@ function applySettings(nextSettings) {
 function applyCoreInfo(info = {}) {
   const status = field(info, "status", "Status", "error");
   const error = field(info, "error", "Error", "");
+  const version = field(info, "version", "Version", "");
   const fullVersion = field(info, "fullVersion", "FullVersion", "");
   el.coreStatus.textContent = status === "ready" ? "可用" : "异常";
   el.coreStatus.classList.toggle("error", status !== "ready");
   el.coreVersion.textContent = fullVersion || "-";
+  // long: 品牌区展示核心真实版本，应用升级后无需再维护一份独立的前端版本常量。
+  if (version && el.versionLabel) {
+    el.versionLabel.textContent = `v${String(version).replace(/^v/i, "")}`;
+  }
   el.corePath.textContent = field(info, "cliPath", "CLIPath", "") || error || "-";
   el.corePath.title = el.corePath.textContent;
   renderCoreCapabilities(info);
@@ -1655,9 +1757,11 @@ async function refreshCoreInfo() {
 async function loadInitialState() {
   const backend = api();
   if (!backend) {
-    // long: 静态预览没有 Wails 桥接时仍要完整展示界面，避免把开发预览误报成桌面客户端初始化失败。
+    // long: 静态预览使用隔离的演示任务还原真实工作台密度；Wails 后端存在时不会读取这些数据。
     applySettings({});
     renderToolList();
+    tasks = previewTasks.map(normalizeTask);
+    selectedTaskId = tasks[0]?.id || "";
     renderTasks();
     el.coreStatus.textContent = "未连接";
     el.coreVersion.textContent = "-";
@@ -2423,7 +2527,7 @@ el.newTaskFab?.addEventListener("click", () => openCreateDialog({ reset: true })
 el.closeCreateDialog?.addEventListener("click", () => void requestCloseCreateDialog());
 el.cancelCreateDialog?.addEventListener("click", () => void requestCloseCreateDialog());
 el.createDialog?.addEventListener("click", (event) => {
-  if (event.target === el.createDialog) {
+  if (!createPanelIsInline() && event.target === el.createDialog) {
     void requestCloseCreateDialog();
   }
 });
@@ -2450,11 +2554,11 @@ window.addEventListener("contextmenu", (event) => {
 window.addEventListener("resize", closeTaskContextMenu);
 window.addEventListener("keydown", (event) => {
   if (trapDialogFocus(event, el.confirmDialog)) return;
-  if (trapDialogFocus(event, el.createDialog)) return;
+  if (!createPanelIsInline() && trapDialogFocus(event, el.createDialog)) return;
 
   const commandKey = event.metaKey || event.ctrlKey;
   const key = event.key.toLowerCase();
-  if (commandKey && key === "n" && (!el.confirmDialog || el.confirmDialog.hidden) && (!el.createDialog || el.createDialog.hidden)) {
+  if (commandKey && key === "n" && (!el.confirmDialog || el.confirmDialog.hidden) && (createPanelIsInline() || !el.createDialog || el.createDialog.hidden)) {
     event.preventDefault();
     openCreateDialog({ reset: true });
     return;
@@ -2485,12 +2589,12 @@ window.addEventListener("keydown", (event) => {
     closeConfirmDialog(false);
     return;
   }
-  if (event.key === "Escape" && el.createDialog && !el.createDialog.hidden) {
+  if (event.key === "Escape" && !createPanelIsInline() && el.createDialog && !el.createDialog.hidden) {
     void requestCloseCreateDialog();
   }
 });
 
-// long: 新建任务现在只从任务页弹窗进入，启动时主动收起弹窗，避免 WebView 恢复上次打开状态后误显示创建表单。
+// long: 初始化创建区的草稿基线；内嵌模式保持左栏常驻，旧弹窗模式仍按原行为收起。
 applyThemeMode(readThemeMode());
 closeCreateDialog();
 switchView("dashboard");

@@ -7,6 +7,7 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/mac"
 )
 
 //go:embed all:frontend/dist
@@ -25,6 +26,10 @@ func main() {
 			Assets: assets,
 		},
 		OnStartup: app.startup,
+		Mac: &mac.Options{
+			// long: 标题栏内容嵌入应用工具栏，深色主题不再残留独立的白色原生标题栏。
+			TitleBar: mac.TitleBarHiddenInset(),
+		},
 		Bind: []interface{}{
 			app,
 		},

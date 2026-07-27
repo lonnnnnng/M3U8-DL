@@ -9,12 +9,12 @@
 ## 仓库与发布
 
 - 项目仓库：[`lonnnnnng/M3U8-DL`](https://github.com/lonnnnnng/M3U8-DL)
-- 当前版本：[`v1.0.5`](https://github.com/lonnnnnng/M3U8-DL/releases/tag/v1.0.5)
+- 当前版本：[`v1.0.6`](https://github.com/lonnnnnng/M3U8-DL/releases/tag/v1.0.6)
 - 原版源码目录：`../N_m3u8DL-RE`
 - Go 复刻目录：`../m3u8dl-go`
 - 用户可见应用、仓库和发布归档统一使用 `M3U8-DL`；CLI、内置核心和兼容日志名称继续使用 `m3u8dl-go`。
 - 远端 `main` 已清理为单一根提交；最新提交以远端 `main` 为准。
-- `v1.0.5` 为手工发布，包含 6 个 CLI 包、2 个 macOS 桌面包和 1 个 Windows amd64 桌面包，共 9 个资产；Linux 桌面包已配置构建流程，但尚未进入该 Release。
+- `v1.0.6` 为手工发布，包含 6 个 CLI 包、2 个 macOS 桌面包和 1 个 Windows amd64 桌面包，共 9 个资产；Linux 桌面包已配置构建流程，但尚未进入该 Release。
 
 ## 当前已完成重点
 

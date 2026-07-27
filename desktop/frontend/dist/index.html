@@ -51,14 +51,17 @@
     <main class="app-shell">
       <header class="toolbar">
         <div class="window-brand">
-          <h1>M3U8-DL</h1>
-          <span id="running-count">0 个运行中</span>
+          <span class="brand-mark" aria-hidden="true">M</span>
+          <div class="brand-copy">
+            <h1>M3U8-DL</h1>
+            <span id="running-count">v1.0.6</span>
+          </div>
         </div>
 
         <nav class="segmented-nav" aria-label="主导航">
           <button class="nav-item active" type="button" data-view="dashboard"><svg class="button-icon"><use href="#icon-list" /></svg><span class="button-label">任务</span></button>
           <button class="nav-item" type="button" data-view="settings"><svg class="button-icon"><use href="#icon-sliders" /></svg><span class="button-label">设置</span></button>
-          <button class="nav-item" type="button" data-view="output"><svg class="button-icon"><use href="#icon-files" /></svg><span class="button-label">文件与日志</span></button>
+          <button class="nav-item" type="button" data-view="output"><svg class="button-icon"><use href="#icon-files" /></svg><span class="button-label">完成文件</span></button>
         </nav>
 
         <div class="toolbar-actions">
@@ -89,6 +92,106 @@
       <section class="workspace">
         <section id="view-dashboard" class="view active">
           <div class="dashboard-grid">
+            <div id="create-dialog" class="inline-create-panel" aria-hidden="false">
+              <section class="panel create-panel create-dialog-panel" role="region" aria-labelledby="create-dialog-title">
+                <div class="panel-title create-dialog-titlebar">
+                  <div class="panel-heading-copy">
+                    <strong id="create-dialog-title">新建任务</strong>
+                    <small>创建下载或解析任务</small>
+                  </div>
+                  <button id="new-task-fab" class="icon-button" type="button" aria-label="清空并新建任务" title="清空并新建任务" aria-keyshortcuts="Meta+N Control+N"><svg class="button-icon"><use href="#icon-plus" /></svg></button>
+                  <button id="close-create-dialog" class="modal-close icon-button" type="button" aria-label="关闭新建任务" title="关闭" hidden><svg class="button-icon"><use href="#icon-x" /></svg></button>
+                </div>
+
+                <div class="create-dialog-tools" aria-label="任务工具">
+                  <button id="preflight-task" type="button"><svg class="button-icon"><use href="#icon-search-check" /></svg><span class="button-label">预检查</span></button>
+                  <button id="copy-form-command" type="button"><svg class="button-icon"><use href="#icon-copy" /></svg><span class="button-label">复制命令</span></button>
+                  <button id="reset-form" type="button"><svg class="button-icon"><use href="#icon-retry" /></svg><span class="button-label">重置</span></button>
+                </div>
+
+                <form id="task-form" class="form-grid">
+                  <details class="form-section field-wide" open>
+                    <summary>任务内容</summary>
+                    <div class="section-grid">
+                      <label class="field field-wide">
+                        <span class="field-label-row">
+                          <span>m3u8 地址</span>
+                          <small id="url-count">0 个地址</small>
+                        </span>
+                        <textarea id="url" rows="4" required placeholder="粘贴一个或多个 m3u8 地址"></textarea>
+                      </label>
+
+                      <label class="field field-wide">
+                        <span>输出目录</span>
+                        <div class="inline-input">
+                          <input id="saveDir" type="text" />
+                          <button id="choose-dir" type="button">选择</button>
+                        </div>
+                      </label>
+
+                      <label class="field">
+                        <span>保存名称</span>
+                        <input id="saveName" type="text" placeholder="自动命名" />
+                      </label>
+
+                      <label class="field field-wide">
+                        <span>请求头</span>
+                        <textarea id="headers" rows="3" placeholder="Cookie: xxx&#10;Referer: https://example.com"></textarea>
+                      </label>
+                    </div>
+                  </details>
+
+                  <details class="form-section field-wide">
+                    <summary>本次覆盖</summary>
+                    <div class="section-grid">
+                      <label class="field">
+                        <span>下载范围</span>
+                        <input id="customRange" type="text" placeholder="0-20" />
+                      </label>
+
+                      <label class="field">
+                        <span>HTTP 超时（秒）</span>
+                        <input id="taskHttpRequestTimeout" type="number" min="0.1" step="0.1" placeholder="默认设置" />
+                      </label>
+
+                      <label class="field">
+                        <span>失败重试次数</span>
+                        <input id="taskRetryCount" type="number" min="0" step="1" placeholder="默认设置" />
+                      </label>
+
+                      <label class="field">
+                        <span>定时开始</span>
+                        <input id="taskStartAt" type="text" placeholder="yyyyMMddHHmmss" />
+                      </label>
+
+                      <label class="field field-wide">
+                        <span>解密 Key</span>
+                        <textarea id="keys" rows="3" placeholder="每行一个 KEY 或 KID:KEY"></textarea>
+                      </label>
+
+                      <label class="field">
+                        <span>自定义 HLS Key</span>
+                        <input id="customHLSKey" type="password" placeholder="file / hex / base64" autocomplete="off" />
+                      </label>
+
+                      <label class="field">
+                        <span>自定义 HLS IV</span>
+                        <input id="customHLSIV" type="password" placeholder="file / hex / base64" autocomplete="off" />
+                      </label>
+                    </div>
+                  </details>
+
+                  <section id="preflight-result" class="preflight-card field-wide empty">尚未预检查。</section>
+                </form>
+
+                <footer class="create-dialog-footer">
+                  <button id="cancel-create-dialog" type="button" hidden>取消</button>
+                  <button id="create-only" type="button"><svg class="button-icon"><use href="#icon-list" /></svg><span class="button-label">加入队列</span></button>
+                  <button id="create-start" class="primary-action" form="task-form" type="submit" aria-keyshortcuts="Meta+Enter Control+Enter"><svg class="button-icon"><use href="#icon-download" /></svg><span class="button-label">创建并开始</span></button>
+                </footer>
+              </section>
+            </div>
+
             <section class="panel task-panel">
               <div class="panel-title task-list-head">
                 <span>任务队列</span>
@@ -134,108 +237,19 @@
                 </div>
               </div>
               <div id="task-summary" class="summary empty">请选择一个任务。</div>
-              <div class="detail-create-bar">
-                <button id="new-task-fab" class="new-task-fab" type="button" aria-keyshortcuts="Meta+N Control+N"><svg class="button-icon"><use href="#icon-plus" /></svg><span class="button-label">新建任务</span></button>
-              </div>
+              <section class="detail-log-panel">
+                <div class="log-head">
+                  <span>运行日志</span>
+                  <div>
+                    <button id="export-log" type="button"><svg class="button-icon"><use href="#icon-download" /></svg><span class="button-label">导出</span></button>
+                    <button id="clear-log" type="button"><svg class="button-icon"><use href="#icon-trash" /></svg><span class="button-label">清空</span></button>
+                  </div>
+                </div>
+                <pre id="log"></pre>
+              </section>
             </section>
           </div>
         </section>
-
-        <div id="create-dialog" class="modal-backdrop" hidden>
-          <section class="panel create-panel create-dialog-panel" role="dialog" aria-modal="true" aria-labelledby="create-dialog-title">
-            <div class="panel-title create-dialog-titlebar">
-              <span id="create-dialog-title">新建下载任务</span>
-              <button id="close-create-dialog" class="modal-close icon-button" type="button" aria-label="关闭新建任务" title="关闭"><svg class="button-icon"><use href="#icon-x" /></svg></button>
-            </div>
-
-            <div class="create-dialog-tools" aria-label="任务工具">
-              <button id="preflight-task" type="button"><svg class="button-icon"><use href="#icon-search-check" /></svg><span class="button-label">预检查</span></button>
-              <button id="copy-form-command" type="button"><svg class="button-icon"><use href="#icon-copy" /></svg><span class="button-label">复制命令</span></button>
-              <button id="reset-form" type="button"><svg class="button-icon"><use href="#icon-retry" /></svg><span class="button-label">重置表单</span></button>
-            </div>
-
-            <form id="task-form" class="form-grid">
-              <details class="form-section field-wide" open>
-                <summary>任务内容</summary>
-                <div class="section-grid">
-                  <label class="field field-wide">
-                    <span class="field-label-row">
-                      <span>m3u8 地址</span>
-                      <small id="url-count">0 个地址</small>
-                    </span>
-                    <textarea id="url" rows="6" required></textarea>
-                  </label>
-
-                  <label class="field field-wide">
-                    <span>输出目录</span>
-                    <div class="inline-input">
-                      <input id="saveDir" type="text" />
-                      <button id="choose-dir" type="button">选择</button>
-                    </div>
-                  </label>
-
-                  <label class="field">
-                    <span>保存名称</span>
-                    <input id="saveName" type="text" placeholder="可选" />
-                  </label>
-
-                  <label class="field field-wide">
-                    <span>请求头</span>
-                    <textarea id="headers" rows="5" placeholder="Cookie: xxx&#10;Referer: https://example.com"></textarea>
-                  </label>
-                </div>
-              </details>
-
-              <details class="form-section field-wide">
-                <summary>本次覆盖</summary>
-                <div class="section-grid">
-                  <label class="field">
-                    <span>下载范围</span>
-                    <input id="customRange" type="text" placeholder="0-20" />
-                  </label>
-
-                  <label class="field">
-                    <span>HTTP 超时（秒）</span>
-                    <input id="taskHttpRequestTimeout" type="number" min="0.1" step="0.1" placeholder="默认设置" />
-                  </label>
-
-                  <label class="field">
-                    <span>失败重试次数</span>
-                    <input id="taskRetryCount" type="number" min="0" step="1" placeholder="默认设置" />
-                  </label>
-
-                  <label class="field">
-                    <span>定时开始</span>
-                    <input id="taskStartAt" type="text" placeholder="yyyyMMddHHmmss" />
-                  </label>
-
-                  <label class="field field-wide">
-                    <span>解密 Key</span>
-                    <textarea id="keys" rows="3" placeholder="每行一个 KEY 或 KID:KEY"></textarea>
-                  </label>
-
-                  <label class="field">
-                    <span>自定义 HLS Key</span>
-                    <input id="customHLSKey" type="password" placeholder="file / hex / base64" autocomplete="off" />
-                  </label>
-
-                  <label class="field">
-                    <span>自定义 HLS IV</span>
-                    <input id="customHLSIV" type="password" placeholder="file / hex / base64" autocomplete="off" />
-                  </label>
-                </div>
-              </details>
-
-              <section id="preflight-result" class="preflight-card field-wide empty">尚未预检查。</section>
-            </form>
-
-            <footer class="create-dialog-footer">
-              <button id="cancel-create-dialog" type="button">取消</button>
-              <button id="create-only" type="button"><svg class="button-icon"><use href="#icon-list" /></svg><span class="button-label">加入队列</span></button>
-              <button id="create-start" class="primary-action" form="task-form" type="submit" aria-keyshortcuts="Meta+Enter Control+Enter"><svg class="button-icon"><use href="#icon-download" /></svg><span class="button-label">创建并下载</span></button>
-            </footer>
-          </section>
-        </div>
 
         <section id="view-settings" class="view">
           <section class="panel settings-panel">
@@ -571,16 +585,6 @@
               <div id="file-list" class="file-list empty">暂无文件。</div>
             </section>
 
-            <section class="panel log-panel">
-              <div class="log-head">
-                <span>任务日志</span>
-                <div>
-                  <button id="export-log" type="button"><svg class="button-icon"><use href="#icon-download" /></svg><span class="button-label">导出日志</span></button>
-                  <button id="clear-log" type="button"><svg class="button-icon"><use href="#icon-trash" /></svg><span class="button-label">清空日志</span></button>
-                </div>
-              </div>
-              <pre id="log"></pre>
-            </section>
           </div>
         </section>
       </section>

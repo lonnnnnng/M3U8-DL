@@ -2,7 +2,7 @@
 
 更新时间：2026-07-27（北京时间）
 
-`m3u8dl-go` 是 `M3U8-DL` 的命令行入口，基于 `nilaoda/N_m3u8DL-RE` 源码行为复刻。本项目只实现 HLS/m3u8；DASH、MSS 和 Live TS 只做输入类型识别并返回不支持。当前版本和归档见 [`M3U8-DL v1.0.5`](https://github.com/lonnnnnng/M3U8-DL/releases/tag/v1.0.5)。
+`m3u8dl-go` 是 `M3U8-DL` 的命令行入口，基于 `nilaoda/N_m3u8DL-RE` 源码行为复刻。本项目只实现 HLS/m3u8；DASH、MSS 和 Live TS 只做输入类型识别并返回不支持。当前版本和归档见 [`M3U8-DL v1.0.6`](https://github.com/lonnnnnng/M3U8-DL/releases/tag/v1.0.6)。
 
 ## 快速开始
 
